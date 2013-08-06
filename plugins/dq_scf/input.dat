@@ -1,0 +1,41 @@
+
+# PYTHONPATH must include directory above plugin directory.
+#     Define either externally or here, then import plugin.
+sys.path.insert(0, './..')
+import dq_scf
+
+molecule n2 {
+0 1
+N
+N 1 r
+#symmetry c1
+}
+
+
+set {
+  guess sad
+  basis sto-3g
+  freeze_core false
+  e_convergence 1e10
+  d_convergence 1e10
+  scf_type pk
+  #DOCC [     3,    0,    0,    0,    0,    2,    1,    1 ]
+  #DOCC [     2,    0,    1,    1,    0,    1,    1,    1 ]
+
+}
+Rvals=[0.6,0.8,1,1.2,1.4,1.6,1.8,2.0,2.2,2.4,2.6,2.8,3.0,3.2,3.4,3.6,3.8,4.0]
+for R in Rvals:
+    n2.r = R
+    #set e_convergence 1e-8
+    #set d_convergence 1e-8
+    #set DOCC [     2,    0,    1,    1,    0,    2,    1,    0 ]
+    #en2 = energy('fci')
+    #set DOCC [     3,    0,    0,    0,    0,    2,    1,    1 ]
+    #en  = energy('scf')
+    #print R,en,en2
+
+    set e_convergence 1e8
+    set d_convergence 1e8
+    en3 = energy('dq_scf')
+    print R,en3
+
