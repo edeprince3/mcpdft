@@ -28,7 +28,7 @@ def run_dq_scf(name, **kwargs):
     molecule.update_geometry()
 
     # Your plugin's psi4 run sequence goes here
-    scf_helper(name, **kwargs)
+    #scf_helper(name, **kwargs)
     returnvalue = psi4.plugin('dq_scf.so')
 
     return returnvalue

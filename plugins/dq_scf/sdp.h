@@ -38,6 +38,9 @@ protected:
     double eval();
     void SoToMo(int nsotemp,int nmotemp,double**mat,double**trans);
 
+    // rotate to natural orbital basis:
+    void NatOrbs(int nmo,double * D1);
+
     // potential for ab initio dft
     void Potential();
     // back transform D2

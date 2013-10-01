@@ -26,6 +26,27 @@ set {
 Rvals=[0.6,0.8,1,1.2,1.4,1.6,1.8,2.0,2.2,2.4,2.6,2.8,3.0,3.2,3.4,3.6,3.8,4.0]
 for R in Rvals:
     n2.r = R
+=======
+clean()
+activate(lih)
+lih.r = 1.0
+set basis sto-3g
+#set guess sad
+#energy('dq_scf')
+#set guess read
+energy('scf')
+for R in range (0,30):
+    lih.r = 0.8 # + R * 0.2
+    set e_convergence 1e-8
+    set d_convergence 1e-8
+    en4 = energy('fci')
+    #en5 = energy('ccsd')
+    en3 = energy('dq_scf')
+    clean()
+    #en5 = psi4.get_variable("CCSD OPPOSITE-SPIN CORRELATION ENERGY")
+    #en6 = psi4.get_variable("CCSD SAME-SPIN CORRELATION ENERGY")
+    print  0.8 + R * 0.2,en3,psi4.get_variable("SCF TOTAL ENERGY"),en4
+>>>>>>> 1b3a0944... breaking thingswq
     #set e_convergence 1e-8
     #set d_convergence 1e-8
     #set DOCC [     2,    0,    1,    1,    0,    2,    1,    0 ]

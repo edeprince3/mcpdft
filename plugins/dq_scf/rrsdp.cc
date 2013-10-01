@@ -26,7 +26,9 @@ int read_options(std::string name, Options& options)
 extern "C" 
 PsiReturnType dq_scf(Options& options)
 {
+
     boost::shared_ptr<SDPSolver> sdp ( new SDPSolver(Process::environment.wavefunction(),options) );
+    //Process::environment.set_wavefunction(sdp);
     sdp->compute_energy();
 
     return Success;

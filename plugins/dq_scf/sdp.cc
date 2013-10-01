@@ -24,6 +24,9 @@ SDPSolver::~SDPSolver()
     free(V1);
     free(D1);
     free(Q1);
+    // there is something weird with chkpt_ ... reset it
+    chkpt_.reset();
+
 }
 
 double SDPSolver::compute_energy(){
@@ -114,7 +117,7 @@ double SDPSolver::compute_energy(){
             if (iflag == 1){
                 iiter++;
             }
-        }while(iiter<100000);
+        }while(iiter<10000);
         iflag=info=0;
         
         double newmax = 0.0;
@@ -139,7 +142,7 @@ double SDPSolver::compute_energy(){
         conv = F_DNRM2(nconstraints,cerror,1);
         fprintf(outfile,"      %3i %6i %11.6lf %11.6lf %11.6lf %11.6lf %11.6lf\n",oiter,iiter,f+enuc,enow+enuc,cval[0],max,conv);fflush(outfile);
 
-    }while(conv > 1e-7 );
+    }while(conv > 1e-5 || fabs(enow-elast) > 1e-5 );
 
     memset((void*)dvars,'\0',n*sizeof(double));
     eval();
@@ -149,10 +152,39 @@ double SDPSolver::compute_energy(){
     fprintf(outfile,"\n");
     Process::environment.globals["CURRENT ENERGY"] = energy+enuc;
 
+    // rotate to natural orbital basis:
+    NatOrbs(nmo,D1);
+    
+
     free(vars);
     free(dvars);
     free(hess_f);
     free(w);
+}
+void SDPSolver::NatOrbs(int nmo, double * D1) {
+  // diagonalize Dab
+  double*eigvalD=(double*)malloc(nmo*sizeof(double));
+  Diagonalize(nmo,D1,eigvalD);
+  //for (int i = 0; i < nmo; i++) printf("%5i %20.12lf\n",i,eigvalD[i]);
+  double ** cp = Ca_->pointer();
+  double * temp = (double*)malloc(nmo*nmo*sizeof(double));
+  for (int i = 0; i < nmo; i++) {
+      for (int j = 0; j < nmo; j++) {
+          //printf("%5i %5i %20.12lf\n",i,j,D1[i*nmo+j]);
+          double dum = 0.0;
+          for (int k = 0; k < nmo; k++) {
+              dum += cp[i][k] * D1[j*nmo+k];
+          }
+          temp[i*nmo+j] = dum;
+      }
+  }
+  for (int i = 0; i < nmo; i++) {
+      for (int j = 0; j < nmo; j++) {
+          cp[i][j] = temp[i*nmo+j];
+      }
+  }
+  free(temp);
+  free(eigvalD);
 }
 
 void SDPSolver::BuildD1(){
@@ -201,6 +233,119 @@ void SDPSolver::BuildQ1(){
     }*/
 }
 
+void SDPSolver::oldBuildG2() {
+
+    for (int i = 0; i < nmo; i++) {
+        for (int j = 0; j < nmo; j++) {
+            cval[offset+i*nmo+j] = R2g[i*nmo+j]*R2g[i*nmo+j] - D1[i*nmo+i] + T2[i*nmo+j] * (i==j) + R2d[i*nmo+j] * R2d[i*nmo+j];
+            cerror[offset+i*nmo+j] = cval[offset+i*nmo+j] - c[offset+i*nmo+j];
+        }
+    }
+    for (int i = 0; i < nmo; i++) {
+        for (int j = 0; j < nmo; j++) {
+            dR2d[i*nmo+j] += 2.0 * R2d[i*nmo+j] * (2.0/mu * cerror[offset+i*nmo+j] - lambda[offset+i*nmo+j]);
+            dR2g[i*nmo+j] += 2.0 * R2g[i*nmo+j] * (2.0/mu * cerror[offset+i*nmo+j] - lambda[offset+i*nmo+j]);
+
+            //for (int alpha = 0; alpha < nmo; alpha++) {
+            //    dR2t[alpha*nmo+i] += 2.0 * R2t[alpha*nmo+j] * (2.0/mu * cerror[offset+i*nmo+j] - lambda[offset+i*nmo+j]) * (i==j);
+            //}
+        }
+        for (int alpha = 0; alpha < nmo; alpha++) {
+            dR2t[alpha*nmo+i] += 2.0 * R2t[alpha*nmo+i] * (2.0/mu * cerror[offset+i*nmo+i] - lambda[offset+i*nmo+i]);
+        }
+    }
+    for (int alpha = 0; alpha < nmo; alpha++) {
+        for (int m = 0; m < nmo; m++) {
+            for (int j = 0; j < nmo; j++) {
+                dR1d[alpha*nmo+m] -= 2.0 * R1d[alpha*nmo+m] * (2.0/mu * cerror[offset+m*nmo+j] - lambda[offset+m*nmo+j]);
+            }
+        }
+    }
+    offset += nmo*nmo;
+}
+void SDPSolver::BuildG2() {
+
+    F_DGEMM('n','t',nmo,nmo,nmo,1.0,R2gt,nmo,R2gt,nmo,0.0,GT2,nmo);
+
+    for (int i = 0; i < nmo; i++) {
+        for (int j = 0; j < nmo; j++) {
+            if (i==j) continue;
+            cval[offset+i*nmo+j] = R2g[i*nmo+j]*R2g[i*nmo+j] - D1[i*nmo+i]
+                                 + R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] * R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] 
+                                 + R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] * R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i];
+            cerror[offset+i*nmo+j] = cval[offset+i*nmo+j] - c[offset+i*nmo+j];
+        }
+    }
+    for (int i = 0; i < nmo; i++) {
+        for (int j = 0; j < nmo; j++) {
+            if (i==j) continue;
+            dR2g[i*nmo+j] += 2.0 * R2g[i*nmo+j] * (2.0/mu * cerror[offset+i*nmo+j] - lambda[offset+i*nmo+j]);
+            dR2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] += 2.0 * R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] * (2.0/mu * cerror[offset+i*nmo+j] - lambda[offset+i*nmo+j]);
+            dR2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] += 2.0 * R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] * (2.0/mu * cerror[offset+i*nmo+j] - lambda[offset+i*nmo+j]);
+        }
+        //for (int j = 0; j < nmo; j++) {
+        //    if (i!=j) continue;
+        //    dR2g[i*nmo+j] += 2.0 * R2g[i*nmo+j] * (2.0/mu * cerror[offset+i*nmo+j] - lambda[offset+i*nmo+j]);
+        //}
+        //for (int alpha = 0; alpha < nmo; alpha++) {
+        //    dR2t[alpha*nmo+i] += 2.0 * R2t[alpha*nmo+i] * (2.0/mu * cerror[offset+i*nmo+i] - lambda[offset+i*nmo+i]);
+        //}
+    }
+    for (int alpha = 0; alpha < nmo; alpha++) {
+        for (int m = 0; m < nmo; m++) {
+            for (int j = 0; j < nmo; j++) {
+                if (m==j) continue;
+                dR1d[alpha*nmo+m] -= 2.0 * R1d[alpha*nmo+m] * (2.0/mu * cerror[offset+m*nmo+j] - lambda[offset+m*nmo+j]);
+            }
+        }
+    }
+    offset += nmo*nmo;
+
+
+    // 2nd part: G2(ii,jj)
+    for (int i = 0; i < nmo; i++) {
+        for (int j = 0; j < nmo; j++) {
+            if (i==j) {
+                cval[offset+i*nmo+j] = GT2[i*nmo+j] - D1[i*nmo+i]
+                                     + T2[i*nmo+i];
+            }else {
+                cval[offset+i*nmo+j] = GT2[i*nmo+j] 
+                                     + R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] * R2dnew[j*nmo*nmo*nmo+i*nmo*nmo+i*nmo+j] 
+                                     + R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] * R2dnew[j*nmo*nmo*nmo+i*nmo*nmo+j*nmo+i];
+            }
+            cerror[offset+i*nmo+j] = cval[offset+i*nmo+j] - c[offset+i*nmo+j];
+        }
+    }
+    for (int i = 0; i < nmo; i++) {
+        for (int j = 0; j < nmo; j++) {
+            if (i==j) {
+                for (int alpha = 0; alpha < nmo; alpha++) {
+                    dR2t[alpha*nmo+i] += 2.0 * R2t[alpha*nmo+j] * (2.0/mu * cerror[offset+i*nmo+j] - lambda[offset+i*nmo+j]);
+                }
+            }else {
+                    dR2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] += R2dnew[j*nmo*nmo*nmo+i*nmo*nmo+i*nmo+j] * (2.0/mu * cerror[offset+i*nmo+j] - lambda[offset+i*nmo+j]);
+                    dR2dnew[j*nmo*nmo*nmo+i*nmo*nmo+i*nmo+j] += R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] * (2.0/mu * cerror[offset+i*nmo+j] - lambda[offset+i*nmo+j]);
+                    dR2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] += R2dnew[j*nmo*nmo*nmo+i*nmo*nmo+j*nmo+i] * (2.0/mu * cerror[offset+i*nmo+j] - lambda[offset+i*nmo+j]);
+                    dR2dnew[j*nmo*nmo*nmo+i*nmo*nmo+j*nmo+i] += R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] * (2.0/mu * cerror[offset+i*nmo+j] - lambda[offset+i*nmo+j]);
+            }
+            for (int alpha = 0; alpha < nmo; alpha++) {
+                dR2gt[alpha*nmo+i] += 2.0 * R2gt[alpha*nmo+j] * (2.0/mu * cerror[offset+i*nmo+j] - lambda[offset+i*nmo+j]);
+            }
+        }
+    }
+    for (int alpha = 0; alpha < nmo; alpha++) {
+        for (int m = 0; m < nmo; m++) {
+            for (int j = 0; j < nmo; j++) {
+                if (m!=j) continue;
+                dR1d[alpha*nmo+m] -= 2.0 * R1d[alpha*nmo+m] * (2.0/mu * cerror[offset+m*nmo+j] - lambda[offset+m*nmo+j]);
+            }
+        }
+    }
+    offset += nmo*nmo;
+
+
+}
+
 double SDPSolver::eval(){
     BuildD1();
     energy = K2D1();
@@ -215,6 +360,239 @@ double SDPSolver::eval(){
          f += - lambda[i] * cerror[i] + 1.0 / mu * cerror[i]*cerror[i];
     }
     return f;
+}
+void SDPSolver::ContractQ2() {
+
+    for (int i = 0; i < nmo; i++) {
+        double dum = 0.0;
+        //dum += F_DDOT(nmo,R2d+i*nmo,1,R2d+i*nmo,1);
+        for (int j = 0; j < nmo; j++) {
+            //dum += R2d[i*nmo+j] * R2d[i*nmo+j];
+            if ( i != j ) {
+                dum += R2qnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] * R2qnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j]; // ij ij
+                dum += R2qnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] * R2qnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i]; // ij ij
+            }
+        }
+        dum += Q2[i*nmo+i];
+        dum /= (nmo-nalpha_);
+
+        dum -= Q1[i*nmo+i];
+        cval[offset+i] = dum;
+        cerror[offset+i] = cval[offset+i] - c[offset+i];
+
+    }
+
+    for (int alpha = 0; alpha < nmo; alpha++) {
+        for (int m = 0; m < nmo; m++) {
+            dR2q[alpha*nmo+m] += 2.0 / (nmo-nalpha_) * R2q[alpha*nmo+m] * (2.0/mu*cerror[offset+m] - lambda[offset+m]);
+        }
+    }
+    for (int i = 0; i < nmo; i++) {
+        for (int j = 0; j < nmo; j++) {
+            //dR2d[i*nmo+j] += 2.0/nalpha_ * R2d[i*nmo+j] * (2.0/mu*cerror[offset+i] - lambda[offset+i]);
+            if ( i != j ) {
+                dR2qnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] += R2qnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] * (2.0/mu*cerror[offset+i] - lambda[offset+i]) * 2.0/(nmo-nalpha_); // ij ij
+                dR2qnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] += R2qnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] * (2.0/mu*cerror[offset+i] - lambda[offset+i]) * 2.0/(nmo-nalpha_); // ij ij
+            }
+        }
+    }
+
+    // constraint i:
+    double nrm = 0.0;
+    for (int i = 0; i < nmo; i++) {
+        nrm += Q1[i*nmo+i];
+    }
+    for (int alpha = 0; alpha < nmo; alpha++) {
+        for (int m = 0; m < nmo; m++) {
+            dR1q[alpha*nmo+m] -= 2.0 * R1q[alpha*nmo+m] * (2.0/mu*cerror[offset+m] - lambda[offset+m]);
+        }
+    }
+    offset += nmo;
+}
+
+void SDPSolver::ContractD2() {
+
+    for (int i = 0; i < nmo; i++) {
+        double dum = 0.0;
+        //dum += F_DDOT(nmo,R2d+i*nmo,1,R2d+i*nmo,1);
+        for (int j = 0; j < nmo; j++) {
+            //dum += R2d[i*nmo+j] * R2d[i*nmo+j];
+            if ( i != j ) { 
+                dum += R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] * R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j]; // ij ij
+                dum += R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] * R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i]; // ij ij
+            }
+        }
+        dum += T2[i*nmo+i];
+        dum /= nalpha_;
+
+        dum -= D1[i*nmo+i];
+        cval[offset+i] = dum;
+        cerror[offset+i] = cval[offset+i] - c[offset+i];
+
+    }
+
+    for (int alpha = 0; alpha < nmo; alpha++) {
+        for (int m = 0; m < nmo; m++) {
+            dR2t[alpha*nmo+m] += 2.0 / nalpha_ * R2t[alpha*nmo+m] * (2.0/mu*cerror[offset+m] - lambda[offset+m]);
+        }
+    }
+    for (int i = 0; i < nmo; i++) {
+        for (int j = 0; j < nmo; j++) {
+            //dR2d[i*nmo+j] += 2.0/nalpha_ * R2d[i*nmo+j] * (2.0/mu*cerror[offset+i] - lambda[offset+i]);
+            if ( i != j ) {
+                dR2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] += R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] * (2.0/mu*cerror[offset+i] - lambda[offset+i]) * 2.0/nalpha_; // ij ij
+                dR2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] += R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] * (2.0/mu*cerror[offset+i] - lambda[offset+i]) * 2.0/nalpha_; // ij ij
+            }
+        }
+    }
+
+    // constraint i:
+    double nrm = 0.0;
+    for (int i = 0; i < nmo; i++) {
+        nrm += D1[i*nmo+i];
+    }
+    for (int alpha = 0; alpha < nmo; alpha++) {
+        for (int m = 0; m < nmo; m++) {
+            dR1d[alpha*nmo+m] -= 2.0 * R1d[alpha*nmo+m] * (2.0/mu*cerror[offset+m] - lambda[offset+m]);
+        }
+    }
+    offset += nmo;
+
+
+    if ( nalpha_ == 1 ) return;
+
+    // D2 alpha-alpha
+
+    return;
+
+    for (int i = 0; i < nmo; i++) {
+        double dum = 0.0;
+        for (int j = 0; j < nmo; j++) {
+            if (i==j) continue;
+            dum += 0.5 * (R2d[i*nmo+j]*R2d[i*nmo+j] + R2d[j*nmo+i]*R2d[j*nmo+i]);
+        }
+        dum /= nalpha_-1.0;
+
+        dum -= D1[i*nmo+i];
+        cval[offset+i] = dum;
+        cerror[offset+i] = cval[offset+i] - c[offset+i];
+
+    }
+
+    for (int i = 0; i < nmo; i++) {
+        for (int j = 0; j < nmo; j++) {
+            if (i==j) continue;
+            dR2d[i*nmo+j] += 1.0/(nalpha_-1.0) * R2d[i*nmo+j] * (2.0/mu*cerror[offset+i] - lambda[offset+i]);
+            dR2d[j*nmo+i] += 1.0/(nalpha_-1.0) * R2d[j*nmo+i] * (2.0/mu*cerror[offset+i] - lambda[offset+i]);
+        }
+    }
+
+    // constraint i:
+    for (int alpha = 0; alpha < nmo; alpha++) {
+        for (int m = 0; m < nmo; m++) {
+            dR1d[alpha*nmo+m] -= 2.0 * R1d[alpha*nmo+m] * (2.0/mu*cerror[offset+m] - lambda[offset+m]);
+        }
+    }
+    offset += nmo;
+
+
+}
+
+double SDPSolver::BuildD2(){
+
+    // trace condition on D2
+    c[offset] = (double)nalpha_*nbeta_;
+    double nrm = 0.0;
+    double nrm2 = 0.0;
+    for (int i = 0; i < nmo; i++) {
+        for (int j = 0; j < nmo; j++) {
+            //nrm += R2d[i*nmo+j] * R2d[i*nmo+j];
+            if ( i != j ) {
+                nrm += R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] * R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j]; // ij ij
+                nrm += R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] * R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i]; // ij ij
+            }
+        }
+        nrm2 += T2[i*nmo+i];
+    }
+    cval[offset] = nrm+nrm2;
+    cerror[offset] = cval[offset] - c[offset];
+
+    // derivative of contraints:
+    for (int i = 0; i < nmo; i++) {
+        for (int alpha = 0; alpha < nmo; alpha++) {
+            dR2t[alpha*nmo+i] += 2.0 * R2t[alpha*nmo+i] * (2.0/mu*cerror[offset] - lambda[offset]);
+        }
+    }
+    for (int i = 0; i < nmo; i++) {
+        for (int j = 0; j < nmo; j++) {
+            //dR2d[i*nmo+j] += 2.0 * R2d[i*nmo+j] * (2.0/mu*cerror[offset] - lambda[offset]);
+            if ( i != j ) {
+                 dR2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] += 2.0 * R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] * (2.0/mu*cerror[offset] - lambda[offset]);
+                 dR2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] += 2.0 * R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] * (2.0/mu*cerror[offset] - lambda[offset]);
+            }
+        }
+    }
+
+    // check trace of d2aa:
+
+/*
+    double dum = 0.0;
+    for (int i = 0; i < nmo; i++) {
+        for (int j = 0; j < nmo; j++) {
+            if (i==j) continue;
+            dum += 0.25 * (R2d[i*nmo+j] * R2d[i*nmo+j] + R2d[j*nmo+i] * R2d[j*nmo+i]);
+        }
+    }
+    printf("%20.12lf %20.12lf\n",dum,(double)nalpha_*(nalpha_-1)/2);
+*/
+
+    offset += 1;
+
+    // spin constraint: sum D2(ij,ji) = nalpha_
+    double s2 = 0.0;
+    for (int i = 0; i < nmo; i++) {
+        for (int j = 0; j < nmo; j++) {
+            if ( i == j ) {
+                s2 += T2[i*nmo+i];
+            }else {
+                s2 += R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j]*R2dnew[j*nmo*nmo*nmo+i*nmo*nmo+i*nmo+j];
+                s2 += R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i]*R2dnew[j*nmo*nmo*nmo+i*nmo*nmo+j*nmo+i];
+            }
+            
+            //dR2d[i*nmo+j] += 2.0 * R2d[i*nmo+j] * (2.0/mu*cerror[offset+i*nmo+j] - lambda[offset+i*nmo+j]);
+            //dR2d[j*nmo+i] -= 2.0 * R2d[j*nmo+i] * (2.0/mu*cerror[offset+i*nmo+j] - lambda[offset+i*nmo+j]);
+        }
+    }
+    cval[offset] = s2-nalpha_;
+    cerror[offset] = cval[offset] - c[offset];
+    for (int i = 0; i < nmo; i++) {
+        for (int j = 0; j < nmo; j++) {
+            if ( i == j ) { 
+                for (int alpha = 0; alpha < nmo; alpha++) {
+                    dR2t[alpha*nmo+i] += 2.0 * R2t[alpha*nmo+i] * (2.0/mu*cerror[offset] - lambda[offset]);
+                }
+            }else {
+                dR2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] += R2dnew[j*nmo*nmo*nmo+i*nmo*nmo+i*nmo+j] * (2.0/mu*cerror[offset] - lambda[offset]);
+                dR2dnew[j*nmo*nmo*nmo+i*nmo*nmo+i*nmo+j] += R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] * (2.0/mu*cerror[offset] - lambda[offset]);
+                dR2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] += R2dnew[j*nmo*nmo*nmo+i*nmo*nmo+j*nmo+i] * (2.0/mu*cerror[offset] - lambda[offset]);
+                dR2dnew[j*nmo*nmo*nmo+i*nmo*nmo+j*nmo+i] += R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] * (2.0/mu*cerror[offset] - lambda[offset]);
+            }
+        }
+    }
+    offset += 1;
+
+    // D2(ij,ij) = D2(ji,ji)
+    //for (int i = 0; i < nmo; i++) {
+    //    for (int j = 0; j < nmo; j++) {
+    //        cval[offset+i*nmo+j] = R2d[i*nmo+j] * R2d[i*nmo+j] - R2d[j*nmo+i] * R2d[j*nmo+i];;
+    //        cerror[offset+i*nmo+j] = cval[offset+i*nmo+j] - c[offset+i*nmo+j];
+ 
+    //        dR2d[i*nmo+j] += 2.0 * R2d[i*nmo+j] * (2.0/mu*cerror[offset+i*nmo+j] - lambda[offset+i*nmo+j]);
+    //        dR2d[j*nmo+i] -= 2.0 * R2d[j*nmo+i] * (2.0/mu*cerror[offset+i*nmo+j] - lambda[offset+i*nmo+j]);
+    //    }
+    //}
+    //offset += nmo*nmo;
+    return nrm+nrm2;
 }
 
 double SDPSolver::TraceD1(){
@@ -351,7 +729,50 @@ double SDPSolver::K2D1(){
     }*/
     F_DGEMM('n','n',nmo,nmo,nmo,2.0,I,nmo,R1d,nmo,0.0,dR1d,nmo);
     free (I);
-    
+
+    // derivative of correlated piece:
+    for (int i = 0; i < nmo; i++) {
+
+        for (int j = 0; j < nmo; j++) {
+
+            double ij_ij = V2[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j];
+            double ii_jj = V2[i*nmo*nmo*nmo+i*nmo*nmo+j*nmo+j];
+
+            //dR2d[i*nmo+j] += 2.0 * R2d[i*nmo+j] * ii_jj;
+            if (i != j) {
+                dR2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] += 2.0 * R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] * ii_jj; // ij ij
+                dR2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] += 2.0 * R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] * ii_jj; // ij ij, 2
+
+                dR2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] += R2dnew[j*nmo*nmo*nmo+i*nmo*nmo+i*nmo+j] * ij_ij;
+                dR2dnew[j*nmo*nmo*nmo+i*nmo*nmo+i*nmo+j] += R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+i*nmo+j] * ij_ij;
+                dR2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] += R2dnew[j*nmo*nmo*nmo+i*nmo*nmo+j*nmo+i] * ij_ij;
+                dR2dnew[j*nmo*nmo*nmo+i*nmo*nmo+j*nmo+i] += R2dnew[i*nmo*nmo*nmo+j*nmo*nmo+j*nmo+i] * ij_ij;
+            }
+
+
+            // alpha-alpha part
+            //if (i!=j) dR2d[i*nmo+j] += 0.5 * 0.25 * 2.0 * R2d[i*nmo+j] * (ii_jj - ij_ij);
+            //if (i!=j) dR2d[j*nmo+i] += 0.5 * 0.25 * 2.0 * R2d[j*nmo+i] * (ii_jj - ij_ij);
+
+            for (int alpha = 0; alpha < nmo; alpha++) {
+                dR2t[alpha*nmo+i] += 2.0 * R2t[alpha*nmo+j] * ij_ij;
+                dR1d[alpha*nmo+i] -= 4.0 * R1d[alpha*nmo+j] * D1[i*nmo+j] * ij_ij;
+
+// subtract uncorrelated bit
+                if (i != j) {
+                    dR1d[alpha*nmo+i] -= 4.0 * R1d[alpha*nmo+i] * D1[j*nmo+j] * ii_jj;
+// new term?!?!
+                    dR1d[alpha*nmo+i] -= 4.0 * R1d[alpha*nmo+j] * D1[i*nmo+j] * ij_ij;
+                }
+
+                // alpha-alpha part
+                //if (i!=j) dR1d[alpha*nmo+i] -= 0.25 * 4.0 * R1d[alpha*nmo+i] * D1[j*nmo+j] * (ii_jj - ij_ij);
+                //if (i!=j) dR1d[alpha*nmo+i] += 0.25 * 4.0 * R1d[alpha*nmo+j] * D1[i*nmo+j] * (ii_jj - ij_ij);
+
+            }
+        }
+    }
+
     return en;
 }
 
