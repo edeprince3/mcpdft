@@ -46,7 +46,6 @@ for R in range (0,30):
     #en5 = psi4.get_variable("CCSD OPPOSITE-SPIN CORRELATION ENERGY")
     #en6 = psi4.get_variable("CCSD SAME-SPIN CORRELATION ENERGY")
     print  0.8 + R * 0.2,en3,psi4.get_variable("SCF TOTAL ENERGY"),en4
->>>>>>> 1b3a0944... breaking thingswq
     #set e_convergence 1e-8
     #set d_convergence 1e-8
     #set DOCC [     2,    0,    1,    1,    0,    2,    1,    0 ]
