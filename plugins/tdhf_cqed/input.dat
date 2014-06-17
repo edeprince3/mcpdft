@@ -1,0 +1,49 @@
+
+# PYTHONPATH must include directory above plugin directory.
+#     Define either externally or here, then import plugin.
+sys.path.insert(0, './..')
+import tdhf_cqed
+
+molecule {
+#          Li          0.000000000000     0.000000000000    -3.819851780550
+#           C          0.000000000000     0.000000000000    -0.136851780550
+#           N          0.000000000000     0.000000000000     2.031148219450
+#units bohr
+#H 0.0 0.0 0.0
+#H 0.0 0.0 1.0
+#H 0.0 0.0 2.0
+#H 0.0 0.0 3.0
+#H 0.0 0.0 4.0
+#H 0.0 0.0 5.0
+#O
+#H 1 1.0
+#H 1 1.0 2 104.5
+#Be
+Li  0.0 0.0 0.0
+H   0.0 0.0 1.5949
+no_reorient
+symmetry c1
+}
+
+set {
+  basis sto-3g #cc-pvdz #6-311++g**
+  time_step 0.05
+  laser_amp 0.01
+  laser_freq 0.237604946417
+  laser_time 10.0
+  total_time 1000.0
+  laser_tdpm 0.452992170900
+  #linear_response true
+
+  scf_type cd
+  df_ints_io save
+  cholesky_tolerance 1e-3
+  df_basis_cc cholesky
+}
+
+energy('cqed')
+set num_roots 2
+energy('fci')
+
+tdhf_cqed.exampleFN()
+
