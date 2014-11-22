@@ -56,10 +56,9 @@ PsiReturnType tdhf_cqed(Options& options)
     boost::shared_ptr<DFFrozenNO> fno(new DFFrozenNO(Process::environment.wavefunction(),options));
     fno->ThreeIndexIntegrals();
     fno.reset();
-
-    boost::shared_ptr<TDHF> tdhf ( new TDHF(Process::environment.wavefunction(),options) );
-    //Process::environment.set_wavefunction(tdhf);
-    tdhf->compute_energy();
+    //boost::shared_ptr<TDHF> tdhf ( new TDHF(Process::environment.wavefunction(),options) );
+    MyTDHF = (boost::shared_ptr<TDHF>) (new TDHF(Process::environment.wavefunction(),options) );
+    MyTDHF->compute_energy();
 
     /* Your code goes here */
 

@@ -4,9 +4,20 @@
 #include<libmints/vector.h>
 #include"fftw3.h"
 
+// boost numerical integrators live here:
+#include <boost/numeric/odeint.hpp>
+
+using namespace boost::numeric::odeint;
+
 namespace boost {
 template<class T> class shared_ptr;
 }
+typedef std::vector< double > state_type;
+
+typedef runge_kutta4< state_type , double ,
+                      state_type , double
+                       > stepper_type;
+
 
 namespace psi{ namespace tdhf_cqed {
 
@@ -19,6 +30,9 @@ public:
     double compute_energy();
     virtual bool same_a_b_orbs() const { return true; }
     virtual bool same_a_b_dens() const { return true; }
+    //void operator()( state_type &x , state_type &dxdt , double t );
+    void rk4_call_gah( state_type &x , state_type &dxdt , double t );
+    //void rk4_call( state_type &x , state_type &dxdt , double t );
 protected:
     double * eps;
     double escf;
@@ -62,7 +76,17 @@ protected:
     double * stencil, cf_real, cf_imag, * c1;
     int pulse_shape_;
 
+    // RK4 
+    void RK4(boost::shared_ptr<Matrix> koutre, boost::shared_ptr<Matrix>koutim,
+             boost::shared_ptr<Matrix> kinre, boost::shared_ptr<Matrix>kinim, int iter, double step);
+
+    // boost rk4:
+    double * rk4_buffer;
 };
+
+
+// horrible global class
+extern boost::shared_ptr<TDHF> MyTDHF;
 
 }}
 

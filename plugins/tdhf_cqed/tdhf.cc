@@ -8,10 +8,20 @@
 #include<../bin/fnocc/frozen_natural_orbitals.h>
 #include<psifiles.h>
 
+#include"tdhf.h"
+
+// boost numerical integrators live here:
+#include <iostream>
+#include <vector>
+#include <boost/numeric/odeint.hpp>
+
+void rk4_call( state_type &x , state_type &dxdt , double t ){
+    psi::tdhf_cqed::MyTDHF->rk4_call_gah(x,dxdt,t);
+}
+
 #ifdef _OPENMP
     #include<omp.h>
 #endif
-#include"tdhf.h"
 
 using namespace psi;
 using namespace boost;
@@ -231,6 +241,10 @@ void TDHF::common_init(){
     // stencil for second derivative of dipole moment
     stencil = (double*)malloc(sizeof(double)*5);
     memset((void*)stencil,'\0',5*sizeof(double));
+
+    // dipole potential integrals:
+    DipolePotentialIntegrals();
+
 }
 
 void TDHF::BuildFock(double * Dre, double * Dim, double curtime) {
@@ -383,30 +397,9 @@ void TDHF::SoToMo(int nsotemp,int nmotemp,double**mat,double**trans){
 
 double TDHF::compute_energy() {
 
-    double * tempre = (double*)malloc(nmo*nmo*sizeof(double));
-    double * tempim = (double*)malloc(nmo*nmo*sizeof(double));
-    double * k1re = (double*)malloc(nmo*nmo*sizeof(double));
-    double * k2re = (double*)malloc(nmo*nmo*sizeof(double));
-    double * k3re = (double*)malloc(nmo*nmo*sizeof(double));
-    double * k4re = (double*)malloc(nmo*nmo*sizeof(double));
-    double * k1im = (double*)malloc(nmo*nmo*sizeof(double));
-    double * k2im = (double*)malloc(nmo*nmo*sizeof(double));
-    double * k3im = (double*)malloc(nmo*nmo*sizeof(double));
-    double * k4im = (double*)malloc(nmo*nmo*sizeof(double));
-    memset((void*)tempre,'\0',nmo*nmo*sizeof(double));
-    memset((void*)tempim,'\0',nmo*nmo*sizeof(double));
-    memset((void*)k1re,'\0',nmo*nmo*sizeof(double));
-    memset((void*)k2re,'\0',nmo*nmo*sizeof(double));
-    memset((void*)k3re,'\0',nmo*nmo*sizeof(double));
-    memset((void*)k4re,'\0',nmo*nmo*sizeof(double));
-    memset((void*)k1im,'\0',nmo*nmo*sizeof(double));
-    memset((void*)k2im,'\0',nmo*nmo*sizeof(double));
-    memset((void*)k3im,'\0',nmo*nmo*sizeof(double));
-    memset((void*)k4im,'\0',nmo*nmo*sizeof(double));
-
-    // i dD / dt = [F,D]
-    // real:  dDre / dt = Fre.Dim + Fim.Dre - Dim.Fre - Dre.Fim
-    // imag:  dDim / dt = Fre.Dre - Fim.Dim - Dre.Fre + Dim.Fim
+    // rk4
+    state_type rk4_buffer(nmo*nS*nmo*nS*2);
+    stepper_type rk4;
     fftw_iter   = 0;
     CorrelationFunction();
 
@@ -509,13 +502,34 @@ double TDHF::compute_energy() {
         // y(n+1) = y( n ) + 1/6 h ( k1 + 2k2 + 2k3 + k4 )
         // t(n+1) = t( n ) + h
 
-        // k1     = f( t( n )         , y( n ) )
-        BuildFock(&(Dre->pointer())[0][0],&(Dim->pointer())[0][0],iter * time_step);
+        for (int Ai = 0; Ai < nmo*nS; Ai++) {
+            for (int Bj = 0; Bj < nmo*nS; Bj++) {
+                rk4_buffer[Ai*nmo*nS+Bj] = Dre->pointer()[Ai][Bj];
+            }
+        }
+        for (int Ai = 0; Ai < nmo*nS; Ai++) {
+            for (int Bj = 0; Bj < nmo*nS; Bj++) {
+                rk4_buffer[nmo*nS*nmo*nS + Ai*nmo*nS+Bj] = Dim->pointer()[Ai][Bj];
+            }
+        }
+        rk4.do_step( rk4_call , rk4_buffer , iter * time_step , time_step );
+        for (int Ai = 0; Ai < nmo*nS; Ai++) {
+            for (int Bj = 0; Bj < nmo*nS; Bj++) {
+                Dre->pointer()[Ai][Bj] = rk4_buffer[Ai*nmo*nS+Bj];
+            }
+        }
+        for (int Ai = 0; Ai < nmo*nS; Ai++) {
+            for (int Bj = 0; Bj < nmo*nS; Bj++) {
+                Dim->pointer()[Ai][Bj] = rk4_buffer[nmo*nS*nmo*nS + Ai*nmo*nS+Bj];
+            }
+        }
 
-        F_DGEMM('n','n',nmo,nmo,nmo,1.0,&(Dim->pointer()[0][0]),nmo,&(Fre->pointer()[0][0]),nmo,0.0,k1re,nmo);
-        F_DGEMM('n','n',nmo,nmo,nmo,1.0,&(Dre->pointer()[0][0]),nmo,&(Fim->pointer()[0][0]),nmo,1.0,k1re,nmo);
-        F_DGEMM('n','n',nmo,nmo,nmo,-1.0,&(Fim->pointer()[0][0]),nmo,&(Dre->pointer()[0][0]),nmo,1.0,k1re,nmo);
-        F_DGEMM('n','n',nmo,nmo,nmo,-1.0,&(Fre->pointer()[0][0]),nmo,&(Dim->pointer()[0][0]),nmo,1.0,k1re,nmo);
+        /*k1re->zero();
+        k1im->zero();
+        RK4(k1re,k1im,k1re,k1im,iter,0.0);
+        RK4(k2re,k2im,k1re,k1im,iter,0.5);
+        RK4(k3re,k3im,k2re,k2im,iter,0.5);
+        RK4(k4re,k4im,k3re,k3im,iter,1.0);
 
         F_DGEMM('n','n',nmo,nmo,nmo,-1.0,&(Dre->pointer()[0][0]),nmo,&(Fre->pointer()[0][0]),nmo,0.0,k1im,nmo);
         F_DGEMM('n','n',nmo,nmo,nmo,-1.0,&(Dim->pointer()[0][0]),nmo,&(Fim->pointer()[0][0]),nmo,1.0,k1im,nmo);
@@ -546,9 +560,7 @@ double TDHF::compute_energy() {
                 tempre[i*nmo+j] = Dre->pointer()[i][j] + k2re[i*nmo+j] * time_step / 2.0;
                 tempim[i*nmo+j] = Dim->pointer()[i][j] + k2im[i*nmo+j] * time_step / 2.0;
             }
-        }
-        // k3     = f( t( n + 1/2 h ) , y( n ) + h/2 k2 )
-        BuildFock(tempre,tempim,(iter+0.5)*time_step);
+        }*/
 
         F_DGEMM('n','n',nmo,nmo,nmo,1.0,&(tempim[0]),nmo,&(Fre->pointer()[0][0]),nmo,0.0,k3re,nmo);
         F_DGEMM('n','n',nmo,nmo,nmo,1.0,&(tempre[0]),nmo,&(Fim->pointer()[0][0]),nmo,1.0,k3re,nmo);
@@ -675,13 +687,81 @@ void TDHF::CorrelationFunction(){
   //        cf_imag += Dinit->pointer()[i][j] * Dim->pointer()[i][j];
   //    }
   //}
-  if (linear_response){
-     corr_func[midpt + fftw_iter][0] =  cf_real;
-     corr_func[midpt + fftw_iter][1] =  cf_imag;
-     corr_func[midpt - fftw_iter][0] =  cf_real;
-     corr_func[midpt - fftw_iter][1] = -cf_imag;
-     fftw_iter++;
-  }
+  //if (linear_response){
+  //   corr_func[midpt + fftw_iter][0] =  cf_real;
+  //   corr_func[midpt + fftw_iter][1] =  cf_imag;
+  //   corr_func[midpt - fftw_iter][0] =  cf_real;
+  //   corr_func[midpt - fftw_iter][1] = -cf_imag;
+  //   fftw_iter++;
+  //}
+}
+
+void TDHF::rk4_call_gah( state_type &x , state_type &dxdt , double t ){
+    for (int i = 0; i < nmo*nS; i++) {
+        for (int j = 0; j < nmo*nS; j++) {
+            tempre->pointer()[i][j] = x[i*nmo*nS+j];
+            tempim->pointer()[i][j] = x[nmo*nmo*nS*nS + i*nmo*nS+j];
+        }
+    }
+        
+    // kout = f( t( n + mh ) , y( n ) + mh kin)
+    ExtField(t); 
+    ElectronicContribution(tempre,tempim,k1re,k1im);
+    PlasmonContribution(tempre,tempim,k1re,k1im);
+    InteractionContribution(tempre,tempim,k1re,k1im,dpre,dipole_p);
+    BuildLindblad(tempre,tempim);
+    k1re->add(Lre);
+    k1im->add(Lim);
+
+    for (int i = 0; i < nmo*nS; i++) {
+        for (int j = 0; j < nmo*nS; j++) {
+            dxdt[i*nmo*nS+j]                 = tempre->pointer()[i][j];
+            dxdt[nmo*nmo*nS*nS + i*nmo*nS+j] = tempim->pointer()[i][j];
+        }
+    }
+}
+
+void TDHF::RK4(boost::shared_ptr<Matrix> koutre, boost::shared_ptr<Matrix>koutim,
+               boost::shared_ptr<Matrix> kinre, boost::shared_ptr<Matrix>kinim, int iter, double step) {
+
+    for (int i = 0; i < nmo*nS; i++) {
+        for (int j = 0; j < nmo*nS; j++) {
+            tempre->pointer()[i][j] = Dre->pointer()[i][j] + kinre->pointer()[i][j] * step*time_step;
+            tempim->pointer()[i][j] = Dim->pointer()[i][j] + kinim->pointer()[i][j] * step*time_step;
+        }
+    }
+    for (int i = 0; i < nmo*nS; i++) {
+        for (int j = 0; j < nmo*nS; j++) {
+            double val1 = tempre->pointer()[i][j];
+            double val2 = tempre->pointer()[j][i];
+            tempre->pointer()[i][j] = 0.5 * (val1 + val2);
+            tempre->pointer()[j][i] = 0.5 * (val1 + val2);
+            val1 = tempim->pointer()[i][j];
+            val2 = tempim->pointer()[j][i];
+            tempim->pointer()[i][j] =  0.5 * (val1 - val2);
+            tempim->pointer()[j][i] = -0.5 * (val1 - val2);
+        }
+    }
+    /*double trace = 0.0;
+    for (int i = 0; i < nmo*nS; i++) {
+        trace += tempre->pointer()[i][i];
+    }
+    for (int i = 0; i < nmo*nS; i++) {
+        for (int j = 0; j < nmo*nS; j++) {
+            tempre->pointer()[i][j] *= nalpha_/trace; 
+            tempim->pointer()[i][j] *= nalpha_/trace; 
+        }
+    }*/
+        
+    // kout = f( t( n + mh ) , y( n ) + mh kin)
+    ExtField(iter*time_step + step*time_step); 
+    ElectronicContribution(tempre,tempim,koutre,koutim);
+    PlasmonContribution(tempre,tempim,koutre,koutim);
+    InteractionContribution(tempre,tempim,koutre,koutim,dpre,dipole_p);
+    BuildLindblad(tempre,tempim);
+    koutre->add(Lre);
+    koutim->add(Lim);
+
 }
 void TDHF::FFTW(){
   if (linear_response) {
