@@ -1,0 +1,64 @@
+
+# PYTHONPATH must include directory above plugin directory.
+#     Define either externally or here, then import plugin.
+sys.path.insert(0, './..')
+import mean_field_cqed
+
+molecule {
+H 0.0 0.0 0.0
+H 0.0 0.0 1.0
+#O       0.0000  0.0000  0.1173
+#H       0.0000  0.7572  -0.4692
+#H       0.0000  -0.7572 -0.4692
+no_reorient
+symmetry c1
+}
+
+memory 10000 mb
+
+set {
+  basis sto-3g #6-31g #cc-pvdz #6-311++g**
+  time_step 0.10
+  laser_shape gaussian
+  laser_amp 0.00001
+  #laser_freq 0.07 # 0.135972523 #16.66/27.21138
+  #laser_freq 0.184
+  #laser_freq 0.070
+  #laser_freq 0.7
+  #laser_freq 0.684
+  laser_freq 0.6909 #Small Ag nanoparticle from Rayleigh scattering
+  #laser_freq 0.452766947732
+  #laser_freq 0.793296091596 #0.612259597962 
+  #laser_freq 0.433012508238
+  #laser_freq 0.238620321136 #0.302236729854
+  #laser_freq 0.1447
+  laser_time 413.414 #141.3414
+  #laser_time 9.186
+  #laser_time 462.10
+  #laser_time 82.6828
+  total_time 10000.0
+  n_plasmon_states 2
+  linear_response false
+  #plasmon_e 0.135972523        #4nm Ag spherical nanoparticle (Jensen, J. Chem. Phys, 134103 (2011))
+  #plasmon_e 0.684
+  #plasmon_e 0.61 #16.60/27.21138
+  plasmon_e 0.6909
+  #plasmon_e 0.452777478 #h2 6-31g
+  #plasmon_e 0.432565346  # h2o 6-31g
+  plasmon_tdm [10.1,10.1,10.1]
+  plasmon_coordinates [0.0,0.0,40.0] #1500.0*18.89716
+  polarization [0.0,0.0,1.0]
+  #electron_dr 0.0
+  plasmon_dr 105e-3/27.21138
+  #laser_shape gaussian
+
+  scf_type cd
+  df_ints_io save
+  e_convergence 1e-12
+  d_convergence 1e-12
+  cholesky_tolerance 1e-12
+  df_basis_cc cholesky
+
+}
+
+energy('cqed')
