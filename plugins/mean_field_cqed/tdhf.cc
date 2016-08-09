@@ -37,7 +37,7 @@ void rk4_call( state_type &x , state_type &dxdt , double t ){
 }
 
 TDHF::TDHF(boost::shared_ptr<Wavefunction> reference_wavefunction,Options & options):
-  Wavefunction(options,_default_psio_lib_)
+  Wavefunction(options)
 {
     reference_wavefunction_ = reference_wavefunction;
     common_init();
@@ -46,23 +46,34 @@ TDHF::~TDHF(){
 }
 void TDHF::common_init(){
 
-    //printf("Initializing ...\n");
+//    printf("Initializing ...\n");
     escf    = reference_wavefunction_->reference_energy();
     doccpi_ = reference_wavefunction_->doccpi();
     soccpi_ = reference_wavefunction_->soccpi();
     frzcpi_ = reference_wavefunction_->frzcpi();
     frzvpi_ = reference_wavefunction_->frzvpi();
     nmopi_  = reference_wavefunction_->nmopi();
+    nsopi_  = reference_wavefunction_->nsopi();
+    molecule_ = reference_wavefunction_->molecule();
+    nirrep_ = reference_wavefunction_->nirrep();
+
+//    printf("Getting coefficients ...\n");
 
     Da_ = SharedMatrix(reference_wavefunction_->Da());
     Ca_ = SharedMatrix(reference_wavefunction_->Ca());
     Fa_ = SharedMatrix(reference_wavefunction_->Fa());
 
+//    printf("Getting orbital parameters ... %i	%i \n",nirrep_, nsopi_);
+
     epsilon_a_= boost::shared_ptr<Vector>(new Vector(nirrep_, nsopi_));
+//    printf("here1 ...\n");
     epsilon_a_->copy(reference_wavefunction_->epsilon_a().get());
+//    printf("here2 ...\n");
     nalpha_ = reference_wavefunction_->nalpha();
+//    printf("here3 ...\n");
     nbeta_  = reference_wavefunction_->nbeta();
     nso = nmo = ndocc = nvirt = nfzc = nfzv = 0;
+//    printf("Assigning values ...\n");
     for (int h=0; h<nirrep_; h++){
         nfzc   += frzcpi_[h];
         nfzv   += frzvpi_[h];
@@ -70,12 +81,17 @@ void TDHF::common_init(){
         nmo    += nmopi_[h]-frzcpi_[h]-frzvpi_[h];
         ndocc  += doccpi_[h];
     }
+//    printf("Exiting loop ...\n");
     ndoccact = ndocc - nfzc;
     nvirt    = nmo - ndoccact;
 
-    //if ( nfzc > 0 ) {
-    //    throw PsiException("TDHF does not work with frozen core (yet).",__FILE__,__LINE__);
-    //}
+    if ( nfzc > 0 ) {
+        throw PsiException("TDHF does not work with frozen core (yet).",__FILE__,__LINE__);
+    }
+    if ( nso != nmo ) {
+        throw PsiException("TDHF does not work with nmo != nso (yet).",__FILE__,__LINE__);
+    }
+//    printf("Getting memory ...\n");
 
     // memory is from process::environment
     memory = Process::environment.get_memory();
@@ -99,7 +115,7 @@ void TDHF::common_init(){
     }
     
     //printf("Computing the Kinetic and Potential energies ...\n");
-    boost::shared_ptr<MintsHelper> mints (new MintsHelper());
+    boost::shared_ptr<MintsHelper> mints (new MintsHelper(reference_wavefunction_));
     T   = mints->so_kinetic();
     V   = mints->so_potential();
 

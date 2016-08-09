@@ -69,23 +69,22 @@ int read_options(std::string name, Options& options)
 void is_this_necessary(boost::shared_ptr<Wavefunction> wfn, Options & options);
 
 extern "C" 
-PsiReturnType mean_field_cqed(Options& options)
+SharedWavefunction mean_field_cqed(SharedWavefunction ref_wfn, Options& options)
 {
     int print = options.get_int("PRINT");
 
     tstart();
 
     // 3-index integrals (generated/read by fno class)
-    boost::shared_ptr<DFFrozenNO> fno(new DFFrozenNO(Process::environment.wavefunction(),options));
+    boost::shared_ptr<DFFrozenNO> fno(new DFFrozenNO(ref_wfn,options));
     fno->ThreeIndexIntegrals();
     fno.reset();
     //boost::shared_ptr<TDHF> tdhf ( new TDHF(Process::environment.wavefunction(),options) );
-
-    is_this_necessary(Process::environment.wavefunction(),options);
+    is_this_necessary(ref_wfn,options);
 
     tstop();
 
-    return Success;
+    return fno;
 }
 
 }} // End namespaces

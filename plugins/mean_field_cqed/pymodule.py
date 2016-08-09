@@ -4,8 +4,8 @@ import os
 import inputparser
 import math
 import warnings
-from driver import *
-from wrappers import *
+import driver
+#from wrappers import *
 from molutil import *
 import p4util
 #from psiexceptions import *
@@ -21,14 +21,15 @@ def run_mean_field_cqed(name, **kwargs):
     kwargs = p4util.kwargs_lower(kwargs)
 
     # Your plugin's psi4 run sequence goes here
-    scf_helper(name, **kwargs)
-    returnvalue = psi4.plugin('mean_field_cqed.so')
-    psi4.set_variable('CURRENT ENERGY', returnvalue)
+    scf_wfn = driver.scf_helper(name, **kwargs)
+    mean_field_cqed_wfn = psi4.plugin('mean_field_cqed.so',scf_wfn)
+    #psi4.set_variable('CURRENT ENERGY', returnvalue)
+    return mean_field_cqed_wfn
 
 
 # Integration with driver routines
-procedures['energy']['mean_field_cqed'] = run_mean_field_cqed
-procedures['energy']['cqed'] = run_mean_field_cqed
+driver.procedures['energy']['mean_field_cqed'] = run_mean_field_cqed
+driver.procedures['energy']['cqed'] = run_mean_field_cqed
 
 def exampleFN():
     # Your Python code goes here
