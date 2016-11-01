@@ -1,0 +1,6 @@
+*.o
+timer.dat
+psi.*.clean
+output.dat
+*.so
+*.pyc
