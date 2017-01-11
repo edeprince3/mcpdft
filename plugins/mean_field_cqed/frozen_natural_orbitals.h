@@ -22,10 +22,11 @@
 
 #ifndef FROZENNO_H
 #define FROZENNO_H
-#include"psi4-dec.h"
-#include<libmints/wavefunction.h>
 
-namespace boost {
+#include"psi4/psi4-dec.h"
+#include"psi4/libmints/wavefunction.h"
+
+namespace std {
 template<class T> class shared_ptr;
 }
 namespace psi{
@@ -37,7 +38,7 @@ namespace psi{namespace tdhf_cqed{
 // base class
 class FrozenNO : public Wavefunction {
   public:
-    FrozenNO(boost::shared_ptr<Wavefunction>wfn,Options&options);
+    FrozenNO(std::shared_ptr<Wavefunction>wfn,Options&options);
     ~FrozenNO();
 
     double compute_energy();
@@ -56,7 +57,7 @@ class FrozenNO : public Wavefunction {
 
 class DFFrozenNO : public FrozenNO {
   public:
-    DFFrozenNO(boost::shared_ptr<Wavefunction>wfn,Options&options);
+    DFFrozenNO(std::shared_ptr<Wavefunction>wfn,Options&options);
     ~DFFrozenNO();
 
     double compute_energy();

@@ -1,19 +1,12 @@
 #ifndef TDHF_H
 #define TDHF_H
-#include<libmints/wavefunction.h>
-#include<libmints/vector.h>
+#include"psi4/libmints/wavefunction.h"
+#include"psi4/libmints/vector.h"
 #include"fftw3.h"
 
-
-// boost numerical integrators live here:
-#include <boost/numeric/odeint.hpp>
-
-using namespace boost::numeric::odeint;
-
-namespace boost {
+namespace std {
 template<class T> class shared_ptr;
 }
-typedef std::vector< double > state_type;
 
 typedef runge_kutta4< state_type , double ,
                       state_type , double
@@ -30,17 +23,17 @@ namespace psi{ namespace tdhf_cqed {
 
 class TDHF: public Wavefunction {
 public:
-    TDHF(boost::shared_ptr<psi::Wavefunction> reference_wavefunction,Options & options);
+    TDHF(std::shared_ptr<psi::Wavefunction> reference_wavefunction,Options & options);
     ~TDHF();
 
     void common_init();
     double compute_energy();
     virtual bool same_a_b_orbs() const { return true; }
     virtual bool same_a_b_dens() const { return true; }
-    //void operator()( state_type &x , state_type &dxdt , double t );
-    void rk4_call_gah( state_type &x , state_type &dxdt , double t );
-    //void rk4_call( state_type &x , state_type &dxdt , double t );
+
 protected:
+
+    void RK4( int rk4_dim, double * rk4_soln , double * rk4_out, double * rk4_in , double * rk4_temp, double curtime, double step );
     double * eps;
     double escf;
     long int ndocc, nvirt, nfzc, nfzv, ndoccact, nmo, nso;
@@ -67,6 +60,7 @@ protected:
     int offset_dre_plasmon_z;
     int offset_dim_plasmon_z;
 
+<<<<<<< HEAD
     boost::shared_ptr<Matrix> T;
     boost::shared_ptr<Matrix> V;
     boost::shared_ptr<Matrix> eri;
@@ -131,6 +125,68 @@ protected:
     boost::shared_ptr<Vector> Eigval_x;
     boost::shared_ptr<Vector> Eigval_y;
     boost::shared_ptr<Vector> Eigval_z;
+=======
+    std::shared_ptr<Matrix> T;
+    std::shared_ptr<Matrix> V;
+    std::shared_ptr<Matrix> eri;
+
+    std::shared_ptr<Matrix> Dre;
+    std::shared_ptr<Matrix> Dim;
+
+    std::shared_ptr<Matrix> Dre_plasmon_x;
+    std::shared_ptr<Matrix> Dim_plasmon_x;
+
+    std::shared_ptr<Matrix> Dre_plasmon_y;
+    std::shared_ptr<Matrix> Dim_plasmon_y;
+
+    std::shared_ptr<Matrix> Dre_plasmon_z;
+    std::shared_ptr<Matrix> Dim_plasmon_z;
+
+    std::shared_ptr<Matrix> Fre;
+    std::shared_ptr<Matrix> Fim;
+    std::shared_ptr<Matrix> F1re;
+    std::shared_ptr<Matrix> F1im;
+    std::shared_ptr<Matrix> Fre_temp;
+    std::shared_ptr<Matrix> Fim_temp;
+
+    std::shared_ptr<Matrix> Dip_x;
+    std::shared_ptr<Matrix> Dip_y;
+    std::shared_ptr<Matrix> Dip_z;
+
+    std::shared_ptr<Matrix> Hp_x;
+    std::shared_ptr<Matrix> Hp_int_x;
+    std::shared_ptr<Matrix> Eigvec_x;
+    std::shared_ptr<Matrix> htemp_x;
+    std::shared_ptr<Matrix> htemp_int_x;
+    std::shared_ptr<Matrix> htemp_dip_x;
+    std::shared_ptr<Matrix> Hplasmon_total_x;
+    std::shared_ptr<Matrix> Hp_y;
+    std::shared_ptr<Matrix> Hp_int_y;
+    std::shared_ptr<Matrix> Eigvec_y;
+    std::shared_ptr<Matrix> htemp_y;
+    std::shared_ptr<Matrix> htemp_int_y;
+    std::shared_ptr<Matrix> htemp_dip_y;
+    std::shared_ptr<Matrix> Hplasmon_total_y;
+    std::shared_ptr<Matrix> Hp_z;
+    std::shared_ptr<Matrix> Hp_int_z;
+    std::shared_ptr<Matrix> Eigvec_z;
+    std::shared_ptr<Matrix> htemp_z;
+    std::shared_ptr<Matrix> htemp_int_z;
+    std::shared_ptr<Matrix> htemp_dip_z;
+    std::shared_ptr<Matrix> Hplasmon_total_z;
+    std::vector<std::shared_ptr<Matrix> > dipole;
+    std::shared_ptr<Matrix> dipole_pot_x;
+    std::shared_ptr<Matrix> dipole_pot_y;
+    std::shared_ptr<Matrix> dipole_pot_z;
+
+    std::shared_ptr<Matrix> temp_x;
+    std::shared_ptr<Matrix> temp_y;
+    std::shared_ptr<Matrix> temp_z;
+
+    std::shared_ptr<Vector> Eigval_x;
+    std::shared_ptr<Vector> Eigval_y;
+    std::shared_ptr<Vector> Eigval_z;
+>>>>>>> b8398429... updates mean_field_cqed to be compatible with psi4-1.0 as downloaded on 12/06/16
 
     void DipolePotentialIntegrals();
     void TransformIntegrals();
@@ -145,8 +201,8 @@ protected:
                              double * tempi,
                              double * kre,
                              double * kim,
-                             boost::shared_ptr<Matrix> dip,
-                             boost::shared_ptr<Matrix> Ham,
+                             std::shared_ptr<Matrix> dip,
+                             std::shared_ptr<Matrix> Ham,
                              double pol);
 
     void InteractionContribution(double * tempr,
@@ -157,12 +213,19 @@ protected:
                                  double * tempi_p,
                                  double * kre_p,
                                  double * kim_p,
-                                 boost::shared_ptr<Matrix> Hp_int,
-                                 boost::shared_ptr<Matrix> dipole_pot,
+                                 std::shared_ptr<Matrix> Hp_int,
+                                 std::shared_ptr<Matrix> dipole_pot,
                                  double mdip,   
                                  double pdip);
 
 
+<<<<<<< HEAD
+=======
+    void PlasmonHamiltonianTransformation(std::shared_ptr<Matrix> Ham,std::shared_ptr<Matrix>Eigvec);
+    void HInteraction(double * D1);
+
+
+>>>>>>> b8398429... updates mean_field_cqed to be compatible with psi4-1.0 as downloaded on 12/06/16
     void ExtField(double curtime);
 
     void BuildLindblad(double * tempr,
@@ -191,10 +254,10 @@ protected:
     int pulse_shape_;
 
     // RK4 
-    void RK4(boost::shared_ptr<Matrix> koutre, boost::shared_ptr<Matrix>koutim,
-             boost::shared_ptr<Matrix> kinre, boost::shared_ptr<Matrix>kinim, int iter, double step);
+    void RK4(std::shared_ptr<Matrix> koutre, std::shared_ptr<Matrix>koutim,
+             std::shared_ptr<Matrix> kinre, std::shared_ptr<Matrix>kinim, int iter, double step);
 
-    // boost rk4:
+    // std rk4:
     double * rk4_buffer;
 
     // nuclear component of dipole moment

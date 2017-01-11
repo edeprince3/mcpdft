@@ -27,31 +27,45 @@
   *
   */
 
-#include"psi4-dec.h"
-#include<psifiles.h>
-#include<libmints/mints.h>
-#include<libmints/mintshelper.h>
-#include<libmints/wavefunction.h>
-#include<libmints/matrix.h>
-#include<libtrans/mospace.h>
-#include<libtrans/integraltransform.h>
-#include<libiwl/iwl.hpp>
-#include<../bin/fnocc/ccsd.h>
-#include<../bin/fnocc/blas.h>
-#include<libqt/qt.h>
-#include"frozen_natural_orbitals.h"
-#include<libciomr/libciomr.h>
-#include<lib3index/dftensor.h>
-#include<lib3index/cholesky.h>
-#include <libmints/sieve.h>
+#include"psi4/psi4-dec.h"
+#include"psi4/psifiles.h"
 
-#include<libdpd/dpd.h>
+#include "psi4/libmints/basisset.h"
+#include "psi4/libmints/basisset_parser.h"
+#include"psi4/libmints/mintshelper.h"
+#include"psi4/libmints/wavefunction.h"
+#include"psi4/libmints/matrix.h"
+#include"psi4/libmints/vector.h"
+#include"psi4/libmints/integral.h"
+
+#include"psi4/libtrans/mospace.h"
+#include"psi4/libtrans/integraltransform.h"
+#include"psi4/libiwl/iwl.hpp"
+//#include<../bin/fnocc/ccsd.h>
+//#include<../bin/fnocc/blas.h>
+#include"psi4/libqt/qt.h"
+#include"psi4/libciomr/libciomr.h"
+#include"psi4/lib3index/dftensor.h"
+#include"psi4/lib3index/cholesky.h"
+#include"psi4/libmints/sieve.h"
+
+#include"blas.h"
+#include"frozen_natural_orbitals.h"
+
+#include"psi4/libdpd/dpd.h"
 #define ID(x) ints->DPD_ID(x)
 
-
 using namespace psi;
-using namespace boost;
+using namespace std;
 using namespace fnocc;
+
+// position in a symmetric packed matrix
+long int Position(long int i,long int j){
+  if (i<j){
+    return ((j*(j+1))>>1)+i;
+  }
+  return ((i*(i+1))>>1)+j;
+}
 
 namespace psi{namespace tdhf_cqed{
 
@@ -109,11 +123,11 @@ void FrozenNO::ComputeNaturalOrbitals(){
     fprintf(outfile,"        ==> Transform (OV|OV) integrals <==\n");
     fprintf(outfile,"\n");
 
-    std::vector<boost::shared_ptr<MOSpace> > spaces;
+    std::vector<std::shared_ptr<MOSpace> > spaces;
     spaces.push_back(MOSpace::occ);
     spaces.push_back(MOSpace::vir);
-    boost::shared_ptr<Wavefunction> wfn = reference_wavefunction_;
-    boost::shared_ptr<IntegralTransform> ints(new IntegralTransform(wfn, spaces, IntegralTransform::Restricted,
+    std::shared_ptr<Wavefunction> wfn = reference_wavefunction_;
+    std::shared_ptr<IntegralTransform> ints(new IntegralTransform(wfn, spaces, IntegralTransform::Restricted,
                IntegralTransform::DPDOnly, IntegralTransform::QTOrder, IntegralTransform::OccAndVir, false));
     ints->set_dpd_id(0);
     ints->set_keep_iwl_so_ints(true);
@@ -126,7 +140,7 @@ void FrozenNO::ComputeNaturalOrbitals(){
     fprintf(outfile,"\n");
 
     dpdbuf4 amps1,amps2;
-    boost::shared_ptr<PSIO> psio = _default_psio_lib_;
+    std::shared_ptr<PSIO> psio = _default_psio_lib_;
     psio->open(PSIF_LIBTRANS_DPD, PSIO_OPEN_OLD);
 
     // Use the IntegralTransform object's DPD instance, for convenience
@@ -154,8 +168,8 @@ void FrozenNO::ComputeNaturalOrbitals(){
     double * aVirEvals = new double[numAVir];
     double * bVirEvals = new double[numBVir];
 
-    boost::shared_ptr<Vector> epsA = reference_wavefunction_->epsilon_a();
-    boost::shared_ptr<Vector> epsB = reference_wavefunction_->epsilon_b();
+    std::shared_ptr<Vector> epsA = reference_wavefunction_->epsilon_a();
+    std::shared_ptr<Vector> epsB = reference_wavefunction_->epsilon_b();
     for(int h = 0; h < nirrep_; ++h){
         for(int a = frzcpi_[h]; a < doccpi_[h] + soccpi_[h]; ++a) aOccEvals[aOccCount++] = epsA->get(h, a);
         for(int b = frzcpi_[h]; b < doccpi_[h]; ++b)              bOccEvals[bOccCount++] = epsB->get(h, b);
@@ -268,7 +282,7 @@ void FrozenNO::ComputeNaturalOrbitals(){
 
     // diagonalize virtual-virtual block of opdm
     int symmetry = Ca_->symmetry();
-    boost::shared_ptr<Matrix> D (new Matrix("Dab",nirrep_,aVirOrbsPI,aVirOrbsPI,symmetry));
+    std::shared_ptr<Matrix> D (new Matrix("Dab",nirrep_,aVirOrbsPI,aVirOrbsPI,symmetry));
 
     global_dpd_->file2_init(&Dab, PSIF_LIBTRANS_DPD,    0, 1, 1, "Dab");
     global_dpd_->file2_mat_init(&Dab);
@@ -289,12 +303,12 @@ void FrozenNO::ComputeNaturalOrbitals(){
     psio->close(PSIF_LIBTRANS_DPD, 1);
     ints.reset();
 
-    boost::shared_ptr<Matrix> eigvec (new Matrix("Dab eigenvectors",nirrep_,aVirOrbsPI,aVirOrbsPI,symmetry));
-    boost::shared_ptr<Vector> eigval (new Vector("Dab eigenvalues",nirrep_,aVirOrbsPI));
+    std::shared_ptr<Matrix> eigvec (new Matrix("Dab eigenvectors",nirrep_,aVirOrbsPI,aVirOrbsPI,symmetry));
+    std::shared_ptr<Vector> eigval (new Vector("Dab eigenvalues",nirrep_,aVirOrbsPI));
     D->diagonalize(eigvec,eigval,descending);
 
     // overwrite ao/mo C matrix with ao/no transformation
-    boost::shared_ptr<Matrix> temp (new Matrix("temp",nirrep_,nsopi_,aVirOrbsPI,symmetry));
+    std::shared_ptr<Matrix> temp (new Matrix("temp",nirrep_,nsopi_,aVirOrbsPI,symmetry));
     for (int h = 0; h < nirrep_; h++) {
 
         int v = aVirOrbsPI[h];
@@ -360,7 +374,7 @@ void FrozenNO::ComputeNaturalOrbitals(){
 
     // transform Fock matrix to truncated NO basis
 
-    boost::shared_ptr<Matrix> Fab (new Matrix("Fab(NO)",nirrep_,newVirOrbsPI,newVirOrbsPI,symmetry));
+    std::shared_ptr<Matrix> Fab (new Matrix("Fab(NO)",nirrep_,newVirOrbsPI,newVirOrbsPI,symmetry));
     for (int h = 0; h < nirrep_; h++) {
         int o    = doccpi_[h];
         int vnew = newVirOrbsPI[h];
@@ -380,8 +394,8 @@ void FrozenNO::ComputeNaturalOrbitals(){
     }
 
     // semicanonicalize orbitals:
-    boost::shared_ptr<Matrix> eigvecF (new Matrix("Fab eigenvectors",nirrep_,newVirOrbsPI,newVirOrbsPI,symmetry));
-    boost::shared_ptr<Vector> eigvalF (new Vector("Fab eigenvalues",nirrep_,newVirOrbsPI));
+    std::shared_ptr<Matrix> eigvecF (new Matrix("Fab eigenvectors",nirrep_,newVirOrbsPI,newVirOrbsPI,symmetry));
+    std::shared_ptr<Vector> eigvalF (new Vector("Fab eigenvalues",nirrep_,newVirOrbsPI));
     Fab->diagonalize(eigvecF,eigvalF);
 
     // overwrite ao/no C matrix with ao/semicanonical no transformation:
@@ -415,7 +429,7 @@ void FrozenNO::ComputeNaturalOrbitals(){
     }
 
     // put modified orbital energies back into epsilon_a
-    boost::shared_ptr<Vector> eps = epsilon_a_;
+    std::shared_ptr<Vector> eps = epsilon_a_;
     for (int h = 0; h < nirrep_; h++) {
         double * epsp = eps->pointer(h);
         double * eigp = eigvalF->pointer(h);
@@ -441,7 +455,7 @@ void FrozenNO::ComputeNaturalOrbitals(){
 
 // DF FNO class members
 
-DFFrozenNO::DFFrozenNO(boost::shared_ptr<Wavefunction>wfn,Options&options):
+DFFrozenNO::DFFrozenNO(std::shared_ptr<Wavefunction>wfn,Options&options):
   FrozenNO(wfn,options)
 {
 }
@@ -467,28 +481,27 @@ void DFFrozenNO::ThreeIndexIntegrals() {
   // 1.  read scf 3-index integrals from disk
 
   // get ntri from sieve
-  boost::shared_ptr<ERISieve> sieve (new ERISieve(basisset_, options_.get_double("INTS_TOLERANCE")));
+  std::shared_ptr<ERISieve> sieve (new ERISieve(basisset_, options_.get_double("INTS_TOLERANCE")));
   const std::vector<std::pair<int, int> >& function_pairs = sieve->function_pairs();
   long int ntri = function_pairs.size();
 
   // read integrals that were written to disk in the scf
   long int nQ_scf = Process::environment.globals["NAUX (SCF)"];
   if ( options_.get_str("SCF_TYPE") == "DF" ) {
-      boost::shared_ptr<BasisSetParser> parser(new Gaussian94BasisSetParser());
-      boost::shared_ptr<BasisSet> auxiliary = BasisSet::construct(parser, molecule(), "DF_BASIS_SCF");
+      std::shared_ptr<BasisSet> auxiliary = reference_wavefunction_->get_basisset("DF_BASIS_SCF");
       nQ_scf = auxiliary->nbf();
       Process::environment.globals["NAUX (SCF)"] = nQ_scf;
   }
 
-  boost::shared_ptr<Matrix> Qmn = SharedMatrix(new Matrix("Qmn Integrals",nQ_scf,ntri));
+  std::shared_ptr<Matrix> Qmn = SharedMatrix(new Matrix("Qmn Integrals",nQ_scf,ntri));
   double** Qmnp = Qmn->pointer();
-  boost::shared_ptr<PSIO> psio(new PSIO());
+  std::shared_ptr<PSIO> psio(new PSIO());
   psio->open(PSIF_DFSCF_BJ,PSIO_OPEN_OLD);
   psio->read_entry(PSIF_DFSCF_BJ, "(Q|mn) Integrals", (char*) Qmnp[0], sizeof(double) * ntri * nQ_scf);
   psio->close(PSIF_DFSCF_BJ,1);
 
   // unpack and write again in my format
-  boost::shared_ptr<Matrix>L (new Matrix("3-index ERIs (SCF)", nQ_scf , nso*nso));
+  std::shared_ptr<Matrix>L (new Matrix("3-index ERIs (SCF)", nQ_scf , nso*nso));
   double ** Lp = L->pointer();
   for (long int mn = 0; mn < ntri; mn++) {
       long int m = function_pairs[mn].first;
@@ -507,12 +520,12 @@ void DFFrozenNO::ThreeIndexIntegrals() {
   // for DFCC, assume that the DF basis differs between the SCF and CC (TODO generalize)
   if ( ( options_.get_str("DF_BASIS_CC") != "CHOLESKY" ) ){
 
-      boost::shared_ptr<BasisSetParser> parser(new Gaussian94BasisSetParser());
-      boost::shared_ptr<BasisSet> auxiliary = BasisSet::construct(parser, molecule(), "DF_BASIS_CC");
+      std::shared_ptr<BasisSetParser> parser(new Gaussian94BasisSetParser());
+      std::shared_ptr<BasisSet> auxiliary = reference_wavefunction_->get_basisset("DF_BASIS_CC");
 
-      boost::shared_ptr<DFTensor> DF (new DFTensor(basisset(),auxiliary,Ca(),ndocc,nvirt+nfzv,ndoccact,nvirt,options_));
+      std::shared_ptr<DFTensor> DF (new DFTensor(basisset(),auxiliary,Ca(),ndocc,nvirt+nfzv,ndoccact,nvirt,options_));
       nQ = auxiliary->nbf();
-      boost::shared_ptr<Matrix> tmp = DF->Qso();
+      std::shared_ptr<Matrix> tmp = DF->Qso();
       double ** Qso = tmp->pointer();
 
       // write Qso to disk
@@ -535,14 +548,14 @@ void DFFrozenNO::ThreeIndexIntegrals() {
           fprintf(outfile,"        Number of Cholesky vectors:          %5li\n",nQ);
 
           // ntri comes from sieve above
-          boost::shared_ptr<Matrix> Qmn = SharedMatrix(new Matrix("Qmn Integrals",nQ,ntri));
+          std::shared_ptr<Matrix> Qmn = SharedMatrix(new Matrix("Qmn Integrals",nQ,ntri));
           double** Qmnp = Qmn->pointer();
           // TODO: use my 3-index integral file in SCF for DFCC jobs
           psio->open(PSIF_DFSCF_BJ,PSIO_OPEN_OLD);
           psio->read_entry(PSIF_DFSCF_BJ, "(Q|mn) Integrals", (char*) Qmnp[0], sizeof(double) * ntri * nQ);
           psio->close(PSIF_DFSCF_BJ,1);
 
-          boost::shared_ptr<Matrix>L (new Matrix("CD Integrals", nQ , nso*nso));
+          std::shared_ptr<Matrix>L (new Matrix("CD Integrals", nQ , nso*nso));
           double ** Lp = L->pointer();
           for (long int mn = 0; mn < ntri; mn++) {
               long int m = function_pairs[mn].first;
@@ -558,14 +571,14 @@ void DFFrozenNO::ThreeIndexIntegrals() {
       }else {
 
           // generate Cholesky 3-index integrals
-          fprintf(outfile,"        Generating Cholesky vectors ...\n");
-          boost::shared_ptr<BasisSet> primary = basisset();
-          boost::shared_ptr<IntegralFactory> integral (new IntegralFactory(primary,primary,primary,primary));
+          outfile->Printf("        Generating Cholesky vectors ...\n");
+          std::shared_ptr<BasisSet> primary = basisset();
+          std::shared_ptr<IntegralFactory> integral (new IntegralFactory(primary,primary,primary,primary));
           double tol = options_.get_double("CHOLESKY_TOLERANCE");
-          boost::shared_ptr<CholeskyERI> Ch (new CholeskyERI(boost::shared_ptr<TwoBodyAOInt>(integral->eri()),0.0,tol,Process::environment.get_memory()));
+          std::shared_ptr<CholeskyERI> Ch (new CholeskyERI(std::shared_ptr<TwoBodyAOInt>(integral->eri()),0.0,tol,Process::environment.get_memory()));
           Ch->choleskify();
           nQ  = Ch->Q();
-          boost::shared_ptr<Matrix> L = Ch->L();
+          std::shared_ptr<Matrix> L = Ch->L();
           double ** Lp = L->pointer();
 
           // write Qso to disk
@@ -604,7 +617,7 @@ void DFFrozenNO::FourIndexIntegrals() {
     double * buf1 = (double*)malloc(nso*nso*sizeof(double));
     double * buf2 = (double*)malloc(nso*nso*sizeof(double));
 
-    boost::shared_ptr<PSIO> psio(new PSIO());
+    std::shared_ptr<PSIO> psio(new PSIO());
     psio->open(PSIF_DCC_QSO,PSIO_OPEN_OLD);
     for (int q = 0; q < nQ; q++) {
         psio->read(PSIF_DCC_QSO,"Qso CC",(char*)&buf1[0],nso*nso*sizeof(double),addr1,&addr1);
@@ -671,7 +684,7 @@ void DFFrozenNO::ComputeNaturalOrbitals(){
       throw PsiException("not enough memory (fno)",__FILE__,__LINE__);
   }
 
-  boost::shared_ptr<PSIO> psio(new PSIO());
+  std::shared_ptr<PSIO> psio(new PSIO());
 
   // read in 3-index integrals specific to the CC method:
   double * tmp2 = (double*)malloc(nso*nso*nQ * sizeof(double));
@@ -704,7 +717,7 @@ void DFFrozenNO::ComputeNaturalOrbitals(){
 
   nvirt_no = nvirt;
 
-  boost::shared_ptr<Vector> eps_test = epsilon_a();
+  std::shared_ptr<Vector> eps_test = epsilon_a();
   double * tempeps = eps_test->pointer();
   double * F       = tempeps + nfzc;
   double * Dab     = (double*)malloc(v*v*sizeof(double));
@@ -822,9 +835,9 @@ void DFFrozenNO::ModifyCa(double*Dab){
 
   long int v = nvirt;
 
-  boost::shared_ptr<psi::Wavefunction> ref = reference_wavefunction_;
+  std::shared_ptr<psi::Wavefunction> ref = reference_wavefunction_;
 
-  boost::shared_ptr<Matrix> Caomo = ref->Ca();
+  std::shared_ptr<Matrix> Caomo = ref->Ca();
 
   double**Capointer = Caomo->pointer();
 
@@ -850,9 +863,9 @@ void DFFrozenNO::ModifyCa_occ(double*Dij){
 
   long int o = ndoccact;
 
-  boost::shared_ptr<psi::Wavefunction> ref = reference_wavefunction_;
+  std::shared_ptr<psi::Wavefunction> ref = reference_wavefunction_;
 
-  boost::shared_ptr<Matrix> Caomo = ref->Ca();
+  std::shared_ptr<Matrix> Caomo = ref->Ca();
 
   double**Capointer = Caomo->pointer();
 
@@ -929,7 +942,7 @@ void DFFrozenNO::BuildFock(long int nQ,double*Qso,double*F) {
 
     // transform H
     // one-electron integrals
-    boost::shared_ptr<MintsHelper> mints(new MintsHelper(reference_wavefunction_));
+    std::shared_ptr<MintsHelper> mints(new MintsHelper(reference_wavefunction_));
     SharedMatrix H = mints->so_kinetic();
     H->add(mints->so_potential());
 

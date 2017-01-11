@@ -1,17 +1,17 @@
-#include <libplugin/plugin.h>
-#include <psi4-dec.h>
-#include <libparallel/parallel.h>
-#include <liboptions/liboptions.h>
-#include <libmints/mints.h>
-#include <libpsio/psio.hpp>
-#include "frozen_natural_orbitals.h"
-#include<libciomr/libciomr.h>
+#include "psi4/libplugin/plugin.h"
+#include "psi4/psi4-dec.h"
+#include "psi4/libparallel/parallel.h"
+#include "psi4/liboptions/liboptions.h"
+//#include "psi4/libmints/mints.h"
+#include "psi4/libpsio/psio.hpp"
+#include "psi4/libciomr/libciomr.h"
 
+#include "frozen_natural_orbitals.h"
 #include "tdhf.h"
 
 INIT_PLUGIN
 
-using namespace boost;
+using namespace std;
 using namespace psi;
 
 namespace psi{ namespace tdhf_cqed {
@@ -66,8 +66,6 @@ int read_options(std::string name, Options& options)
     return true;
 }
 
-void is_this_necessary(boost::shared_ptr<Wavefunction> wfn, Options & options);
-
 extern "C" 
 SharedWavefunction mean_field_cqed(SharedWavefunction ref_wfn, Options& options)
 {
@@ -76,11 +74,13 @@ SharedWavefunction mean_field_cqed(SharedWavefunction ref_wfn, Options& options)
     tstart();
 
     // 3-index integrals (generated/read by fno class)
-    boost::shared_ptr<DFFrozenNO> fno(new DFFrozenNO(ref_wfn,options));
+    std::shared_ptr<DFFrozenNO> fno(new DFFrozenNO(ref_wfn,options));
     fno->ThreeIndexIntegrals();
     fno.reset();
-    //boost::shared_ptr<TDHF> tdhf ( new TDHF(Process::environment.wavefunction(),options) );
-    is_this_necessary(ref_wfn,options);
+    //std::shared_ptr<TDHF> tdhf ( new TDHF(Process::environment.wavefunction(),options) );
+
+    std::shared_ptr<TDHF> tdhf (new TDHF(ref_wfn,options));
+    tdhf->compute_energy();
 
     tstop();
 

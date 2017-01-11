@@ -1,20 +1,21 @@
-#include"psi4-dec.h"
-#include<liboptions/liboptions.h>
-#include<libmints/mints.h>
-#include<libpsio/psio.h>
-#include<physconst.h>
-#include<libqt/qt.h>
-#include<../bin/fnocc/blas.h>
-#include"frozen_natural_orbitals.h"
-#include<psifiles.h>
+#include"psi4/psi4-dec.h"
+#include"psi4/liboptions/liboptions.h"
+//#include"psi4/libmints/mints.h"
+#include"psi4/libmints/matrix.h"
+#include"psi4/libmints/molecule.h"
+#include"psi4/libmints/integral.h"
+#include"psi4/libmints/mintshelper.h"
+#include"psi4/libmints/basisset.h"
+#include"psi4/libmints/petitelist.h"
+#include"psi4/libmints/wavefunction.h"
+#include"psi4/libpsio/psio.hpp"
+#include"psi4/physconst.h"
+#include"psi4/libqt/qt.h"
+#include"psi4/psifiles.h"
 
 #include"tdhf.h"
-
-// boost numerical integrators live here:
-#include <iostream>
-#include <vector>
-#include <boost/numeric/odeint.hpp>
-
+#include"blas.h"
+#include"frozen_natural_orbitals.h"
 
 #ifdef _OPENMP
     #include<omp.h>
@@ -25,18 +26,10 @@ using namespace fnocc;
 
 namespace psi{ namespace tdhf_cqed {
 
-boost::shared_ptr<TDHF> MyTDHF;
+std::shared_ptr<TDHF> MyTDHF;
 
-void is_this_necessary(boost::shared_ptr<Wavefunction> wfn, Options & options) {
-    MyTDHF = (boost::shared_ptr<TDHF>) (new TDHF(wfn,options) );
-    MyTDHF->compute_energy();
-}
 
-void rk4_call( state_type &x , state_type &dxdt , double t ){
-    MyTDHF->rk4_call_gah(x,dxdt,t);
-}
-
-TDHF::TDHF(boost::shared_ptr<Wavefunction> reference_wavefunction,Options & options):
+TDHF::TDHF(std::shared_ptr<Wavefunction> reference_wavefunction,Options & options):
   Wavefunction(options)
 {
     reference_wavefunction_ = reference_wavefunction;
@@ -65,7 +58,7 @@ void TDHF::common_init(){
 
 //    printf("Getting orbital parameters ... %i	%i \n",nirrep_, nsopi_);
 
-    epsilon_a_= boost::shared_ptr<Vector>(new Vector(nirrep_, nsopi_));
+    epsilon_a_= std::shared_ptr<Vector>(new Vector(nirrep_, nsopi_));
 //    printf("here1 ...\n");
     epsilon_a_->copy(reference_wavefunction_->epsilon_a().get());
 //    printf("here2 ...\n");
@@ -115,7 +108,7 @@ void TDHF::common_init(){
     }
     
     //printf("Computing the Kinetic and Potential energies ...\n");
-    boost::shared_ptr<MintsHelper> mints (new MintsHelper(reference_wavefunction_));
+    std::shared_ptr<MintsHelper> mints (new MintsHelper(reference_wavefunction_));
     T   = mints->so_kinetic();
     V   = mints->so_potential();
 
@@ -157,24 +150,24 @@ void TDHF::common_init(){
     offset_dre_plasmon_z = offset; offset += nS*nS;
     offset_dim_plasmon_z = offset; offset += nS*nS;
 
-    Dre        = (boost::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
-    Dim        = (boost::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
+    Dre        = (std::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
+    Dim        = (std::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
 
-    Dre_plasmon_x = (boost::shared_ptr<Matrix>) (new Matrix(nS,nS));
-    Dim_plasmon_x = (boost::shared_ptr<Matrix>) (new Matrix(nS,nS));
+    Dre_plasmon_x = (std::shared_ptr<Matrix>) (new Matrix(nS,nS));
+    Dim_plasmon_x = (std::shared_ptr<Matrix>) (new Matrix(nS,nS));
        
-    Dre_plasmon_y = (boost::shared_ptr<Matrix>) (new Matrix(nS,nS));
-    Dim_plasmon_y = (boost::shared_ptr<Matrix>) (new Matrix(nS,nS));
+    Dre_plasmon_y = (std::shared_ptr<Matrix>) (new Matrix(nS,nS));
+    Dim_plasmon_y = (std::shared_ptr<Matrix>) (new Matrix(nS,nS));
        
-    Dre_plasmon_z = (boost::shared_ptr<Matrix>) (new Matrix(nS,nS));
-    Dim_plasmon_z = (boost::shared_ptr<Matrix>) (new Matrix(nS,nS));
+    Dre_plasmon_z = (std::shared_ptr<Matrix>) (new Matrix(nS,nS));
+    Dim_plasmon_z = (std::shared_ptr<Matrix>) (new Matrix(nS,nS));
 
-    F1re       = (boost::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
-    F1im       = (boost::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
-    Fre        = (boost::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
-    Fim        = (boost::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
-    Fre_temp   = (boost::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
-    Fim_temp   = (boost::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
+    F1re       = (std::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
+    F1im       = (std::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
+    Fre        = (std::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
+    Fim        = (std::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
+    Fre_temp   = (std::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
+    Fim_temp   = (std::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
 
     D1_e_re    = (boost::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
     D1_e_im    = (boost::shared_ptr<Matrix>) (new Matrix(nmo,nmo));
@@ -182,6 +175,7 @@ void TDHF::common_init(){
     D1_p_im    = (boost::shared_ptr<Matrix>) (new Matrix(nS,nS));
 
 
+<<<<<<< HEAD
     // new hamiltonians for plasmon part
     long int nS_scf  = options_.get_int("N_SCF_PLASMON_STATES");
     Dip_x              = (boost::shared_ptr<Matrix>) (new Matrix(nS_scf,nS_scf));
@@ -214,6 +208,41 @@ void TDHF::common_init(){
     temp_x = (boost::shared_ptr<Matrix>) (new Matrix(nS,nS));
     temp_y = (boost::shared_ptr<Matrix>) (new Matrix(nS,nS));
     temp_z = (boost::shared_ptr<Matrix>) (new Matrix(nS,nS));
+=======
+    Dip_x              = (std::shared_ptr<Matrix>) (new Matrix(nS_scf,nS_scf));
+    Dip_y              = (std::shared_ptr<Matrix>) (new Matrix(nS_scf,nS_scf));
+    Dip_z              = (std::shared_ptr<Matrix>) (new Matrix(nS_scf,nS_scf));
+
+    Hp_x               = (std::shared_ptr<Matrix>) (new Matrix(nS_scf,nS_scf));
+    Hp_y               = (std::shared_ptr<Matrix>) (new Matrix(nS_scf,nS_scf));
+    Hp_z               = (std::shared_ptr<Matrix>) (new Matrix(nS_scf,nS_scf));
+
+    Hp_int_x           = (std::shared_ptr<Matrix>) (new Matrix(nS_scf,nS_scf));
+    Hp_int_y           = (std::shared_ptr<Matrix>) (new Matrix(nS_scf,nS_scf));
+    Hp_int_z           = (std::shared_ptr<Matrix>) (new Matrix(nS_scf,nS_scf));
+
+    // TODO: these don't need to be class members.  They are only used here.
+    // in fact, it would be better if the Hamiltonian manipulation was done as a 
+    // separate function that could be called here.  This function has gotten
+    // pretty unreadable.
+    Hplasmon_total_x   = (std::shared_ptr<Matrix>) (new Matrix(nS_scf,nS_scf));
+    Hplasmon_total_y   = (std::shared_ptr<Matrix>) (new Matrix(nS_scf,nS_scf));
+    Hplasmon_total_z   = (std::shared_ptr<Matrix>) (new Matrix(nS_scf,nS_scf));
+
+    Eigvec_x           = (std::shared_ptr<Matrix>) (new Matrix(nS_scf,nS_scf));
+    Eigvec_y           = (std::shared_ptr<Matrix>) (new Matrix(nS_scf,nS_scf));
+    Eigvec_z           = (std::shared_ptr<Matrix>) (new Matrix(nS_scf,nS_scf));
+
+    htemp_x            = (std::shared_ptr<Matrix>) (new Matrix(nS_scf,nS_scf));
+
+    Eigval_x           = (std::shared_ptr<Vector>) (new Vector(nS_scf));
+    Eigval_y           = (std::shared_ptr<Vector>) (new Vector(nS_scf));
+    Eigval_z           = (std::shared_ptr<Vector>) (new Vector(nS_scf));
+
+    temp_x = (std::shared_ptr<Matrix>) (new Matrix(nS,nS));
+    temp_y = (std::shared_ptr<Matrix>) (new Matrix(nS,nS));
+    temp_z = (std::shared_ptr<Matrix>) (new Matrix(nS,nS));
+>>>>>>> b8398429... updates mean_field_cqed to be compatible with psi4-1.0 as downloaded on 12/06/16
 
     for (int i = 0; i < ndoccact; i++) {
         Dre->pointer()[i][i] = 1.0;
@@ -286,7 +315,7 @@ void TDHF::common_init(){
     plasmon_tdm_z = plasmon_tdm[2]*polarization[2]; 
 
     // Getting molecular information to compute the center of mass
-    boost::shared_ptr<Molecule>mol=Process::environment.molecule();
+    std::shared_ptr<Molecule>mol=Process::environment.molecule();
     natom_ = mol->natom();
     com_ = (double*)malloc(sizeof(double)*3);
     memset((void*)com_,'\0',3*sizeof(double));
@@ -569,14 +598,14 @@ void TDHF::common_init(){
 
 void TDHF::DipolePotentialIntegrals() {
 
-    boost::shared_ptr<OneBodyAOInt> efp_ints(reference_wavefunction_->integral()->ao_efp_multipole_potential());
+    std::shared_ptr<OneBodyAOInt> efp_ints(reference_wavefunction_->integral()->ao_efp_multipole_potential());
 
     int nbf = reference_wavefunction_->basisset()->nbf();
     int nao = reference_wavefunction_->basisset()->nao();
 
-    std::vector< boost::shared_ptr<Matrix> > mats;
+    std::vector< std::shared_ptr<Matrix> > mats;
     for(int i=0; i < 20; i++) {
-        mats.push_back(boost::shared_ptr<Matrix> (new Matrix(nao, nao)));
+        mats.push_back(std::shared_ptr<Matrix> (new Matrix(nao, nao)));
         mats[i]->zero();
     }
 
@@ -586,12 +615,12 @@ void TDHF::DipolePotentialIntegrals() {
     efp_ints->compute(mats);
 
     // ao/so transformation
-    boost::shared_ptr<PetiteList> pet(new PetiteList(reference_wavefunction_->basisset(),reference_wavefunction_->integral(),true));
-    boost::shared_ptr<Matrix> U = pet->aotoso();
+    std::shared_ptr<PetiteList> pet(new PetiteList(reference_wavefunction_->basisset(),reference_wavefunction_->integral(),true));
+    std::shared_ptr<Matrix> U = pet->aotoso();
 
-    boost::shared_ptr<Matrix> Vx = Matrix::triplet(U,mats[1],U,true,false,false);
-    boost::shared_ptr<Matrix> Vy = Matrix::triplet(U,mats[2],U,true,false,false);
-    boost::shared_ptr<Matrix> Vz = Matrix::triplet(U,mats[3],U,true,false,false);
+    std::shared_ptr<Matrix> Vx = Matrix::triplet(U,mats[1],U,true,false,false);
+    std::shared_ptr<Matrix> Vy = Matrix::triplet(U,mats[2],U,true,false,false);
+    std::shared_ptr<Matrix> Vz = Matrix::triplet(U,mats[3],U,true,false,false);
 
     // This function is important until here!! For the SCF procedure.
 
@@ -600,9 +629,9 @@ void TDHF::DipolePotentialIntegrals() {
     SoToMo(Ca_->rowspi()[0],Ca_->colspi()[0],Vy->pointer(),Ca_->pointer());
     SoToMo(Ca_->rowspi()[0],Ca_->colspi()[0],Vz->pointer(),Ca_->pointer());
 
-    dipole_pot_x = (boost::shared_ptr<Matrix>) (new Matrix(Vx));
-    dipole_pot_y = (boost::shared_ptr<Matrix>) (new Matrix(Vy));
-    dipole_pot_z = (boost::shared_ptr<Matrix>) (new Matrix(Vz));
+    dipole_pot_x = (std::shared_ptr<Matrix>) (new Matrix(Vx));
+    dipole_pot_y = (std::shared_ptr<Matrix>) (new Matrix(Vy));
+    dipole_pot_z = (std::shared_ptr<Matrix>) (new Matrix(Vz));
 
 }
 
@@ -751,6 +780,96 @@ void TDHF::ExtField(double curtime){
     }
 }
 
+<<<<<<< HEAD
+=======
+void TDHF::PlasmonHamiltonianTransformation(std::shared_ptr<Matrix> Ham,std::shared_ptr<Matrix>Eigvec) {
+    std::shared_ptr<Matrix> temp (new Matrix(Ham));
+    temp->zero();
+    /*for (int A=0; A < nS_scf; A++){
+        for (int B=0; B < nS_scf; B++){
+            for (int C=0; C < nS_scf; C++){
+                temp->pointer()[A][B] += Ham->pointer()[A][C]*Eigvec->pointer()[C][B];
+            }
+        }
+    }
+
+    F_DGEMM('n','n',nS_scf,nS_scf,nS_scf,1.0,&(Eigvec->pointer()[0][0]),nS_scf,
+
+    Ham->zero();
+
+    for (int A=0; A < nS_scf; A++){
+        for (int B=0; B < nS_scf; B++){
+            for (int C=0; C < nS_scf; C++){
+                Ham->pointer()[A][B] += Eigvec->pointer()[C][A]*temp->pointer()[C][B];
+            }
+        }
+    }*/
+
+    F_DGEMM('n','n',nS_scf,nS_scf,nS_scf,1.0,&(Eigvec->pointer()[0][0]),nS_scf,&(Ham->pointer()[0][0]),nS_scf,0.0,&(htemp_x->pointer()[0][0]),nS_scf);
+    F_DGEMM('n','t',nS_scf,nS_scf,nS_scf,1.0,&(htemp_x->pointer()[0][0]),nS_scf,&(Eigvec->pointer()[0][0]),nS_scf,0.0,&(Ham->pointer()[0][0]),nS_scf);
+}
+
+void TDHF::HInteraction(double * D1) {
+
+    double r = (com_[0]-plasmon_coordinates[0])*(com_[0]-plasmon_coordinates[0])
+             + (com_[1]-plasmon_coordinates[1])*(com_[1]-plasmon_coordinates[1])
+             + (com_[2]-plasmon_coordinates[2])*(com_[2]-plasmon_coordinates[2]);
+    r = sqrt(r);
+
+    double delta_x = plasmon_coordinates[0] - com_[0];
+    double delta_y = plasmon_coordinates[1] - com_[1];
+    double delta_z = plasmon_coordinates[2] - com_[2];
+
+    double * r_vector;
+
+    r_vector = (double*)malloc(sizeof(double)*3);
+    memset((void*)r_vector,'\0',3*sizeof(double));
+
+    r_vector[0] = delta_x;
+    r_vector[1] = delta_y;
+    r_vector[2] = delta_z;
+
+    e_dip_x = 2.0*C_DDOT(nso*nso,D1,1,&(dipole[0]->pointer())[0][0],1);
+    e_dip_y = 2.0*C_DDOT(nso*nso,D1,1,&(dipole[1]->pointer())[0][0],1);
+    e_dip_z = 2.0*C_DDOT(nso*nso,D1,1,&(dipole[2]->pointer())[0][0],1);
+
+    memset((void*)&(Hp_int_x->pointer()[0][0]),'\0',nS_scf*nS_scf*sizeof(double));
+    memset((void*)&(Hp_int_y->pointer()[0][0]),'\0',nS_scf*nS_scf*sizeof(double));
+    memset((void*)&(Hp_int_z->pointer()[0][0]),'\0',nS_scf*nS_scf*sizeof(double));
+
+    for (int A = 0; A < nS_scf; A++) {
+        if (A < nS_scf - 1) {
+            Hp_int_x->pointer()[A][A+1]  = (e_dip_x + nuc_dip_x_)*plasmon_tdm[0];
+            Hp_int_x->pointer()[A][A+1] -= 3.0*plasmon_tdm[0]*delta_x*(r_vector[0]*(nuc_dip_x_ + e_dip_x)+r_vector[1]*(nuc_dip_y_ + e_dip_y)+r_vector[2]*(nuc_dip_z_ + e_dip_z))/(r*r);
+            Hp_int_x->pointer()[A][A+1] *= coupling_strength*sqrt(A+1);
+
+            Hp_int_y->pointer()[A][A+1]  = (e_dip_y + nuc_dip_y_)*plasmon_tdm[1];
+            Hp_int_y->pointer()[A][A+1] -= 3.0*plasmon_tdm[1]*delta_y*(r_vector[0]*(nuc_dip_x_ + e_dip_x)+r_vector[1]*(nuc_dip_y_ + e_dip_y)+r_vector[2]*(nuc_dip_z_ + e_dip_z))/(r*r);
+            Hp_int_y->pointer()[A][A+1] *= coupling_strength*sqrt(A+1);
+
+            Hp_int_z->pointer()[A][A+1]  = (e_dip_z + nuc_dip_z_)*plasmon_tdm[2];
+            Hp_int_z->pointer()[A][A+1] -= 3.0*plasmon_tdm[2]*delta_z*(r_vector[0]*(nuc_dip_x_ + e_dip_x)+r_vector[1]*(nuc_dip_y_ + e_dip_y)+r_vector[2]*(nuc_dip_z_ + e_dip_z))/(r*r);
+            Hp_int_z->pointer()[A][A+1] *= coupling_strength*sqrt(A+1);
+        }
+        if (A > 0) {
+            Hp_int_x->pointer()[A][A-1]  = (e_dip_x + nuc_dip_x_)*plasmon_tdm[0];
+            Hp_int_x->pointer()[A][A-1] -= 3.0*plasmon_tdm[0]*delta_x*(r_vector[0]*(nuc_dip_x_ + e_dip_x)+r_vector[1]*(nuc_dip_y_ + e_dip_y)+r_vector[2]*(nuc_dip_z_ + e_dip_z))/(r*r);
+            Hp_int_x->pointer()[A][A-1] *= coupling_strength*sqrt(A);
+
+            Hp_int_y->pointer()[A][A-1]  = (e_dip_y + nuc_dip_y_)*plasmon_tdm[1];
+            Hp_int_y->pointer()[A][A-1] -= 3.0*plasmon_tdm[1]*delta_y*(r_vector[0]*(nuc_dip_x_ + e_dip_x)+r_vector[1]*(nuc_dip_y_ + e_dip_y)+r_vector[2]*(nuc_dip_z_ + e_dip_z))/(r*r);
+            Hp_int_y->pointer()[A][A-1] *= coupling_strength*sqrt(A);
+
+            Hp_int_z->pointer()[A][A-1]  = (e_dip_z + nuc_dip_z_)*plasmon_tdm[2];
+            Hp_int_z->pointer()[A][A-1] -= 3.0*plasmon_tdm[2]*delta_z*(r_vector[0]*(nuc_dip_x_ + e_dip_x)+r_vector[1]*(nuc_dip_y_ + e_dip_y)+r_vector[2]*(nuc_dip_z_ + e_dip_z))/(r*r);
+            Hp_int_z->pointer()[A][A-1] *= coupling_strength*sqrt(A);
+        }
+    }
+
+    free(r_vector);
+}
+
+>>>>>>> b8398429... updates mean_field_cqed to be compatible with psi4-1.0 as downloaded on 12/06/16
 void TDHF::InteractionContribution(double * tempr,
                                    double * tempi,
                                    double * kre,
@@ -759,8 +878,8 @@ void TDHF::InteractionContribution(double * tempr,
                                    double * tempi_p,
                                    double * kre_p,
                                    double * kim_p, 
-                                   boost::shared_ptr<Matrix> Hp_int,
-                                   boost::shared_ptr<Matrix> dipole_pot,
+                                   std::shared_ptr<Matrix> Hp_int,
+                                   std::shared_ptr<Matrix> dipole_pot,
                                    double mdip, 
                                    double pdip) {
 
@@ -808,8 +927,8 @@ void TDHF::PlasmonContribution(double * tempr,
                                double * tempi,
                                double * kre,
                                double * kim, 
-                               boost::shared_ptr<Matrix> dip, 
-                               boost::shared_ptr<Matrix> Ham, 
+                               std::shared_ptr<Matrix> dip, 
+                               std::shared_ptr<Matrix> Ham, 
                                double pol) {
 
 
@@ -873,30 +992,21 @@ void TDHF::SoToMo(int nsotemp,int nmotemp,double**mat,double**trans){
 double TDHF::compute_energy() {
 
     // rk4
+<<<<<<< HEAD
     state_type rk4_buffer(nmo*nmo*nS*nS*2);
     rk4_stepper rk4;
     //rk78_stepper rk4;
+=======
+    long int rk4_dim = 2 * (nmo*nmo+3*nS*nS);
+    double * rk4_soln = (double*)malloc( rk4_dim * sizeof(double) );
+    double * rk4_temp = (double*)malloc( rk4_dim * sizeof(double) );
+    double * rk4_k1   = (double*)malloc( rk4_dim * sizeof(double) );
+    double * rk4_k2   = (double*)malloc( rk4_dim * sizeof(double) );
+    double * rk4_k3   = (double*)malloc( rk4_dim * sizeof(double) );
+    double * rk4_k4   = (double*)malloc( rk4_dim * sizeof(double) );
+>>>>>>> b8398429... updates mean_field_cqed to be compatible with psi4-1.0 as downloaded on 12/06/16
 
     fftw_iter   = 0;
-
-    double * factorB = (double*)malloc(sizeof(double)*5);
-    double * factorb = (double*)malloc(sizeof(double)*5);
-    memset((void*)factorB,'\0',5*sizeof(double));
-    memset((void*)factorb,'\0',5*sizeof(double));
-
-    // factors for symplectic integrator.  they come from that sanz-serna paper.
-    double fac,tntf = 1./3924.;
-    factorB[0] = (642.+sqrt(471.))*tntf;
-    factorB[1] = 121.*(12.-sqrt(471.))*tntf;
-    factorB[2] = 1. - 2.*(factorB[0]+factorB[1]);
-    factorB[3] = factorB[1];
-    factorB[4] = factorB[0];
-
-    factorb[0] = 6./11.;
-    factorb[1] = .5 - factorb[0];
-    factorb[2] = factorb[1];
-    factorb[3] = factorb[0];
-    factorb[4] = 0.;
 
     for ( int iter = 0; iter < total_iter; iter++ ) {
 
@@ -904,47 +1014,61 @@ double TDHF::compute_energy() {
         // y(n+1) = y( n ) + 1/6 h ( k1 + 2k2 + 2k3 + k4 )
         // t(n+1) = t( n ) + h
 
-        //Dre-> print();
-        //exit(0);
-
-        // rk4 buffer should contain: Dre, Dim, Dpxre, Dpxim, Dpyre, Dpyim, Dpzre, Dpzim
-
+        // rk4 solution buffer should contain: Dre, Dim, Dpxre, Dpxim, Dpyre, Dpyim, Dpzre, Dpzim
          
         for (int i = 0; i < nmo; i++) {
             for (int j = 0; j < nmo; j++) {
-                rk4_buffer[offset_dre + i*nmo+j] = Dre->pointer()[i][j];
-                rk4_buffer[offset_dim + i*nmo+j] = Dim->pointer()[i][j];
+                rk4_soln[offset_dre + i*nmo+j] = Dre->pointer()[i][j];
+                rk4_soln[offset_dim + i*nmo+j] = Dim->pointer()[i][j];
             }
         }
+
         for (int i = 0; i < nS; i++) {
             for (int j = 0; j < nS; j++) {
-                rk4_buffer[offset_dre_plasmon_x + i*nS+j] = Dre_plasmon_x->pointer()[i][j];
-                rk4_buffer[offset_dim_plasmon_x + i*nS+j] = Dim_plasmon_x->pointer()[i][j];
+                rk4_soln[offset_dre_plasmon_x + i*nS+j] = Dre_plasmon_x->pointer()[i][j];
+                rk4_soln[offset_dim_plasmon_x + i*nS+j] = Dim_plasmon_x->pointer()[i][j];
 
-                rk4_buffer[offset_dre_plasmon_y + i*nS+j] = Dre_plasmon_y->pointer()[i][j];
-                rk4_buffer[offset_dim_plasmon_y + i*nS+j] = Dim_plasmon_y->pointer()[i][j];
+                rk4_soln[offset_dre_plasmon_y + i*nS+j] = Dre_plasmon_y->pointer()[i][j];
+                rk4_soln[offset_dim_plasmon_y + i*nS+j] = Dim_plasmon_y->pointer()[i][j];
 
-                rk4_buffer[offset_dre_plasmon_z + i*nS+j] = Dre_plasmon_z->pointer()[i][j];
-                rk4_buffer[offset_dim_plasmon_z + i*nS+j] = Dim_plasmon_z->pointer()[i][j];
+                rk4_soln[offset_dre_plasmon_z + i*nS+j] = Dre_plasmon_z->pointer()[i][j];
+                rk4_soln[offset_dim_plasmon_z + i*nS+j] = Dim_plasmon_z->pointer()[i][j];
             }
         }
-        rk4.do_step( rk4_call , rk4_buffer , iter * time_step , time_step );
+
+        // RK4
+        // y(n+1) = y( n ) + 1/6 h ( k1 + 2k2 + 2k3 + k4 )
+        // t(n+1) = t( n ) + h
+
+        memset((void*)rk4_k1,'\0',rk4_dim*sizeof(double));;
+        RK4(rk4_dim, rk4_soln, rk4_k1, rk4_k1, rk4_temp, iter*time_step + 0.0 * time_step, 0.0);
+        RK4(rk4_dim, rk4_soln, rk4_k2, rk4_k1, rk4_temp, iter*time_step + 0.5 * time_step, 0.5);
+        RK4(rk4_dim, rk4_soln, rk4_k3, rk4_k2, rk4_temp, iter*time_step + 0.5 * time_step, 0.5);
+        RK4(rk4_dim, rk4_soln, rk4_k4, rk4_k3, rk4_temp, iter*time_step + 1.0 * time_step, 1.0);
+
+        // y(n+1) = y( n ) + 1/6 h ( k1 + 2k2 + 2k3 + k4 )
+
+        C_DAXPY(rk4_dim,1.0/6.0 * time_step,rk4_k1,1,rk4_soln,1);
+        C_DAXPY(rk4_dim,2.0/6.0 * time_step,rk4_k2,1,rk4_soln,1);
+        C_DAXPY(rk4_dim,2.0/6.0 * time_step,rk4_k3,1,rk4_soln,1);
+        C_DAXPY(rk4_dim,1.0/6.0 * time_step,rk4_k4,1,rk4_soln,1);
+
         for (int i = 0; i < nmo; i++) {
             for (int j = 0; j < nmo; j++) {
-                Dre->pointer()[i][j] = rk4_buffer[offset_dre + i*nmo+j];
-                Dim->pointer()[i][j] = rk4_buffer[offset_dim + i*nmo+j];
+                Dre->pointer()[i][j] = rk4_soln[offset_dre + i*nmo+j];
+                Dim->pointer()[i][j] = rk4_soln[offset_dim + i*nmo+j];
             }
         }
         for (int i = 0; i < nS; i++) {
             for (int j = 0; j < nS; j++) {
-                Dre_plasmon_x->pointer()[i][j] = rk4_buffer[offset_dre_plasmon_x + i*nS+j];
-                Dim_plasmon_x->pointer()[i][j] = rk4_buffer[offset_dim_plasmon_x + i*nS+j];
+                Dre_plasmon_x->pointer()[i][j] = rk4_soln[offset_dre_plasmon_x + i*nS+j];
+                Dim_plasmon_x->pointer()[i][j] = rk4_soln[offset_dim_plasmon_x + i*nS+j];
 
-                Dre_plasmon_y->pointer()[i][j] = rk4_buffer[offset_dre_plasmon_y + i*nS+j];
-                Dim_plasmon_y->pointer()[i][j] = rk4_buffer[offset_dim_plasmon_y + i*nS+j];
+                Dre_plasmon_y->pointer()[i][j] = rk4_soln[offset_dre_plasmon_y + i*nS+j];
+                Dim_plasmon_y->pointer()[i][j] = rk4_soln[offset_dim_plasmon_y + i*nS+j];
 
-                Dre_plasmon_z->pointer()[i][j] = rk4_buffer[offset_dre_plasmon_z + i*nS+j];
-                Dim_plasmon_z->pointer()[i][j] = rk4_buffer[offset_dim_plasmon_z + i*nS+j];
+                Dre_plasmon_z->pointer()[i][j] = rk4_soln[offset_dre_plasmon_z + i*nS+j];
+                Dim_plasmon_z->pointer()[i][j] = rk4_soln[offset_dim_plasmon_z + i*nS+j];
             }
         }
 
@@ -1026,10 +1150,6 @@ double TDHF::compute_energy() {
 
     }
 
-    free(factorb);
-    free(factorB);
-
-
     // fourier transform and spectrum
     FFTW();
     Spectrum();
@@ -1048,20 +1168,21 @@ double TDHF::compute_energy() {
     return 0.0;
 }
 
-void TDHF::rk4_call_gah( state_type &x , state_type &dxdt , double t ){
+void TDHF::RK4( int rk4_dim, double * rk4_soln , double * rk4_out, double * rk4_in , double * rk4_temp, double curtime, double step ){
 
-    for (int i = 0; i < 2*(nmo*nmo+3*nS*nS); i++) {
-        dxdt[i] = 0.0;
-    }
+    C_DCOPY(rk4_dim,rk4_soln,1,rk4_temp,1);
+    C_DAXPY(rk4_dim,step * time_step , rk4_in, 1, rk4_temp, 1);
+
+    memset((void*)rk4_out,'\0',rk4_dim*sizeof(double));
 
     e_dip_x = 0.0;
     e_dip_y = 0.0;
     e_dip_z = 0.0;
     for (int i = 0; i < nmo; i++) {
         for (int j = 0; j < nmo; j++) {
-            e_dip_x += x[offset_dre+i*nmo+j] * dipole[0]->pointer()[i+nfzc][j+nfzc];
-            e_dip_y += x[offset_dre+i*nmo+j] * dipole[1]->pointer()[i+nfzc][j+nfzc];
-            e_dip_z += x[offset_dre+i*nmo+j] * dipole[2]->pointer()[i+nfzc][j+nfzc];
+            e_dip_x += rk4_temp[offset_dre+i*nmo+j] * dipole[0]->pointer()[i+nfzc][j+nfzc];
+            e_dip_y += rk4_temp[offset_dre+i*nmo+j] * dipole[1]->pointer()[i+nfzc][j+nfzc];
+            e_dip_z += rk4_temp[offset_dre+i*nmo+j] * dipole[2]->pointer()[i+nfzc][j+nfzc];
         }
     }
     e_dip_x *= 2.0;
@@ -1079,9 +1200,9 @@ void TDHF::rk4_call_gah( state_type &x , state_type &dxdt , double t ){
     for (int A=0; A<nS; A++){
         for (int B=0; B<nS; B++){
             for (int C=0; C<nS; C++){
-                temp_x->pointer()[A][B] += x[offset_dre_plasmon_x+A*nS+C]*Dip_x->pointer()[C][B];
-                temp_y->pointer()[A][B] += x[offset_dre_plasmon_y+A*nS+C]*Dip_y->pointer()[C][B];
-                temp_z->pointer()[A][B] += x[offset_dre_plasmon_z+A*nS+C]*Dip_z->pointer()[C][B];
+                temp_x->pointer()[A][B] += rk4_temp[offset_dre_plasmon_x+A*nS+C]*Dip_x->pointer()[C][B];
+                temp_y->pointer()[A][B] += rk4_temp[offset_dre_plasmon_y+A*nS+C]*Dip_y->pointer()[C][B];
+                temp_z->pointer()[A][B] += rk4_temp[offset_dre_plasmon_z+A*nS+C]*Dip_z->pointer()[C][B];
             }
         }
     }
@@ -1094,42 +1215,48 @@ void TDHF::rk4_call_gah( state_type &x , state_type &dxdt , double t ){
 
     // kout = f( t( n + mh ) , y( n ) + mh kin)
 
-    ExtField(t); 
+    //ExtField(t); 
+    ExtField(curtime);
 
     // electronic part
-    ElectronicContribution(&x[offset_dre],&x[offset_dim],&dxdt[offset_dre],&dxdt[offset_dim]);
-
+    ElectronicContribution(&rk4_temp[offset_dre],&rk4_temp[offset_dim],&rk4_out[offset_dre],&rk4_out[offset_dim]);
 
     // 3 components of plasmon part
+<<<<<<< HEAD
     PlasmonContribution(&x[offset_dre_plasmon_x],&x[offset_dim_plasmon_x],&dxdt[offset_dre_plasmon_x],&dxdt[offset_dim_plasmon_x],Dip_x,Hp_x,polarization[0]);
     PlasmonContribution(&x[offset_dre_plasmon_x],&x[offset_dim_plasmon_y],&dxdt[offset_dre_plasmon_x],&dxdt[offset_dim_plasmon_x],Dip_y,Hp_y,polarization[1]);
     PlasmonContribution(&x[offset_dre_plasmon_x],&x[offset_dim_plasmon_z],&dxdt[offset_dre_plasmon_x],&dxdt[offset_dim_plasmon_x],Dip_z,Hp_z,polarization[2]);
+=======
+    PlasmonContribution(&rk4_temp[offset_dre_plasmon_x],&rk4_temp[offset_dim_plasmon_x],&rk4_out[offset_dre_plasmon_x],&rk4_out[offset_dim_plasmon_x],Dip_x,Hp_x,polarization[0]);
+    PlasmonContribution(&rk4_temp[offset_dre_plasmon_y],&rk4_temp[offset_dim_plasmon_y],&rk4_out[offset_dre_plasmon_y],&rk4_out[offset_dim_plasmon_y],Dip_y,Hp_y,polarization[1]);
+    PlasmonContribution(&rk4_temp[offset_dre_plasmon_z],&rk4_temp[offset_dim_plasmon_z],&rk4_out[offset_dre_plasmon_z],&rk4_out[offset_dim_plasmon_z],Dip_z,Hp_z,polarization[2]);
+>>>>>>> b8398429... updates mean_field_cqed to be compatible with psi4-1.0 as downloaded on 12/06/16
 
     // 3 components of interaction term
-    InteractionContribution(&x[offset_dre],&x[offset_dim],&dxdt[offset_dre],&dxdt[offset_dim],
-                            &x[offset_dre_plasmon_x],&x[offset_dim_plasmon_x],&dxdt[offset_dre_plasmon_x],&dxdt[offset_dim_plasmon_x],
+    InteractionContribution(&rk4_temp[offset_dre],          &rk4_temp[offset_dim],          &rk4_out[offset_dre],          &rk4_out[offset_dim],
+                            &rk4_temp[offset_dre_plasmon_x],&rk4_temp[offset_dim_plasmon_x],&rk4_out[offset_dre_plasmon_x],&rk4_out[offset_dim_plasmon_x],
                             Hp_int_x,
                             dipole_pot_x,
                             e_dip_x,
                             dipole_p_x);
 
-    InteractionContribution(&x[offset_dre],&x[offset_dim],&dxdt[offset_dre],&dxdt[offset_dim],
-                            &x[offset_dre_plasmon_y],&x[offset_dim_plasmon_y],&dxdt[offset_dre_plasmon_y],&dxdt[offset_dim_plasmon_y],
+    InteractionContribution(&rk4_temp[offset_dre],          &rk4_temp[offset_dim],          &rk4_out[offset_dre],          &rk4_out[offset_dim],
+                            &rk4_temp[offset_dre_plasmon_y],&rk4_temp[offset_dim_plasmon_y],&rk4_out[offset_dre_plasmon_y],&rk4_out[offset_dim_plasmon_y],
                             Hp_int_y,
                             dipole_pot_y,
                             e_dip_y,
                             dipole_p_y);
 
-    InteractionContribution(&x[offset_dre],&x[offset_dim],&dxdt[offset_dre],&dxdt[offset_dim],
-                            &x[offset_dre_plasmon_z],&x[offset_dim_plasmon_z],&dxdt[offset_dre_plasmon_z],&dxdt[offset_dim_plasmon_z],
+    InteractionContribution(&rk4_temp[offset_dre],          &rk4_temp[offset_dim],          &rk4_out[offset_dre],          &rk4_out[offset_dim],
+                            &rk4_temp[offset_dre_plasmon_z],&rk4_temp[offset_dim_plasmon_z],&rk4_out[offset_dre_plasmon_z],&rk4_out[offset_dim_plasmon_z],
                             Hp_int_z,
                             dipole_pot_z,
                             e_dip_z,
                             dipole_p_z);
 
-    BuildLindblad(&x[offset_dre_plasmon_x],&x[offset_dim_plasmon_x],&dxdt[offset_dre_plasmon_x],&dxdt[offset_dim_plasmon_x]);
-    BuildLindblad(&x[offset_dre_plasmon_y],&x[offset_dim_plasmon_y],&dxdt[offset_dre_plasmon_y],&dxdt[offset_dim_plasmon_y]);
-    BuildLindblad(&x[offset_dre_plasmon_z],&x[offset_dim_plasmon_z],&dxdt[offset_dre_plasmon_z],&dxdt[offset_dim_plasmon_z]);
+    BuildLindblad(&rk4_temp[offset_dre_plasmon_x],&rk4_temp[offset_dim_plasmon_x],&rk4_out[offset_dre_plasmon_x],&rk4_out[offset_dim_plasmon_x]);
+    BuildLindblad(&rk4_temp[offset_dre_plasmon_y],&rk4_temp[offset_dim_plasmon_y],&rk4_out[offset_dre_plasmon_y],&rk4_out[offset_dim_plasmon_y]);
+    BuildLindblad(&rk4_temp[offset_dre_plasmon_z],&rk4_temp[offset_dim_plasmon_z],&rk4_out[offset_dre_plasmon_z],&rk4_out[offset_dim_plasmon_z]);
 
 }
 
@@ -1379,7 +1506,7 @@ void TDHF::TransformIntegralsFull() {
     memset((void*)buf2,'\0',ndoubles*sizeof(double));
 
     // (Q|rs)
-    boost::shared_ptr<PSIO> psio(new PSIO());
+    std::shared_ptr<PSIO> psio(new PSIO());
     psio->open(PSIF_DCC_QSO,PSIO_OPEN_OLD);
     psio_address addr1  = PSIO_ZERO;
     psio_address addrvo = PSIO_ZERO;
@@ -1473,7 +1600,7 @@ void TDHF::TransformIntegrals() {
     memset((void*)buf2,'\0',ndoubles*sizeof(double));
 
     // (Q|rs)
-    boost::shared_ptr<PSIO> psio(new PSIO());
+    std::shared_ptr<PSIO> psio(new PSIO());
     psio->open(PSIF_DCC_QSO,PSIO_OPEN_OLD);
     psio_address addr1  = PSIO_ZERO;
     psio_address addrvo = PSIO_ZERO;

@@ -27,33 +27,16 @@
 # @END LICENSE
 #
 
-import psi4
-import psi4.driver.p4util as p4util
-from psi4.driver.procedures import proc_util
+cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 
-def run_mean_field_cqed(name, **kwargs):
-    r"""Function encoding sequence of PSI module and plugin calls so that
-    mean_field_cqed can be called via :py:func:`~driver.energy`. For post-scf plugins.
+# These were the compilers used to compile Psi4. They may or may not be
+# required to successfully run your plugin.
+set(CMAKE_C_COMPILER /edfs/users/edgroup/software/intel2016/bin/icc)
+set(CMAKE_CXX_COMPILER /edfs/users/edgroup/software/intel2016/bin/icpc)
+set(CMAKE_Fortran_COMPILER )
 
-    >>> energy('mean_field_cqed')
+project(mean_field_cqed CXX)
 
-    """
-    lowername = name.lower()
-    kwargs = p4util.kwargs_lower(kwargs)
+find_package(psi4 1.0 REQUIRED)
 
-    # Your plugin's psi4 run sequence goes here
-    ref_wfn = kwargs.get('ref_wfn', None)
-    if ref_wfn is None:
-        ref_wfn = psi4.driver.scf_helper(name, **kwargs)
-
-    mean_field_cqed_wfn = psi4.core.plugin('mean_field_cqed.so',ref_wfn)
-    return mean_field_cqed_wfn
-
-
-# Integration with driver routines
-psi4.driver.procedures['energy']['mean_field_cqed'] = run_mean_field_cqed
-psi4.driver.procedures['energy']['cqed'] = run_mean_field_cqed
-
-def exampleFN():
-    # Your Python code goes here
-    pass
+add_psi4_plugin(mean_field_cqed frozen_natural_orbitals.cc  tdhf.cc  tdhf_cqed.cc)
