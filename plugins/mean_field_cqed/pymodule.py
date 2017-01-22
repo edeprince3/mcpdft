@@ -41,12 +41,20 @@ def run_mean_field_cqed(name, **kwargs):
     lowername = name.lower()
     kwargs = p4util.kwargs_lower(kwargs)
 
+    optstash = p4util.OptionsState(
+        ['SCF', 'DF_INTS_IO'])
+
+    psi4.core.set_local_option('SCF', 'DF_INTS_IO', 'SAVE')
+
     # Your plugin's psi4 run sequence goes here
     ref_wfn = kwargs.get('ref_wfn', None)
     if ref_wfn is None:
         ref_wfn = psi4.driver.scf_helper(name, **kwargs)
 
     mean_field_cqed_wfn = psi4.core.plugin('mean_field_cqed.so',ref_wfn)
+
+    optstash.restore()
+
     return mean_field_cqed_wfn
 
 
