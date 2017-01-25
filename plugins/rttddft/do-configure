@@ -1,0 +1,3 @@
+#!/bin/bash
+
+cmake -DCMAKE_CXX_FLAGS="-L/opt/local/lib/ -lfftw3" .
