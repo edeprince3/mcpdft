@@ -1,0 +1,30 @@
+
+# PYTHONPATH must include directory above plugin directory.
+#     Define either externally or here, then import plugin.
+sys.path.insert(0, './..')
+import rttd2rdm
+
+molecule {
+H 0.0 0.0 0.0
+H 0.0 0.0 1.0
+#O
+#H 1 1.0
+#H 1 1.0 2 104.5
+symmetry c1
+}
+
+set {
+  #dft_spherical_points 6
+  #dft_functional b3lyp
+  reference rhf #rks
+  basis sto-3g
+  #scf_type pk
+  scf_type df
+  df_basis_scf cc-pvdz-jkfit
+  time_step 0.00002
+  laser_amp 0.00001
+  total_time 100
+}
+energy('rttd2rdm')
+
+rttd2rdm.exampleFN()
