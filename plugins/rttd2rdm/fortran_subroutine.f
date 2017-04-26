@@ -27,16 +27,16 @@
         ! unpack eigenvectors
         do p=1,n
             do q=1,n
-                re(p,q) = real(c(p,q))
-                im(p,q) = real(aimag(c(p,q)))
+                re(q,p) = real(c(p,q))
+                im(q,p) = real(aimag(c(p,q)))
             end do
         end do
 
-        !write(*,*)'Info:       ',info
-        !write(*,*)'Eigenval:   ',w
-        !write(*,*)'Eigenvalues:',c
-        !write(*,*)'Eigenvec Re:',re
-        !write(*,*)'Eigenvec Im:',im
+        !write(*,*)'Info:        ',info
+        !write(*,*)'Eigenval:    ',w
+        !write(*,*)'Eigenvectors:',c
+        !write(*,*)'Eigenvec Re: ',re
+        !write(*,*)'Eigenvec Im: ',im
 
         RETURN
         END

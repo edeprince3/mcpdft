@@ -22,6 +22,10 @@
  *@END LICENSE
  */
 
+
+// small number.  values below this number are set to zero
+#define TINY 1e-10
+
 #include "psi4/psi4-dec.h"
 #include "psi4/libmints/basisset.h"
 #include "psi4/libmints/wavefunction.h"
@@ -495,15 +499,19 @@ void TD2RDM::Compute2Cumulant(std::shared_ptr<Matrix> Fre,std::shared_ptr<Matrix
     std::shared_ptr<Matrix> tre (new Matrix(nso_*nso_,nso_*nso_));
     std::shared_ptr<Matrix> tim (new Matrix(nso_*nso_,nso_*nso_));
 
-    double * Dre = (double*)malloc(nso_*nso_*sizeof(double));
-    double * Dim = (double*)malloc(nso_*nso_*sizeof(double));
-    double * tempre = (double*)malloc(nso_*nso_*sizeof(double));
-    double * tempim = (double*)malloc(nso_*nso_*sizeof(double));
-    double * Ftempre = (double*)malloc(nso_*nso_*sizeof(double));
-    double * Ftempim = (double*)malloc(nso_*nso_*sizeof(double));
-    double * Qnore = (double*)malloc(nQ_*nso_*nso_*sizeof(double));
-    double * Qnoim = (double*)malloc(nQ_*nso_*nso_*sizeof(double));
-    double * Eval_p = Eval->pointer();
+    double * Dre      = (double*)malloc(nso_*nso_*sizeof(double));
+    double * Dim      = (double*)malloc(nso_*nso_*sizeof(double));
+    double * tempre   = (double*)malloc(nso_*nso_*sizeof(double));
+    double * tempim   = (double*)malloc(nso_*nso_*sizeof(double));
+    double * Ftempre  = (double*)malloc(nso_*nso_*sizeof(double));
+    double * Ftempim  = (double*)malloc(nso_*nso_*sizeof(double));
+    double * Ftempre2 = (double*)malloc(nso_*nso_*sizeof(double));
+    double * Ftempim2 = (double*)malloc(nso_*nso_*sizeof(double));
+    double * Dtempre  = (double*)malloc(nso_*nso_*sizeof(double));
+    double * Dtempim  = (double*)malloc(nso_*nso_*sizeof(double));
+    double * Qnore    = (double*)malloc(nQ_*nso_*nso_*sizeof(double));
+    double * Qnoim    = (double*)malloc(nQ_*nso_*nso_*sizeof(double));
+    double * Eval_p   = Eval->pointer();
 
     for (int p = 0; p < nso_*nso_; p++){
         Dre[p] = Dre0[p];
@@ -526,8 +534,66 @@ void TD2RDM::Compute2Cumulant(std::shared_ptr<Matrix> Fre,std::shared_ptr<Matrix
 //        outfile->Printf("\n");
 //    }
 //    outfile->Printf("\n");
+//    Fre->print();
+
+    // make sure no negative zeros are present in the density matrix
+    for (int p = 0; p< nso_*nso_; p++){
+        if ( fabs(Dre[p]) < TINY ) {
+            Dre[p] = 0.0;
+        }
+        if ( fabs(Dim[p]) < TINY ) {
+            Dim[p] = 0.0;
+        }
+    }
+    outfile->Printf("Re(D)\n");
+    for (int p = 0; p < nso_; p++){
+        for (int q = 0; q < nso_; q++){
+            outfile->Printf("%20.12lf",Dre[p*nso_+q]);
+        }
+        outfile->Printf("\n");
+    }
+    outfile->Printf("\n");
+    outfile->Printf("Im(D)\n");
+    for (int p = 0; p < nso_; p++){
+        for (int q = 0; q < nso_; q++){
+            outfile->Printf("%20.12lf",Dre[p*nso_+q]);
+        }
+        outfile->Printf("\n");
+    }
+    outfile->Printf("\n");
 
     DiagonalizeHermitianMatrix(nso_,Dre,Dim,Eval_p);
+
+    // make sure no negative zeros are present in the density matrix
+    for (int p = 0; p< nso_*nso_; p++){
+        if ( fabs(Dre[p]) < TINY ) {
+            Dre[p] = 0.0;
+        }
+        if ( fabs(Dim[p]) < TINY ) {
+            Dim[p] = 0.0;
+        }
+    }
+
+//    // bring first column to last (fix Fortran ordering)
+//    
+//    double * shuffle_re = (double*)malloc(nso_*sizeof(double));
+//    double * shuffle_im = (double*)malloc(nso_*sizeof(double));
+//    for (int p= 0; p< nso_; p++){
+//        shuffle_re[p] = Dre[p*nso_+0];
+//        shuffle_im[p] = Dim[p*nso_+0];
+//    }
+//    for (int p= 0; p< nso_; p++){
+//        for (int q= 1; q< nso_; q++){
+//            Dre[p*nso_+q - 1] = Dre[p*nso_+q];
+//            Dim[p*nso_+q - 1] = Dim[p*nso_+q];
+//            if (q == (nso_-1)){
+//                Dre[p*nso_+q] = shuffle_re[p];
+//                Dim[p*nso_+q] = shuffle_im[p];
+//            }
+//        }
+//    }
+//    free(shuffle_re);             
+//    free(shuffle_im);             
     
 //    for (int p = 0; p < nso_; p++){
 //        for (int q = 0; q < nso_; q++){
@@ -542,11 +608,26 @@ void TD2RDM::Compute2Cumulant(std::shared_ptr<Matrix> Fre,std::shared_ptr<Matrix
 //        }
 //        outfile->Printf("\n");
 //    }
-//    outfile->Printf("\n");
-//    for (int p = 0; p < nso_; p++){
-//        outfile->Printf(" %20.12lf ",Eval_p[p]);
-//    }
-//    outfile->Printf("\n");
+    outfile->Printf("eigenvalues\n");
+    for (int p = 0; p < nso_; p++){
+        outfile->Printf(" %20.12lf\n",Eval_p[p]);
+    }
+    outfile->Printf("Re(eigenvectors)\n");
+    for (int p = 0; p < nso_; p++){
+        for (int q = 0; q < nso_; q++){
+            outfile->Printf("%20.12lf",Dre[p*nso_+q]);
+        }
+        outfile->Printf("\n");
+    }
+    outfile->Printf("\n");
+    outfile->Printf("Im(eigenvectors)\n");
+    for (int p = 0; p < nso_; p++){
+        for (int q = 0; q < nso_; q++){
+            outfile->Printf("%20.12lf",Dim[p*nso_+q]);
+        }
+        outfile->Printf("\n");
+    }
+    outfile->Printf("\n");
 
     // transform Fock matrix
     //printf("Transforming Fock matrix to NO basis \n"); 
@@ -580,25 +661,94 @@ void TD2RDM::Compute2Cumulant(std::shared_ptr<Matrix> Fre,std::shared_ptr<Matrix
             }
         }
     }
+    outfile->Printf("Re(F)\n");
     for (int p = 0; p < nso_; p++){
         for (int q = 0; q < nso_; q++){
             for (int r = 0; r < nso_; r++){
                 Ftempre[p*nso_+q] += Dim[r*nso_+p]*tempim[r*nso_+q]; 
                 Ftempim[p*nso_+q] -= Dim[r*nso_+p]*tempre[r*nso_+q]; 
             }
-        outfile->Printf("%20.12lf ",Ftempre[p*nso_+q]);
+            //outfile->Printf("%20.12lf ",Ftempre[p*nso_+p],Eval_p[p]);
+            outfile->Printf("%20.12lf ",Ftempre[p*nso_+q]);
+        }
+        outfile->Printf("\n");
+    }
+    outfile->Printf("Im(F)\n");
+    for (int p = 0; p < nso_; p++){
+        for (int q = 0; q < nso_; q++){
+            outfile->Printf("%20.12lf ",Ftempim[p*nso_+q]);
+        }
+        outfile->Printf("\n");
+    }
+    //exit(0);
+
+    // transform D1 to basis that diagonalizes D1 to get consistent 
+    // eigenvalues ordering
+//    outfile->Printf("\n");
+//    outfile->Printf("wtf\n");
+/*
+    for (int p = 0; p < nso_; p++){
+        for (int q = 0; q < nso_; q++){
+            tempre[p*nso_+q] = 0.0; 
+            tempim[p*nso_+q] = 0.0; 
+            for (int r = 0; r < nso_; r++){
+                tempre[p*nso_+q] += Dre0[p*nso_+r]*Dre[r*nso_+q] - Dim0[p*nso_+r]*Dim[r*nso_+q]; 
+                tempim[p*nso_+q] += Dre0[p*nso_+r]*Dim[r*nso_+q] + Dim0[p*nso_+r]*Dre[r*nso_+q]; 
+            }
+        }
+    }
+    for (int p = 0; p < nso_; p++){
+        for (int q = 0; q < nso_; q++){
+            Dtempre[p*nso_+q] = 0.0; 
+            Dtempim[p*nso_+q] = 0.0; 
+            for (int r = 0; r < nso_; r++){
+                Dtempre[p*nso_+q] += Dre[r*nso_+p]*tempre[r*nso_+q]; 
+                Dtempim[p*nso_+q] += Dre[r*nso_+p]*tempim[r*nso_+q]; 
+            }
         }
     outfile->Printf("\n");
     }
+    for (int p = 0; p < nso_; p++){
+        for (int q = 0; q < nso_; q++){
+            tempre[p*nso_+q] = 0.0; 
+            tempim[p*nso_+q] = 0.0; 
+            for (int r = 0; r < nso_; r++){
+                tempim[p*nso_+q] += Dre0[p*nso_+r]*Dim[r*nso_+q] + Dim0[p*nso_+r]*Dre[r*nso_+q]; 
+                tempre[p*nso_+q] += Dre0[p*nso_+r]*Dre[r*nso_+q] - Dim0[p*nso_+r]*Dim[r*nso_+q]; 
+            }
+        }
+    }
+    for (int p = 0; p < nso_; p++){
+        for (int q = 0; q < nso_; q++){
+            for (int r = 0; r < nso_; r++){
+                Dtempre[p*nso_+q] += Dim[r*nso_+p]*tempim[r*nso_+q]; 
+                Dtempim[p*nso_+q] -= Dim[r*nso_+p]*tempre[r*nso_+q]; 
+            }
+//        outfile->Printf("%20.12lf ",Dtempre[p*nso_+q]);
+        }
+//    outfile->Printf("\n");
+    }
+*/
+
+// the rest of drn's fix for the orbital transformation
+/*
+    for (int p = 0; p < nso_; p++){
+        Eval_p[p] = Dtempre[p*nso_+p];
+        if (Eval_p[p] < 1e-14){Eval_p[p] = 0.0;}
+    } 
+*/
+
+
     // make sure no negative zeros are present in the Fock matrix
     for (int p = 0; p< nso_*nso_; p++){
-        if (Ftempre[p] > -1.0e-12 && Ftempre[p] < 1.0e-12){
+        if ( fabs(Ftempre[p]) < TINY ) {
             Ftempre[p] = 0.0;
         }
-        if (Ftempim[p] > -1.0e-12 && Ftempim[p] < 1.0e-12){
+        if ( fabs(Ftempim[p]) < TINY ) {
             Ftempim[p] = 0.0;
         }
     }
+
 //    outfile->Printf("\n");
     free(tempre);
     free(tempim);
@@ -621,6 +771,7 @@ void TD2RDM::Compute2Cumulant(std::shared_ptr<Matrix> Fre,std::shared_ptr<Matrix
             }
         }
     }
+
     for (int Q = 0; Q < nQ_; Q++){
         for (int p = 0; p < nso_; p++){
             for (int q = 0; q < nso_; q++){
@@ -636,7 +787,8 @@ void TD2RDM::Compute2Cumulant(std::shared_ptr<Matrix> Fre,std::shared_ptr<Matrix
             }
         }
     }
-    for (int Q = 0; Q < nQ_; Q++){
+
+    /*for (int Q = 0; Q < nQ_; Q++){
         for (int p = 0; p < nso_; p++){
             for (int q = 0; q < nso_; q++){
                 int pq = Q*nso_*nso_+p*nso_+q;
@@ -722,18 +874,117 @@ void TD2RDM::Compute2Cumulant(std::shared_ptr<Matrix> Fre,std::shared_ptr<Matrix
                         tre->pointer()[p*nso_+q][r*nso_+s] += Qnore[pr]*Qnore[qs] * (1.0-Ep)*(1.0-Eq)*(Er)*(Es); 
                         tre->pointer()[p*nso_+q][r*nso_+s] += Qnoim[pr]*Qnoim[qs] * (1.0-Ep)*(1.0-Eq)*(Er)*(Es); 
 
-                        tim->pointer()[p*nso_+q][r*nso_+s] += Qnore[pr]*Qnoim[qs] * (1.0-Ep)*(1.0-Eq)*(Er)*(Es); 
-                        tim->pointer()[p*nso_+q][r*nso_+s] -= Qnoim[pr]*Qnore[qs] * (1.0-Ep)*(1.0-Eq)*(Er)*(Es); 
+                    int pp = p*nso_+p;
+                    int qq = q*nso_+q;
+                    int rr = r*nso_+r;
+                    int ss = s*nso_+s;
+
+                    //double delr = - (Ftempre[pp] + Ftempre[qq] - Ftempre[rr] - Ftempre[ss]);
+                    //double deli = - (Ftempim[pp] + Ftempim[qq] - Ftempim[rr] - Ftempim[ss]);
+                    //double del2 = delr*delr + deli*deli;
+                    //double one_over_del_re =  delr / del2;
+                    //double one_over_del_im = -deli / del2;
+
+                    //if ( fabs ( sqrt(del2) ) < 1e-12 ) one_over_del_re = 0.0;
+                    //if ( fabs ( sqrt(del2) ) < 1e-12 ) one_over_del_im = 0.0;
+
+                    double del = - (Ftempre[pp] + Ftempre[qq] - Ftempre[rr] - Ftempre[ss]);
+                    double one_over_del = 1.0 / del;
+                    if ( fabs ( del ) < TINY ) one_over_del = 0.0;
+
+
+                    double Qrr = C_DDOT(nQ_,Qnore + p * nso_ + r, nso_*nso_, Qnore + q * nso_ + s, nso_*nso_);
+                    double Qii = C_DDOT(nQ_,Qnoim + p * nso_ + r, nso_*nso_, Qnoim + q * nso_ + s, nso_*nso_);
+                    double Qri = C_DDOT(nQ_,Qnore + p * nso_ + r, nso_*nso_, Qnoim + q * nso_ + s, nso_*nso_);
+                    double Qir = C_DDOT(nQ_,Qnoim + p * nso_ + r, nso_*nso_, Qnore + q * nso_ + s, nso_*nso_);
+
+                    tre->pointer()[p*nso_+q][r*nso_+s] += Qrr * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del;//_re; 
+                    tre->pointer()[p*nso_+q][r*nso_+s] -= Qii * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del;//_re; 
+
+                    //tre->pointer()[p*nso_+q][r*nso_+s] -= Qri * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del_im; 
+                    //tre->pointer()[p*nso_+q][r*nso_+s] -= Qir * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del_im; 
+
+                    tim->pointer()[p*nso_+q][r*nso_+s] += Qri * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del;//_re; 
+                    tim->pointer()[p*nso_+q][r*nso_+s] += Qir * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del;//_re; 
+
+                    //tim->pointer()[p*nso_+q][r*nso_+s] += Qrr * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del_im; 
+                    //tim->pointer()[p*nso_+q][r*nso_+s] -= Qii * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del_im; 
+
+/* 
+                    treold->copy(tre);
+                    timold->copy(tim);
+                    for (long int t = 0; t < nso_; t++){
+                        if (t != p){
+                            int tp = t*nso_+p;
+                            tre->pointer()[p*nso_+q][r*nso_+s] += Ftempre[tp] * treold->pointer()[t*nso_+q][r*nso_+s];
+                            tre->pointer()[p*nso_+q][r*nso_+s] -= Ftempim[tp] * timold->pointer()[t*nso_+q][r*nso_+s];
+
+                            tim->pointer()[p*nso_+q][r*nso_+s] += Ftempre[tp] * timold->pointer()[t*nso_+q][r*nso_+s];
+                            tim->pointer()[p*nso_+q][r*nso_+s] += Ftempim[tp] * treold->pointer()[t*nso_+q][r*nso_+s];
+                        }
+                        if (t != q){
+                            int tq = t*nso_+q;
+                            tre->pointer()[p*nso_+q][r*nso_+s] += Ftempre[tq] * treold->pointer()[p*nso_+t][r*nso_+s];
+                            tre->pointer()[p*nso_+q][r*nso_+s] -= Ftempim[tq] * timold->pointer()[p*nso_+t][r*nso_+s];
+
+                            tim->pointer()[p*nso_+q][r*nso_+s] += Ftempre[tq] * timold->pointer()[p*nso_+t][r*nso_+s];
+                            tim->pointer()[p*nso_+q][r*nso_+s] += Ftempim[tq] * treold->pointer()[p*nso_+t][r*nso_+s];
+                        }
+                        if (t != r){
+                            int rt = r*nso_+t;
+                            tre->pointer()[p*nso_+q][r*nso_+s] -= Ftempre[rt] * treold->pointer()[p*nso_+q][t*nso_+s];
+                            tre->pointer()[p*nso_+q][r*nso_+s] += Ftempim[rt] * timold->pointer()[p*nso_+q][t*nso_+s];
+
+                            tim->pointer()[p*nso_+q][r*nso_+s] -= Ftempre[rt] * timold->pointer()[p*nso_+q][t*nso_+s];
+                            tim->pointer()[p*nso_+q][r*nso_+s] -= Ftempim[rt] * treold->pointer()[p*nso_+q][t*nso_+s];
+                        }
+                        if (t != s){
+                            int st = s*nso_+t;
+                            tre->pointer()[p*nso_+q][r*nso_+s] -= Ftempre[st] * treold->pointer()[p*nso_+q][r*nso_+t];
+                            tre->pointer()[p*nso_+q][r*nso_+s] += Ftempim[st] * timold->pointer()[p*nso_+q][r*nso_+t];
+
+                            tim->pointer()[p*nso_+q][r*nso_+s] -= Ftempre[st] * timold->pointer()[p*nso_+q][r*nso_+t];
+                            tim->pointer()[p*nso_+q][r*nso_+s] -= Ftempim[st] * treold->pointer()[p*nso_+q][r*nso_+t];
+                        }
                     }
+
+                    tre->pointer()[p*nso_+q][r*nso_+s] *=  one_over_del_re; 
+                    tre->pointer()[p*nso_+q][r*nso_+s] *=  one_over_del_re; 
+
+                    tre->pointer()[p*nso_+q][r*nso_+s] *=  one_over_del_im; 
+                    tre->pointer()[p*nso_+q][r*nso_+s] *=  one_over_del_im; 
+
+                    tim->pointer()[p*nso_+q][r*nso_+s] *=  one_over_del_re; 
+                    tim->pointer()[p*nso_+q][r*nso_+s] *=  one_over_del_re; 
+
+                    tim->pointer()[p*nso_+q][r*nso_+s] *=  one_over_del_im; 
+                    tim->pointer()[p*nso_+q][r*nso_+s] *=  one_over_del_im; 
+*/
+
                 }
             }
         }
     }
-//    tre->print();
-//    tim->print();
+    //tre->print();
+    //tim->print();
 
     //printf("begining iterative procedure \n"); 
-    for (int iter = 0; iter < 10000; iter++){
+
+    // symmetrize Fock matrix
+    for (long int p = 0; p < nso_; p++){
+        for (long int q = p+1; q < nso_; q++){
+            double Fre = 0.5 * ( Ftempre[p*nso_+q] + Ftempre[q*nso_+p] );
+            double Fim = 0.5 * ( Ftempim[p*nso_+q] - Ftempim[q*nso_+p] );
+            Ftempre2[p*nso_+q] =  Fre;
+            Ftempre2[q*nso_+p] =  Fre;
+            Ftempim2[p*nso_+q] =  Fim;
+            Ftempim2[q*nso_+p] = -Fim;
+        }
+        Ftempre2[p*nso_+p] = 0.0;
+        Ftempim2[p*nso_+p] = 0.0;
+    }
+
+    for (int iter = 0; iter < 50; iter++){
         treold->copy(tre);
         timold->copy(tim);
         tre->zero();
@@ -747,69 +998,90 @@ void TD2RDM::Compute2Cumulant(std::shared_ptr<Matrix> Fre,std::shared_ptr<Matrix
                     double Er = Eval_p[r]; 
                     for (long int s = 0; s < nso_; s++){
                         double Es = Eval_p[s]; 
-                        for (long int Q = 0; Q < nQ_; Q++){
-                            int pr = Q*nso_*nso_+r*nso_+p;
-                            int qs = Q*nso_*nso_+s*nso_+q;
-                            tre->pointer()[p*nso_+q][r*nso_+s] += Qnore[pr]*Qnore[qs] * (1.0-Ep)*(1.0-Eq)*(Er)*(Es); 
-                            tre->pointer()[p*nso_+q][r*nso_+s] += Qnoim[pr]*Qnoim[qs] * (1.0-Ep)*(1.0-Eq)*(Er)*(Es); 
-
-                            tim->pointer()[p*nso_+q][r*nso_+s] += Qnore[pr]*Qnoim[qs] * (1.0-Ep)*(1.0-Eq)*(Er)*(Es); 
-                            tim->pointer()[p*nso_+q][r*nso_+s] -= Qnoim[pr]*Qnore[qs] * (1.0-Ep)*(1.0-Eq)*(Er)*(Es); 
-                        }
-                        for (long int t = 0; t < nso_; t++){
-                            if (t != p){
-                                int tp = t*nso_+p;
-                                tre->pointer()[p*nso_+q][r*nso_+s] -= Ftempre[tp] * treold->pointer()[t*nso_+q][r*nso_+s];
-                                tre->pointer()[p*nso_+q][r*nso_+s] += Ftempim[tp] * timold->pointer()[t*nso_+q][r*nso_+s];
-
-                                tim->pointer()[p*nso_+q][r*nso_+s] -= Ftempre[tp] * timold->pointer()[t*nso_+q][r*nso_+s];
-                                tim->pointer()[p*nso_+q][r*nso_+s] -= Ftempim[tp] * treold->pointer()[t*nso_+q][r*nso_+s];
-                            }
-                            if (t != q){
-                                int tq = t*nso_+q;
-                                tre->pointer()[p*nso_+q][r*nso_+s] -= Ftempre[tq] * treold->pointer()[p*nso_+t][r*nso_+s];
-                                tre->pointer()[p*nso_+q][r*nso_+s] += Ftempim[tq] * timold->pointer()[p*nso_+t][r*nso_+s];
-
-                                tim->pointer()[p*nso_+q][r*nso_+s] -= Ftempre[tq] * timold->pointer()[p*nso_+t][r*nso_+s];
-                                tim->pointer()[p*nso_+q][r*nso_+s] -= Ftempim[tq] * treold->pointer()[p*nso_+t][r*nso_+s];
-                            }
-                            if (t != r){
-                                int rt = r*nso_+t;
-                                tre->pointer()[p*nso_+q][r*nso_+s] += Ftempre[rt] * treold->pointer()[p*nso_+q][t*nso_+s];
-                                tre->pointer()[p*nso_+q][r*nso_+s] -= Ftempim[rt] * timold->pointer()[p*nso_+q][t*nso_+s];
-
-                                tim->pointer()[p*nso_+q][r*nso_+s] += Ftempre[rt] * timold->pointer()[p*nso_+q][t*nso_+s];
-                                tim->pointer()[p*nso_+q][r*nso_+s] += Ftempim[rt] * treold->pointer()[p*nso_+q][t*nso_+s];
-                            }
-                            if (t != s){
-                                int st = s*nso_+t;
-                                tre->pointer()[p*nso_+q][r*nso_+s] += Ftempre[st] * treold->pointer()[p*nso_+q][r*nso_+t];
-                                tre->pointer()[p*nso_+q][r*nso_+s] -= Ftempim[st] * timold->pointer()[p*nso_+q][r*nso_+t];
-
-                                tim->pointer()[p*nso_+q][r*nso_+s] += Ftempre[st] * timold->pointer()[p*nso_+q][r*nso_+t];
-                                tim->pointer()[p*nso_+q][r*nso_+s] += Ftempim[st] * treold->pointer()[p*nso_+q][r*nso_+t];
-                            }
-                        }
                         int pp = p*nso_+p;
                         int qq = q*nso_+q;
                         int rr = r*nso_+r;
                         int ss = s*nso_+s;
-                        double denom = (Ftempre[pp] + Ftempre[qq] - Ftempre[rr] - Ftempre[ss])
-                                     * (Ftempre[pp] + Ftempre[qq] - Ftempre[rr] - Ftempre[ss])
-                                     + (Ftempim[pp] + Ftempim[qq] - Ftempim[rr] - Ftempim[ss])
-                                     * (Ftempim[pp] + Ftempim[qq] - Ftempim[rr] - Ftempim[ss]); 
+
+                        //double delr = - (Ftempre[pp] + Ftempre[qq] - Ftempre[rr] - Ftempre[ss]);
+                        //double deli = - (Ftempim[pp] + Ftempim[qq] - Ftempim[rr] - Ftempim[ss]);
+                        //double del2 = delr*delr + deli*deli;
+                        //double one_over_del_re =  delr / del2;
+                        //double one_over_del_im = -deli / del2;
+
+                        //if ( fabs ( sqrt(del2) ) < 1e-8 ) one_over_del_re = 0.0;
+                        //if ( fabs ( sqrt(del2) ) < 1e-8 ) one_over_del_im = 0.0;
+
+                        //double del = - (Ftempre[pp] + Ftempre[qq] - Ftempre[rr] - Ftempre[ss]);
+                        double del = - (Ftempre[pp] * (1.0 - Ep) * (1.0 - Ep) + Ftempre[qq] * (1.0 - Eq) * (1.0 - Eq) - Ftempre[rr] * Er * Er - Ftempre[ss] * Es * Es);
+                        double one_over_del = 1.0 / del;
+                        if ( fabs ( del) < TINY ) one_over_del = 0.0;
+
+                        double Qrr = C_DDOT(nQ_,Qnore + p * nso_ + r, nso_*nso_, Qnore + q * nso_ + s, nso_*nso_);
+                        double Qii = C_DDOT(nQ_,Qnoim + p * nso_ + r, nso_*nso_, Qnoim + q * nso_ + s, nso_*nso_);
+                        double Qri = C_DDOT(nQ_,Qnore + p * nso_ + r, nso_*nso_, Qnoim + q * nso_ + s, nso_*nso_);
+                        double Qir = C_DDOT(nQ_,Qnoim + p * nso_ + r, nso_*nso_, Qnore + q * nso_ + s, nso_*nso_);
+
+                        //tre->pointer()[p*nso_+q][r*nso_+s] += Qrr * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del_re;
+                        //tre->pointer()[p*nso_+q][r*nso_+s] -= Qii * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del_re;
+
+                        //tre->pointer()[p*nso_+q][r*nso_+s] -= Qri * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del_im;
+                        //tre->pointer()[p*nso_+q][r*nso_+s] -= Qir * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del_im;
+
+                        //tim->pointer()[p*nso_+q][r*nso_+s] += Qri * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del_re;
+                        //tim->pointer()[p*nso_+q][r*nso_+s] += Qir * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del_re;
+
+                        //tim->pointer()[p*nso_+q][r*nso_+s] += Qrr * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del_im;
+                        //tim->pointer()[p*nso_+q][r*nso_+s] -= Qii * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del_im;
+
                         double tempTre = 0.0;
                         double tempTim = 0.0;
-                        if (denom > 1e-12) {
-                           tempTre = (tre->pointer()[p*nso_+q][r*nso_+s]
-                                   * (Ftempre[pp] + Ftempre[qq] - Ftempre[rr] - Ftempre[ss])
-                                   + tim->pointer()[p*nso_+q][r*nso_+s] 
-                                   * (Ftempim[pp] + Ftempim[qq] - Ftempim[rr] - Ftempim[ss]))/denom;
-                           tempTim = (tim->pointer()[p*nso_+q][r*nso_+s] 
-                                   * (Ftempre[pp] + Ftempre[qq] - Ftempre[rr] - Ftempre[ss])
-                                   - tre->pointer()[p*nso_+q][r*nso_+s]
-                                   * (Ftempim[pp] + Ftempim[qq] - Ftempim[rr] - Ftempim[ss]))/denom;
+
+                        tempTre += Qrr * (1.0-Ep)*(1.0-Eq)*(Er)*(Es);
+                        tempTre -= Qii * (1.0-Ep)*(1.0-Eq)*(Er)*(Es);
+
+                        tempTim += Qri * (1.0-Ep)*(1.0-Eq)*(Er)*(Es);
+                        tempTim += Qir * (1.0-Ep)*(1.0-Eq)*(Er)*(Es);
+
+                        for (long int t = 0; t < nso_; t++){
+                            double Et = Eval_p[t];
+                            //if (t != p){
+                                int tp = t*nso_+p;
+                                tempTre += Ftempre2[tp] * treold->pointer()[t*nso_+q][r*nso_+s] * ( (1.0 - Ep ) * ( 1.0 - Et ) );
+                                tempTre -= Ftempim2[tp] * timold->pointer()[t*nso_+q][r*nso_+s] * ( (1.0 - Ep ) * ( 1.0 - Et ) );
+
+                                tempTim += Ftempre2[tp] * timold->pointer()[t*nso_+q][r*nso_+s] * ( (1.0 - Ep ) * ( 1.0 - Et ) );
+                                tempTim += Ftempim2[tp] * treold->pointer()[t*nso_+q][r*nso_+s] * ( (1.0 - Ep ) * ( 1.0 - Et ) );
+                            //}
+                            //if (t != q){
+                                int tq = t*nso_+q;
+                                tempTre += Ftempre2[tq] * treold->pointer()[p*nso_+t][r*nso_+s] * ( (1.0 - Eq ) * ( 1.0 - Et ) );
+                                tempTre -= Ftempim2[tq] * timold->pointer()[p*nso_+t][r*nso_+s] * ( (1.0 - Eq ) * ( 1.0 - Et ) );
+
+                                tempTim += Ftempre2[tq] * timold->pointer()[p*nso_+t][r*nso_+s] * ( (1.0 - Eq ) * ( 1.0 - Et ) );
+                                tempTim += Ftempim2[tq] * treold->pointer()[p*nso_+t][r*nso_+s] * ( (1.0 - Eq ) * ( 1.0 - Et ) );
+                            //}
+                            //if (t != r){
+                                int rt = r*nso_+t;
+                                tempTre -= Ftempre2[rt] * treold->pointer()[p*nso_+q][t*nso_+s] * ( Er * Et );
+                                tempTre += Ftempim2[rt] * timold->pointer()[p*nso_+q][t*nso_+s] * ( Er * Et );
+
+                                tempTim -= Ftempre2[rt] * timold->pointer()[p*nso_+q][t*nso_+s] * ( Er * Et );
+                                tempTim -= Ftempim2[rt] * treold->pointer()[p*nso_+q][t*nso_+s] * ( Er * Et );
+                            //}
+                            //if (t != s){
+                                int st = s*nso_+t;
+                                tempTre -= Ftempre2[st] * treold->pointer()[p*nso_+q][r*nso_+t] * ( Es * Et );
+                                tempTre += Ftempim2[st] * timold->pointer()[p*nso_+q][r*nso_+t] * ( Es * Et );
+
+                                tempTim -= Ftempre2[st] * timold->pointer()[p*nso_+q][r*nso_+t] * ( Es * Et );
+                                tempTim -= Ftempim2[st] * treold->pointer()[p*nso_+q][r*nso_+t] * ( Es * Et );
+                            //}
                         }
+
+                        tempTre *= one_over_del;
+                        tempTim *= one_over_del;
+
                         deltaT += pow((tempTre - treold->pointer()[p*nso_+q][r*nso_+s]),2); 
                         deltaT += pow((tempTim - timold->pointer()[p*nso_+q][r*nso_+s]),2);
                         if (tempTre > 1.0e-12 || tempTre < -1.0e-12){
@@ -822,19 +1094,74 @@ void TD2RDM::Compute2Cumulant(std::shared_ptr<Matrix> Fre,std::shared_ptr<Matrix
                 }
             }
         }
+        //for (long int p = 0; p < nso_; p++){
+        //    for (long int q = 0; q < nso_; q++){
+        //        for (long int r = 0; r < nso_; r++){
+        //            for (long int s = 0; s < nso_; s++){
+        //                if ( fabs(tre->pointer()[p*nso_+q][r*nso_+s]) < TINY ) tre->pointer()[p*nso_+q][r*nso_+s] = 0.0;
+        //                if ( fabs(tim->pointer()[p*nso_+q][r*nso_+s]) < TINY ) tim->pointer()[p*nso_+q][r*nso_+s] = 0.0;
+        //            }
+        //        }
+        //    }
+        //}
 //        tre->print();
 //        tim->print();
 //        exit(0);
         outfile->Printf(" |Delta T| =  %20.12lf  %20.12lf \n",sqrt(deltaT), deltaT);
-        if (sqrt(deltaT) < 1e-12){break;}
+        if (sqrt(deltaT) < 1e-8 ){break;}
+
+/*if (iter > 20 ) {
+    for (long int p = 0; p < nso_; p++){
+        double Ep = Eval_p[p]; 
+        for (long int q = 0; q < nso_; q++){
+            double Eq = Eval_p[q]; 
+            for (long int r = 0; r < nso_; r++){
+                double Er = Eval_p[r]; 
+                for (long int s = 0; s < nso_; s++){
+                    double Es = Eval_p[s]; 
+
+                    int pp = p*nso_+p;
+                    int qq = q*nso_+q;
+                    int rr = r*nso_+r;
+                    int ss = s*nso_+s;
+
+                    double del = - (Ftempre[pp] + Ftempre[qq] - Ftempre[rr] - Ftempre[ss]);
+                    double one_over_del = 1.0 / del;
+                    if ( fabs ( del ) < TINY ) one_over_del = 0.0;
+
+                    double Qrr = C_DDOT(nQ_,Qnore + p * nso_ + r, nso_*nso_, Qnore + q * nso_ + s, nso_*nso_);
+                    double Qii = C_DDOT(nQ_,Qnoim + p * nso_ + r, nso_*nso_, Qnoim + q * nso_ + s, nso_*nso_);
+                    double Qri = C_DDOT(nQ_,Qnore + p * nso_ + r, nso_*nso_, Qnoim + q * nso_ + s, nso_*nso_);
+                    double Qir = C_DDOT(nQ_,Qnoim + p * nso_ + r, nso_*nso_, Qnore + q * nso_ + s, nso_*nso_);
+
+                    tre->pointer()[p*nso_+q][r*nso_+s]  = Qrr * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del;//_re; 
+                    tre->pointer()[p*nso_+q][r*nso_+s] -= Qii * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del;//_re; 
+
+                    tim->pointer()[p*nso_+q][r*nso_+s]  = Qri * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del;//_re; 
+                    tim->pointer()[p*nso_+q][r*nso_+s] += Qir * (1.0-Ep)*(1.0-Eq)*(Er)*(Es) * one_over_del;//_re; 
+printf("%5i %5i %5i %5i %20.12lf %20.12lf \n",p,q,r,s,del,one_over_del);
+
+                }
+            }
+        }
     }
-    //printf("exiting iterative procedure \n"); 
-//    free(Ftempre);
-//    free(Ftempim);
-    free(Qnore);
-    free(Qnoim);
-    //printf("computing 2-cumulant \n");
-    // building 2-cumulant  
+    tre->print();
+    tim->print();
+exit(0);
+}
+*/
+
+    }
+
+  //printf("exiting iterative procedure \n"); 
+    free(Ftempre);
+    free(Ftempim);
+    free(Ftempre2);
+    free(Ftempim2);
+
+    // MP2 test energy
+    double Emp2_re = 0.0;
+    double Emp2_im = 0.0;
     for (long int p = 0; p < nso_; p++){
         for (long int q = 0; q < nso_; q++){
             for (long int r = 0; r < nso_; r++){
