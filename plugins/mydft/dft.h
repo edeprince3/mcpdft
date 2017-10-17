@@ -36,6 +36,10 @@
 
 #include "psi4/libmints/wavefunction.h"
 
+// for grid
+#include "psi4/libfock/points.h"
+#include "psi4/libfock/cubature.h"
+
 namespace psi{ namespace mydft{
 
 class DFTSolver: public Wavefunction{
@@ -62,6 +66,43 @@ class DFTSolver: public Wavefunction{
     /// xc potential matrices
     std::shared_ptr<Matrix> Va_;
     std::shared_ptr<Matrix> Vb_;
+
+    /// explicitly evaluate exchange correlation energy 
+    double ExchangeCorrelationEnergy();
+
+    /// number of grid points_
+    long int phi_points_;
+
+    /// phi matrix
+    std::shared_ptr<Matrix> super_phi_;
+
+    /// d phi / dx matrix
+    std::shared_ptr<Matrix> super_phi_x_;
+
+    /// d phi / dy matrix
+    std::shared_ptr<Matrix> super_phi_y_;
+
+    /// d phi / dz matrix
+    std::shared_ptr<Matrix> super_phi_z_;
+
+    /// additional buffer of the size of the phi matrix
+    std::shared_ptr<Matrix> temp_phi_;
+
+    /// grid x values
+    std::shared_ptr<Vector> grid_x_;
+
+    /// grid y values
+    std::shared_ptr<Vector> grid_y_;
+
+    /// grid z values
+    std::shared_ptr<Vector> grid_z_;
+
+    /// grid weights
+    std::shared_ptr<Vector> grid_w_;
+
+    /// S^{-1/2}
+    std::shared_ptr<Matrix> Shalf_;
+    std::shared_ptr<Matrix> Shalf2;
 
 };
 

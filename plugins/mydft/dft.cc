@@ -36,6 +36,14 @@
 #include <tuple>
 #include "psi4/libpsi4util/libpsi4util.h"
 
+// for dft
+#include "psi4/libfock/v.h"
+#include "psi4/libfunctional/superfunctional.h"
+
+// for grid
+#include "psi4/libfock/points.h"
+#include "psi4/libfock/cubature.h"
+
 
 #include "psi4/psi4-dec.h"
 #include "psi4/liboptions/liboptions.h"
@@ -166,6 +174,139 @@ void DFTSolver::common_init() {
     same_a_b_orbs_ = false;
     same_a_b_dens_ = false;
 
+
+    // allocate memory for eigenvectors and eigenvalues of the overlap matrix
+    std::shared_ptr<Matrix> Sevec ( new Matrix(nso_,nso_) );
+    std::shared_ptr<Vector> Seval ( new Vector(nso_) );
+
+    // build S^(-1/2) symmetric orthogonalization matrix
+    S_->diagonalize(Sevec,Seval);
+
+    Shalf_ = (std::shared_ptr<Matrix>)( new Matrix(nso_,nso_) );
+    Shalf2 = (std::shared_ptr<Matrix>)( new Matrix(nso_,nso_) );
+    for (int mu = 0; mu < nso_; mu++) {
+        Shalf_->pointer()[mu][mu] = 1.0 / sqrt(Seval->pointer()[mu]);
+        Shalf2->pointer()[mu][mu] = sqrt(Seval->pointer()[mu]);
+    }
+
+    // transform Seval back to nonorthogonal basis
+    Shalf_->back_transform(Sevec);
+    Shalf2->back_transform(Sevec);
+
+
+    // obtain phi(r), del phi(r)
+
+    // evaluate basis function values on a grid:
+
+    // the only way I can figure out to get a properly initialized grid is to 
+    // read in a reference wave function from a previous dft job
+    scf::HF* scfwfn = (scf::HF*)reference_wavefunction_.get();
+    std::shared_ptr<SuperFunctional> functional = scfwfn->functional();
+    std::shared_ptr<VBase> potential = scfwfn->V_potential();
+
+    // phi matrix (real-space <- AO basis mapping)
+    // since grid is stored in blocks, we need to build a full phi matrix
+    // from the individual blocks:
+    std::shared_ptr<PointFunctions> points_func = potential->properties()[0];
+    points_func->set_pointers(Da_,Db_);
+
+    int nblocks = potential->nblocks();
+    phi_points_       = 0;
+    int max_functions = 0;
+    int max_points    = 0;
+    for (int myblock = 0; myblock < nblocks; myblock++) {
+        std::shared_ptr<BlockOPoints> block = potential->get_block(myblock);
+        points_func->compute_points(block);
+        int npoints = block->npoints();
+        phi_points_ += npoints;
+        const std::vector<int>& function_map = block->functions_local_to_global();
+        int nlocal = function_map.size();
+        if ( nlocal > max_functions ) max_functions = nlocal;
+        if ( npoints > max_points )   max_points    = npoints;
+    }
+
+    super_phi_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI",phi_points_,nso_));
+    temp_phi_  = std::shared_ptr<Matrix>(new Matrix("TEMP PHI",phi_points_,nso_));
+    grid_x_    = std::shared_ptr<Vector>(new Vector("GRID X",phi_points_));
+    grid_y_    = std::shared_ptr<Vector>(new Vector("GRID Y",phi_points_));
+    grid_z_    = std::shared_ptr<Vector>(new Vector("GRID Z",phi_points_));
+    grid_w_    = std::shared_ptr<Vector>(new Vector("GRID W",phi_points_));
+
+    phi_points_ = 0;
+    for (int myblock = 0; myblock < nblocks; myblock++) {
+        std::shared_ptr<BlockOPoints> block = potential->get_block(myblock);
+        points_func->compute_points(block);
+        int npoints = block->npoints();
+        const std::vector<int>& function_map = block->functions_local_to_global();
+        int nlocal = function_map.size();
+
+        double ** phi = points_func->basis_value("PHI")->pointer();
+
+        double * x = block->x();
+        double * y = block->y();
+        double * z = block->z();
+        double * w = block->w();
+
+        for (int p = 0; p < npoints; p++) {
+
+            grid_x_->pointer()[phi_points_ + p] = x[p];
+            grid_y_->pointer()[phi_points_ + p] = y[p];
+            grid_z_->pointer()[phi_points_ + p] = z[p];
+            grid_w_->pointer()[phi_points_ + p] = w[p];
+
+            for (int nu = 0; nu < nlocal; nu++) {
+                int nug = function_map[nu];
+                super_phi_->pointer()[phi_points_ + p][nug] = phi[p][nu];
+            }
+        }
+        phi_points_ += npoints;
+    }
+
+    // grab AO->SO transformation matrix
+    std::shared_ptr<Matrix> ao2so = reference_wavefunction_->aotoso();
+
+    // transform one index of super phi matrix (AO->SO)
+    std::shared_ptr<Matrix> temp (new Matrix(super_phi_));
+
+    for (int p = 0; p < phi_points_; p++) {
+        for (int sigma = 0; sigma < nso_; sigma++) {
+            double dum = 0.0;
+            for (int nu = 0; nu < nso_; nu++) {
+                dum += super_phi_->pointer()[p][nu] * ao2so->pointer()[nu][sigma];
+            }
+            temp->pointer()[p][sigma] = dum;
+        }
+    }
+
+    // AED: don't think we need this now.  use this to do so-mo transformed phi later
+    C_DCOPY(nso_*phi_points_,temp->pointer()[0],1,super_phi_->pointer()[0],1);
+/*
+    // 
+    // p(r) = phi . D' . phi^T, with D' in the SO basis
+    // 
+    // but, we're working with D in an orthonormal basis
+    // 
+    // D = S^{1/2}.D'.S^{1/2} 
+    // 
+    // p(r) = (phi.S^{-1/2}).D.(phi.S^{-1/2})^T
+    // 
+    // so, we need to tack on an additional S^{-1/2}
+    // to the phi matrix
+    // 
+    for (int p = 0; p < phi_points_; p++) {
+        for (int sigma = 0; sigma < nso_; sigma++) {
+            double dum = 0.0;
+            for (int nu = 0; nu < nso_; nu++) {
+                dum += temp->pointer()[p][nu] * Shalf_->pointer()[nu][sigma];
+            }
+            super_phi_->pointer()[p][sigma] = dum;
+        }
+    }
+*/
+
+
+
+
 }
 
 double DFTSolver::compute_energy() {
@@ -246,21 +387,6 @@ double DFTSolver::compute_energy() {
     outfile->Printf("\n");
     outfile->Printf("\n");
 
-    // allocate memory for eigenvectors and eigenvalues of the overlap matrix
-    std::shared_ptr<Matrix> Sevec ( new Matrix(nso_,nso_) );
-    std::shared_ptr<Vector> Seval ( new Vector(nso_) );
-
-    // build S^(-1/2) symmetric orthogonalization matrix
-    S_->diagonalize(Sevec,Seval);
-
-    std::shared_ptr<Matrix> Shalf = (std::shared_ptr<Matrix>)( new Matrix(nso_,nso_) );
-    for (int mu = 0; mu < nso_; mu++) {
-        Shalf->pointer()[mu][mu] = 1.0 / sqrt(Seval->pointer()[mu]);
-    }
-
-    // transform Seval back to nonorthogonal basis
-    Shalf->back_transform(Sevec);
-
     // form F' = ST^(-1/2) F S^(-1/2), where F = h
     Fa_->copy(h);
     Fb_->copy(h);
@@ -268,8 +394,8 @@ double DFTSolver::compute_energy() {
     std::shared_ptr<Matrix> Fprime_a ( new Matrix(Fa_) );
     std::shared_ptr<Matrix> Fprime_b ( new Matrix(Fb_) );
 
-    Fprime_a->transform(Shalf);
-    Fprime_b->transform(Shalf);
+    Fprime_a->transform(Shalf_);
+    Fprime_b->transform(Shalf_);
 
     // allocate memory for eigenvectors of F'
     std::shared_ptr<Matrix> Fevec_a ( new Matrix(nso_,nso_) );
@@ -281,8 +407,8 @@ double DFTSolver::compute_energy() {
     Fprime_b->diagonalize(Fevec_b,epsilon_b_,ascending);
 
     // Find C = S^(-1/2)C'
-    Ca_->gemm(false,false,1.0,Shalf,Fevec_a,0.0);
-    Cb_->gemm(false,false,1.0,Shalf,Fevec_b,0.0);
+    Ca_->gemm(false,false,1.0,Shalf_,Fevec_a,0.0);
+    Cb_->gemm(false,false,1.0,Shalf_,Fevec_b,0.0);
 
     // Construct density from C
     C_DGEMM('n','t',nso_,nso_,nalpha_,1.0,&(Ca_->pointer()[0][0]),nso_,&(Ca_->pointer()[0][0]),nso_,0.0,&(Da_->pointer()[0][0]),nso_);
@@ -421,6 +547,29 @@ double DFTSolver::compute_energy() {
         double exchange_correlation_energy = 0.0;
         if (functional->needs_xc()) {
             exchange_correlation_energy = potential->quadrature_values()["FUNCTIONAL"];
+
+
+            // try evaluating exc ourselves:
+            //std::shared_ptr<Vector> rho (new Vector(phi_points_));
+            double ** phi = super_phi_->pointer();
+            double ** Dap = Da_->pointer();
+            double ** Dbp = Db_->pointer();
+            double exc = 0.0;
+            for (int p = 0; p < phi_points_; p++) {
+                double duma = 0.0;
+                double dumb = 0.0;
+                for (int sigma = 0; sigma < nso_; sigma++) {
+                    for (int nu = 0; nu < nso_; nu++) {
+                        duma += phi[p][sigma] * phi[p][nu] * Dap[sigma][nu];
+                        dumb += phi[p][sigma] * phi[p][nu] * Dbp[sigma][nu];
+                    }
+                }
+                //rho->pointer()[p] = duma + dumb;
+                double rho_43 = pow(duma+dumb,4.0/3.0);
+                exc += -0.75 * pow(3.0/M_PI,1.0/3.0) * rho_43 * grid_w_->pointer()[p];
+                //exc += -9.0/8.0 * 2.0/3.0 * pow(3.0/M_PI,1.0/3.0) * rho_43 * grid_w_->pointer()[p];
+            }
+            printf("%20.12lf %20.12lf\n",exc,exchange_correlation_energy);
         }
 
         e_current  = enuc_;
@@ -435,10 +584,10 @@ double DFTSolver::compute_energy() {
 
         // form F' = ST^(-1/2) F S^(-1/2)
         Fprime_a->copy(Fa_);
-        Fprime_a->transform(Shalf);
+        Fprime_a->transform(Shalf_);
 
         Fprime_b->copy(Fb_);
-        Fprime_b->transform(Shalf);
+        Fprime_b->transform(Shalf_);
 
         // Now, we add a few steps for the DIIS procedure.
 
@@ -458,8 +607,8 @@ double DFTSolver::compute_energy() {
         // ea = ST^{-1/2} [FaDaS - SDaFa] S^{-1/2}
         // eb = ST^{-1/2} [FbDbS - SDbFb] S^{-1/2}
 
-        std::shared_ptr<Matrix> grad_a = OrbitalGradient(Da_,Fa_,Shalf);
-        std::shared_ptr<Matrix> grad_b = OrbitalGradient(Db_,Fb_,Shalf);
+        std::shared_ptr<Matrix> grad_a = OrbitalGradient(Da_,Fa_,Shalf_);
+        std::shared_ptr<Matrix> grad_b = OrbitalGradient(Db_,Fb_,Shalf_);
        
         // We will use the RMS of the orbital gradient 
         // to monitor convergence.
@@ -486,8 +635,8 @@ double DFTSolver::compute_energy() {
         Fprime_b->diagonalize(Fevec_b,epsilon_b_,ascending);
 
         // Find C = S^(-1/2)C'
-        Ca_->gemm(false,false,1.0,Shalf,Fevec_a,0.0);
-        Cb_->gemm(false,false,1.0,Shalf,Fevec_b,0.0);
+        Ca_->gemm(false,false,1.0,Shalf_,Fevec_a,0.0);
+        Cb_->gemm(false,false,1.0,Shalf_,Fevec_b,0.0);
 
         outfile->Printf("    %5i %20.12lf %20.12lf %20.12lf\n",iter,e_current,dele,0.5 * (gnorm_a + gnorm_b) ); 
 
