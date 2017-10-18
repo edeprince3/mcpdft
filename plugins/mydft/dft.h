@@ -36,6 +36,10 @@
 
 #include "psi4/libmints/wavefunction.h"
 
+// for dft
+#include "psi4/libfock/v.h"
+#include "psi4/libfunctional/superfunctional.h"
+
 // for grid
 #include "psi4/libfock/points.h"
 #include "psi4/libfock/cubature.h"
@@ -85,9 +89,6 @@ class DFTSolver: public Wavefunction{
     /// d phi / dz matrix
     std::shared_ptr<Matrix> super_phi_z_;
 
-    /// additional buffer of the size of the phi matrix
-    std::shared_ptr<Matrix> temp_phi_;
-
     /// grid x values
     std::shared_ptr<Vector> grid_x_;
 
@@ -99,6 +100,10 @@ class DFTSolver: public Wavefunction{
 
     /// grid weights
     std::shared_ptr<Vector> grid_w_;
+
+    /// a function to build phi/phi_x/...
+    void BuildPhiMatrix(std::shared_ptr<VBase> potential, std::shared_ptr<PointFunctions> points_func,
+            std::string phi_type, std::shared_ptr<Matrix> myphi);
 
     /// S^{-1/2}
     std::shared_ptr<Matrix> Shalf_;

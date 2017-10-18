@@ -210,6 +210,7 @@ void DFTSolver::common_init() {
     std::shared_ptr<PointFunctions> points_func = potential->properties()[0];
     points_func->set_pointers(Da_,Db_);
 
+    // determine number of grid points
     int nblocks = potential->nblocks();
     phi_points_       = 0;
     int max_functions = 0;
@@ -225,12 +226,26 @@ void DFTSolver::common_init() {
         if ( npoints > max_points )   max_points    = npoints;
     }
 
-    super_phi_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI",phi_points_,nso_));
-    temp_phi_  = std::shared_ptr<Matrix>(new Matrix("TEMP PHI",phi_points_,nso_));
-    grid_x_    = std::shared_ptr<Vector>(new Vector("GRID X",phi_points_));
-    grid_y_    = std::shared_ptr<Vector>(new Vector("GRID Y",phi_points_));
-    grid_z_    = std::shared_ptr<Vector>(new Vector("GRID Z",phi_points_));
-    grid_w_    = std::shared_ptr<Vector>(new Vector("GRID W",phi_points_));
+    super_phi_   = std::shared_ptr<Matrix>(new Matrix("SUPER PHI",phi_points_,nso_));
+    super_phi_x_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI X",phi_points_,nso_));
+    super_phi_y_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Y",phi_points_,nso_));
+    super_phi_z_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Z",phi_points_,nso_));
+    grid_x_      = std::shared_ptr<Vector>(new Vector("GRID X",phi_points_));
+    grid_y_      = std::shared_ptr<Vector>(new Vector("GRID Y",phi_points_));
+    grid_z_      = std::shared_ptr<Vector>(new Vector("GRID Z",phi_points_));
+    grid_w_      = std::shared_ptr<Vector>(new Vector("GRID W",phi_points_));
+
+    // build phi matrix and derivative phi matrices
+    BuildPhiMatrix(potential, points_func, "PHI",  super_phi_);
+    BuildPhiMatrix(potential, points_func, "PHI_X",super_phi_x_);
+    BuildPhiMatrix(potential, points_func, "PHI_Y",super_phi_y_);
+    BuildPhiMatrix(potential, points_func, "PHI_Z",super_phi_z_);
+}
+
+void DFTSolver::BuildPhiMatrix(std::shared_ptr<VBase> potential, std::shared_ptr<PointFunctions> points_func,
+        std::string phi_type, std::shared_ptr<Matrix> myphi) {
+
+    int nblocks = potential->nblocks();
 
     phi_points_ = 0;
     for (int myblock = 0; myblock < nblocks; myblock++) {
@@ -240,7 +255,7 @@ void DFTSolver::common_init() {
         const std::vector<int>& function_map = block->functions_local_to_global();
         int nlocal = function_map.size();
 
-        double ** phi = points_func->basis_value("PHI")->pointer();
+        double ** phi = points_func->basis_value(phi_type)->pointer();
 
         double * x = block->x();
         double * y = block->y();
@@ -256,7 +271,7 @@ void DFTSolver::common_init() {
 
             for (int nu = 0; nu < nlocal; nu++) {
                 int nug = function_map[nu];
-                super_phi_->pointer()[phi_points_ + p][nug] = phi[p][nu];
+                myphi->pointer()[phi_points_ + p][nug] = phi[p][nu];
             }
         }
         phi_points_ += npoints;
@@ -279,7 +294,7 @@ void DFTSolver::common_init() {
     }
 
     // AED: don't think we need this now.  use this to do so-mo transformed phi later
-    C_DCOPY(nso_*phi_points_,temp->pointer()[0],1,super_phi_->pointer()[0],1);
+    C_DCOPY(nso_*phi_points_,temp->pointer()[0],1,myphi->pointer()[0],1);
 /*
     // 
     // p(r) = phi . D' . phi^T, with D' in the SO basis
@@ -303,10 +318,6 @@ void DFTSolver::common_init() {
         }
     }
 */
-
-
-
-
 }
 
 double DFTSolver::compute_energy() {
