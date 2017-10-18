@@ -264,30 +264,18 @@ void MCPDFTSolver::BuildPhiMatrix(std::shared_ptr<VBase> potential, std::shared_
 
     C_DCOPY(nso_*phi_points_,temp->pointer()[0],1,myphi->pointer()[0],1);
 
-    // AED: don't think we need this now.  use this to do so-mo transformed phi later
-/*
-    // 
-    // p(r) = phi . D' . phi^T, with D' in the SO basis
-    // 
-    // but, we're working with D in an orthonormal basis
-    // 
-    // D = S^{1/2}.D'.S^{1/2} 
-    // 
-    // p(r) = (phi.S^{-1/2}).D.(phi.S^{-1/2})^T
-    // 
-    // so, we need to tack on an additional S^{-1/2}
-    // to the phi matrix
-    // 
+    // transform orbital index in phi matrices to MO basis
+    // NOTE: this will not work if Ca and Cb are different.  it is imperative that
+    // the v2rdm-casscf computation preceding mcpdft is run with reference = rhf/rohf
     for (int p = 0; p < phi_points_; p++) {
         for (int sigma = 0; sigma < nso_; sigma++) {
             double dum = 0.0;
             for (int nu = 0; nu < nso_; nu++) {
-                dum += temp->pointer()[p][nu] * Shalf_->pointer()[nu][sigma];
+                dum += temp->pointer()[p][nu] * Ca_->pointer()[nu][sigma];
             }
             myphi->pointer()[p][sigma] = dum;
         }
     }
-*/
 }
 
 double MCPDFTSolver::compute_energy() {
@@ -360,9 +348,12 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("        coulomb energy =              %20.12lf\n",coulomb_energy);
     outfile->Printf("        exchange-correlation energy = %20.12lf\n",mcpdft_xc_energy);
     outfile->Printf("\n");
-    outfile->Printf("    \* MCPDFT total energy =      %20.12lf\n",molecule_->nuclear_repulsion_energy()+one_electron_energy+coulomb_energy+mcpdft_xc_energy);
+
+    double total_energy = molecule_->nuclear_repulsion_energy()+one_electron_energy+coulomb_energy+mcpdft_xc_energy;
+    outfile->Printf("    * MCPDFT total energy =      %20.12lf\n",total_energy);
     outfile->Printf("\n");
 
+    return total_energy;
 }
 
 std::shared_ptr<Matrix> MCPDFTSolver::BuildJ(double * D, std::shared_ptr<Matrix> C) {

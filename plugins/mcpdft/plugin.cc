@@ -66,6 +66,7 @@ SharedWavefunction mcpdft(SharedWavefunction ref_wfn, Options& options)
     outfile->Printf( "        *    Multiconfigurational pair density functional theory    *\n");
     outfile->Printf( "        *                                                           *\n");
     outfile->Printf( "        *************************************************************\n");
+    outfile->Printf("\n\n");
 
     std::shared_ptr<MCPDFTSolver> dft (new MCPDFTSolver(ref_wfn,options));
     dft->compute_energy(); 
