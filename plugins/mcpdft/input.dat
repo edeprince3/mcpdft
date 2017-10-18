@@ -35,8 +35,7 @@ set v2rdm_casscf_private {
   cg_convergence 1e-6
   maxiter 1000000
 
-  # orbital optimization is broken, i think
-  optimize_orbitals false
+  optimize_orbitals true
 
   mu_update_frequency 500
 
