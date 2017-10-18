@@ -310,8 +310,7 @@ double MCPDFTSolver::compute_energy() {
     // read 2-RDM from disk
     ReadTPDM(D2aa,D2bb,D2ab,D1a,D1b);
 
-    // now, build rho(r), rho'(r), pi(r) and evaluate MCPDFT 
-    // kinetic, potential, coulomb, and exchange-correlation energy
+    // with the 1-RDM, we can evaluate the kinetic, potential, and coulomb nergies
 
     // one-electron terms:
 
@@ -340,9 +339,17 @@ double MCPDFTSolver::compute_energy() {
 
     double coulomb_energy = 0.5 * ( caa + cab + cba + cbb );
 
-    // mcpdft exchange/correlation energy
+    // now, build rho(r), rho'(r), pi(r) and evaluate the MCPDFT xc energy
 
     double mcpdft_xc_energy = 0.0; 
+
+
+
+
+
+
+
+    // print total energy and its components
 
     outfile->Printf("\n");
     outfile->Printf("    ==> Energetics <==\n");
