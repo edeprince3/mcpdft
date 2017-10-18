@@ -106,6 +106,39 @@ class MCPDFTSolver: public Wavefunction{
 
     /// build coulomb matrix
     std::shared_ptr<Matrix> BuildJ(double * D, std::shared_ptr<Matrix> C);
+
+    /// alpha-spin density
+    std::shared_ptr<Vector> rho_a_;
+
+    /// beta-spin density
+    std::shared_ptr<Vector> rho_b_;
+
+    /// alpha-spin density gradient x
+    std::shared_ptr<Vector> rho_a_x_;
+
+    /// beta-spin density gradient x
+    std::shared_ptr<Vector> rho_b_x_;
+
+    /// alpha-spin density gradient y
+    std::shared_ptr<Vector> rho_a_y_;
+
+    /// beta-spin density gradient y
+    std::shared_ptr<Vector> rho_b_y_;
+
+    /// alpha-spin density gradient z
+    std::shared_ptr<Vector> rho_a_z_;
+
+    /// beta-spin density gradient z
+    std::shared_ptr<Vector> rho_b_z_;
+
+    /// the on-top pair density
+    std::shared_ptr<Vector> pi_;
+
+    /// build spin densities and gradients
+    void BuildRho(double * D1a, double * D1b);
+
+    /// build on-top pair density
+    void BuildPi(double * D2ab);
 };
 
 }} // end of namespaces

@@ -331,11 +331,11 @@ double MCPDFTSolver::compute_energy() {
 
     double mcpdft_xc_energy = 0.0; 
 
+    // build alpha- and beta-spin densities and gradients
+    BuildRho(D1a,D1b);
 
-
-
-
-
+    // build on-top pair density
+    BuildPi(D2ab);
 
     // print total energy and its components
 
@@ -354,6 +354,106 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("\n");
 
     return total_energy;
+}
+
+void MCPDFTSolver::BuildPi(double * D2ab) {
+
+    pi_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+
+    double * pi_p = pi_->pointer();
+
+    double ** phi = super_phi_->pointer();
+
+    for (int p = 0; p < phi_points_; p++) {
+
+        double dum = 0.0;
+
+        // pi(r) = D(mu,nu; lambda,sigma) * phi(r,mu) * phi(r,nu) * phi(r,lambda) * phi(r,sigma)
+        for (int mu = 0; mu < nmo_; mu++) {
+            for (int nu = 0; nu < nmo_; nu++) {
+                for (int lambda = 0; lambda < nmo_; lambda++) {
+                    for (int sigma = 0; sigma < nmo_; sigma++) {
+
+                        dum += phi[p][mu] * phi[p][lambda] * phi[p][sigma] * phi[p][nu] * D2ab[mu*nmo_*nmo_*nmo_ + nu*nmo_*nmo_ + lambda*nmo_ + sigma];
+
+                    }
+                }
+            }
+        }
+
+        pi_p[p] = dum;
+    }
+
+}
+
+void MCPDFTSolver::BuildRho(double * D1a, double * D1b) {
+
+    rho_a_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+    rho_b_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+
+    rho_a_x_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+    rho_b_x_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+
+    rho_a_y_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+    rho_b_y_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+
+    rho_a_z_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+    rho_b_z_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+
+    double ** phi   = super_phi_->pointer();
+
+    double ** phi_x = super_phi_x_->pointer();
+    double ** phi_y = super_phi_y_->pointer();
+    double ** phi_z = super_phi_z_->pointer();
+
+    double * rho_ap = rho_a_->pointer();
+    double * rho_bp = rho_b_->pointer();
+ 
+    double * rho_a_xp = rho_a_x_->pointer();
+    double * rho_b_xp = rho_b_x_->pointer();
+
+    double * rho_a_yp = rho_a_y_->pointer();
+    double * rho_b_yp = rho_b_y_->pointer();
+ 
+    double * rho_a_zp = rho_a_z_->pointer();
+    double * rho_b_zp = rho_b_z_->pointer();
+
+    for (int p = 0; p < phi_points_; p++) {
+        double duma   = 0.0;
+        double dumb   = 0.0;
+        double duma_x = 0.0;
+        double dumb_x = 0.0;
+        double duma_y = 0.0;
+        double dumb_y = 0.0;
+        double duma_z = 0.0;
+        double dumb_z = 0.0;
+        for (int sigma = 0; sigma < nmo_; sigma++) {
+            for (int nu = 0; nu < nmo_; nu++) {
+                duma += phi[p][sigma] * phi[p][nu] * D1a[sigma*nmo_ + nu];
+                dumb += phi[p][sigma] * phi[p][nu] * D1b[sigma*nmo_ + nu];
+
+                duma_x += ( phi_x[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_x[p][nu] ) * D1a[sigma*nmo_ + nu];
+                dumb_x += ( phi_x[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_x[p][nu] ) * D1b[sigma*nmo_ + nu];
+
+                duma_y += ( phi_y[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_y[p][nu] ) * D1a[sigma*nmo_ + nu];
+                dumb_y += ( phi_y[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_y[p][nu] ) * D1b[sigma*nmo_ + nu];
+
+                duma_z += ( phi_z[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_z[p][nu] ) * D1a[sigma*nmo_ + nu];
+                dumb_z += ( phi_z[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_z[p][nu] ) * D1b[sigma*nmo_ + nu];
+            }
+        }
+        rho_ap[p] = duma;
+        rho_bp[p] = dumb;
+
+        rho_a_xp[p] = duma_x;
+        rho_b_xp[p] = dumb_x;
+
+        rho_a_yp[p] = duma_y;
+        rho_b_yp[p] = dumb_y;
+
+        rho_a_zp[p] = duma_z;
+        rho_b_zp[p] = dumb_z;
+    }
 }
 
 std::shared_ptr<Matrix> MCPDFTSolver::BuildJ(double * D, std::shared_ptr<Matrix> C) {
