@@ -1,0 +1,57 @@
+
+# first, import vrdm_casscf_private library
+sys.path.insert(0, '/Users/deprince/software/')
+import v2rdm_casscf_private
+# second, import mcpdft library
+sys.path.insert(0, './..')
+import mcpdft
+
+
+molecule mol {
+0 1
+h
+h 1 1.0
+symmetry c1
+}
+
+set {
+  basis cc-pvdz
+  # it is important that the scf_type is set to df for v2rdm-casscf (it is assumed in mcpdft)
+  scf_type df
+  d_convergence 1e-8
+  # it is important that the reference is set to rhf/rohf for v2rdm-casscf
+  reference rhf
+}
+
+set v2rdm_casscf_private {
+
+  positivity dqg
+
+  tpdm_write_full true
+  constrain_spin true
+
+  r_convergence  1e-5
+  e_convergence  1e-4
+  cg_convergence 1e-6
+  maxiter 1000000
+
+  # orbital optimization is broken, i think
+  optimize_orbitals false
+
+  mu_update_frequency 500
+
+  restricted_docc  [ 0 ]
+  active           [ 2 ]
+}
+
+# it is important that the reference is set to uks for mcpdft
+set mcpdft {
+  reference uks
+}
+
+# run v2rdm-casscf
+en,wfn = energy('v2rdm-casscf',return_wfn=True)
+
+# pass v2rdm-casscf wavefunction object into mcpdft
+energy('mcpdft',ref_wfn=wfn)
+
