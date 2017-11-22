@@ -561,7 +561,14 @@ double DFTSolver::compute_energy() {
 
 
             // try evaluating exc ourselves:
-            //std::shared_ptr<Vector> rho (new Vector(phi_points_));
+            
+            //===================================
+            // Evaluate the mcpdft_xc_energy
+            //===================================
+            
+            BuildRho(Da_,Db_);
+
+#if 0
             double ** phi = super_phi_->pointer();
             double ** Dap = Da_->pointer();
             double ** Dbp = Db_->pointer();
@@ -580,7 +587,18 @@ double DFTSolver::compute_energy() {
                 exc += -0.75 * pow(3.0/M_PI,1.0/3.0) * rho_43 * grid_w_->pointer()[p];
                 //exc += -9.0/8.0 * 2.0/3.0 * pow(3.0/M_PI,1.0/3.0) * rho_43 * grid_w_->pointer()[p];
             }
-            printf("%20.12lf %20.12lf\n",exc,exchange_correlation_energy);
+#endif
+            // printf("%20.12lf %20.12lf %20.12lf\n",Ex_LSDA,Ex_PW86,exchange_correlation_energy);
+            // printf(" Number of points: %ld\n",phi_points_);
+            printf("%20.12lf %20.12lf %20.12lf %20.12lf\n", // %20.12lf %20.12lf %20.12lf\n",
+            EX_LDA(rho_a_,rho_b_),
+            EX_LSDA(rho_a_, rho_b_, zeta_) /* + EC_VWN3_RPA() */,
+            // (is_gga_ || is_meta_) ? EX_PBE() : 0.0,
+            // (is_gga_ || is_meta_) ? EX_RPBE() : 0.0,
+            // (is_gga_ || is_meta_) ? EX_UPBE() : 0.0,
+            EX_B88() + EC_B88(), //EC_VWN3_RPA(),
+            // (is_gga_ || is_meta_) ? EX_LSDA(rho_a_, rho_b_, zeta_) + EC_VWN3_RPA() : 0.0,
+            exchange_correlation_energy);// - EX_LSDA(rho_a_, rho_b_, zeta_) ) ;
         }
 
         e_current  = enuc_;
@@ -628,8 +646,8 @@ double DFTSolver::compute_energy() {
 
         // The DIIS manager will write the current error vector to disk.
         if ( do_diis ) {
-            diis->WriteErrorVector(&(grad_a->pointer()[0][0]),&(grad_b->pointer()[0][0]));
-        }
+		diis->WriteErrorVector(&(grad_a->pointer()[0][0]),&(grad_b->pointer()[0][0]));
+	}
 
         // The DIIS manager extrapolates the Fock matrices, using
         // the Fock matrices and error vectors generated in this
@@ -670,6 +688,124 @@ double DFTSolver::compute_energy() {
 
     return e_current;
 
+}
+
+void DFTSolver::BuildRho(std::shared_ptr<Matrix> Da, std::shared_ptr<Matrix> Db) {
+
+    rho_a_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+    rho_b_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+
+    zeta_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+    rs_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+
+    double ** phi   = super_phi_->pointer();
+    double ** Dap = Da->pointer();
+    double ** Dbp = Db->pointer();
+
+    double * rho_ap = rho_a_->pointer();
+    double * rho_bp = rho_b_->pointer();
+
+    double * zeta_p = zeta_->pointer();
+    double * rs_p = rs_->pointer();
+
+    for (int p = 0; p < phi_points_; p++) {
+        double duma   = 0.0;
+        double dumb   = 0.0;
+        for (int sigma = 0; sigma < nso_; sigma++) {
+            for (int nu = 0; nu < nso_; nu++) {
+                duma += phi[p][sigma] * phi[p][nu] * Dap[sigma][nu];
+                dumb += phi[p][sigma] * phi[p][nu] * Dbp[sigma][nu];
+            }
+        }
+        rho_ap[p] = duma;
+        rho_bp[p] = dumb;
+
+        zeta_p[p] =  ( rho_ap[p] - rho_bp[p] ) / ( rho_ap[p] + rho_bp[p] );
+        rs_p[p] = pow( 3.0 / ( 4.0 * M_PI * (rho_ap[p] + rho_bp[p]) ) , 1.0/3.0 );
+    }
+
+    if ( is_gga_ || is_meta_ ) {
+
+        sigma_aa_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+        sigma_bb_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+        sigma_ab_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+
+        rho_a_x_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+        rho_b_x_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+
+        rho_a_y_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+        rho_b_y_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+
+        rho_a_z_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+        rho_b_z_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+    
+        tau_a_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+        tau_b_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+
+        double ** phi_x = super_phi_x_->pointer();
+        double ** phi_y = super_phi_y_->pointer();
+        double ** phi_z = super_phi_z_->pointer();
+
+        double * sigma_aap = sigma_aa_->pointer();
+        double * sigma_bbp = sigma_bb_->pointer();
+        double * sigma_abp = sigma_ab_->pointer();
+
+        double * rho_a_xp = rho_a_x_->pointer();
+        double * rho_b_xp = rho_b_x_->pointer();
+
+        double * rho_a_yp = rho_a_y_->pointer();
+        double * rho_b_yp = rho_b_y_->pointer();
+
+        double * rho_a_zp = rho_a_z_->pointer();
+        double * rho_b_zp = rho_b_z_->pointer(); 
+    
+        double * tau_ap = tau_a_->pointer();
+        double * tau_bp = tau_b_->pointer();
+
+        for (int p = 0; p < phi_points_; p++) {
+
+            double duma_x = 0.0;
+            double dumb_x = 0.0;
+            double duma_y = 0.0;
+            double dumb_y = 0.0;
+            double duma_z = 0.0;
+            double dumb_z = 0.0;
+            double dumta = 0.0;
+            double dumtb = 0.0;
+
+            for (int sigma = 0; sigma < nso_; sigma++) {
+                for (int nu = 0; nu < nso_; nu++) {
+                    duma_x += ( phi_x[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_x[p][nu] ) * Dap[sigma][nu];
+                    dumb_x += ( phi_x[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_x[p][nu] ) * Dbp[sigma][nu];
+
+                    duma_y += ( phi_y[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_y[p][nu] ) * Dap[sigma][nu];
+                    dumb_y += ( phi_y[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_y[p][nu] ) * Dbp[sigma][nu];
+
+                    duma_z += ( phi_z[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_z[p][nu] ) * Dap[sigma][nu];
+                    dumb_z += ( phi_z[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_z[p][nu] ) * Dbp[sigma][nu];
+                   
+                    dumta += (phi_x[p][sigma] * phi_x[p][nu] + phi_y[p][sigma] * phi_y[p][nu] + phi_z[p][sigma] * phi_z[p][nu]) * Dap[sigma][nu];
+                    dumtb += (phi_x[p][sigma] * phi_x[p][nu] + phi_y[p][sigma] * phi_y[p][nu] + phi_z[p][sigma] * phi_z[p][nu]) * Dbp[sigma][nu];
+                }
+            }
+
+            rho_a_xp[p] = duma_x;
+            rho_b_xp[p] = dumb_x;
+
+            rho_a_yp[p] = duma_y;
+            rho_b_yp[p] = dumb_y;
+
+            rho_a_zp[p] = duma_z;
+            rho_b_zp[p] = dumb_z;
+
+            sigma_aap[p] = pow(rho_a_xp[p],2.0) + pow(rho_a_yp[p],2.0) + pow(rho_a_zp[p],2.0);
+            sigma_bbp[p] = pow(rho_b_xp[p],2.0) + pow(rho_b_yp[p],2.0) + pow(rho_b_zp[p],2.0);
+            sigma_abp[p] = ( rho_a_xp[p] * rho_b_xp[p] ) +  ( rho_a_yp[p] * rho_b_yp[p] ) + ( rho_a_zp[p] * rho_b_zp[p] );
+
+            tau_ap[p] = dumta; 
+            tau_bp[p] = dumtb; 
+        }
+    }
 }
 
 std::shared_ptr<Matrix> DFTSolver::OrbitalGradient(std::shared_ptr<Matrix> D, 

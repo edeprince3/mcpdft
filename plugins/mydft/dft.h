@@ -109,6 +109,62 @@ class DFTSolver: public Wavefunction{
     std::shared_ptr<Matrix> Shalf_;
     std::shared_ptr<Matrix> Shalf2;
 
+    /// build G spin-interpolation formula
+    double Gfunction(double r, double A, double a1, double b1, double b2, double b3, double b4, double p);
+
+    /// zeta factor zeta = ( rho_a(r) - rho_b(r) ) / ( rho_a(r) + rho_b(r) )
+    std::shared_ptr<Vector> zeta_;
+
+    /// effective radius of density
+    std::shared_ptr<Vector> rs_;
+
+    /// tau kinetic energy of alpha electrons
+    std::shared_ptr<Vector> tau_a_;
+    
+    /// tau kinetic energy of beta electrons
+    std::shared_ptr<Vector> tau_b_;
+
+    /// build spin densities and gradients
+    void BuildRho(std::shared_ptr<Matrix> Da, std::shared_ptr<Matrix> Db);
+
+    //############################################################
+    //############ Exchange functions' declarations ##############
+    //############################################################
+
+    /// build EX_LDA(rho)
+    double EX_LDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector> rho_b);
+
+    /// build EX_LSDA(rho_sigma)
+    double EX_LSDA_Sigma(std::shared_ptr<Vector> rho_sigma);
+
+    /// build EX_LSDA(rho_a, rho_b, zeta)
+    double EX_LSDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector> rho_b, std::shared_ptr<Vector> zeta);
+    
+    /// build EX_B86_MGC()
+    double EX_B86_MGC();
+
+    /// build EX_B88()
+    double EX_B88();
+
+    /// build EX_PBE()
+    double EX_PBE();
+
+    /// build EX_RPBE()
+    double EX_RPBE();
+
+    /// build EX_UPBE()
+    double EX_UPBE();
+
+    //############################################################
+    //########### Correlation functions' declarations ############
+    //############################################################
+
+    /// build EC_VWN3_RPA()
+    double EC_VWN3_RPA();
+     
+    /// build EC_B88()
+    double EC_B88();
+
 };
 
 }}
