@@ -590,13 +590,13 @@ double DFTSolver::compute_energy() {
 #endif
             // printf("%20.12lf %20.12lf %20.12lf\n",Ex_LSDA,Ex_PW86,exchange_correlation_energy);
             // printf(" Number of points: %ld\n",phi_points_);
-            printf("%20.12lf %20.12lf %20.12lf %20.12lf\n", // %20.12lf %20.12lf %20.12lf\n",
+            printf("%20.12lf %20.12lf %20.12lf %20.12lf %20.12lf\n", // %20.12lf %20.12lf\n",
             EX_LDA(rho_a_,rho_b_),
             EX_LSDA(rho_a_, rho_b_, zeta_) /* + EC_VWN3_RPA() */,
-            // (is_gga_ || is_meta_) ? EX_PBE() : 0.0,
+            (is_gga_ || is_meta_) ? EX_PBE() : 0.0,
             // (is_gga_ || is_meta_) ? EX_RPBE() : 0.0,
             // (is_gga_ || is_meta_) ? EX_UPBE() : 0.0,
-            EX_B88() + EC_B88(), //EC_VWN3_RPA(),
+            EX_B88() + EC_B88_OP(), //EC_VWN3_RPA(),
             // (is_gga_ || is_meta_) ? EX_LSDA(rho_a_, rho_b_, zeta_) + EC_VWN3_RPA() : 0.0,
             exchange_correlation_energy);// - EX_LSDA(rho_a_, rho_b_, zeta_) ) ;
         }

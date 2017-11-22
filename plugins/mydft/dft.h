@@ -159,11 +159,15 @@ class DFTSolver: public Wavefunction{
     //########### Correlation functions' declarations ############
     //############################################################
 
+    /// build EC_B88()
+    double EC_B88_OP();
+   
+    /// build EC_PBE()
+    double EC_PBE();
+    
     /// build EC_VWN3_RPA()
     double EC_VWN3_RPA();
      
-    /// build EC_B88()
-    double EC_B88();
 
 };
 

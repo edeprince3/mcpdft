@@ -186,70 +186,41 @@ double DFTSolver::EX_B88(){
 
 double DFTSolver::EX_PBE(){
     
-    const double alpha = (2.0/3.0);      // Slater value
-    const double Cx = (9.0/8.0) * alpha * pow(3.0/M_PI,1.0/3.0);
-    const double MU = 0.2195149727645171;
+    const double delta = 0.06672455060314922;
+    const double MU = (1.0/3.0) * delta * M_PI * M_PI;
     const double KAPPA = 0.804;
 
     double * rho_ap = rho_a_->pointer();
     double * rho_bp = rho_b_->pointer();
-    
-    double * rho_a_xp = rho_a_x_->pointer();
-    double * rho_b_xp = rho_b_x_->pointer();
-
-    double * rho_a_yp = rho_a_y_->pointer();
-    double * rho_b_yp = rho_b_y_->pointer();
-
-    double * rho_a_zp = rho_a_z_->pointer();
-    double * rho_b_zp = rho_b_z_->pointer();
-    
-    double * zeta_p = zeta_->pointer();
     double * sigma_aap = sigma_aa_->pointer();
-    double * sigma_abp = sigma_ab_->pointer();
     double * sigma_bbp = sigma_bb_->pointer();
     
     double exc = 0.0;
     for (int p = 0; p < phi_points_; p++) {
    
-        double rhoa = 2.0 * rho_ap[p];
-        double rhob = 2.0 * rho_bp[p];
-        // local fermi wave vector
-        // double kf = pow( ( 3.0 * pow(M_PI,2.0) * (rho_ap[p] + rho_bp[p]) ) , 1.0/3.0);
-        double kfa = pow( ( 3.0 * pow(M_PI,2.0) * rhoa ) , 1.0/3.0);
-        double kfb = pow( ( 3.0 * pow(M_PI,2.0) * rhob ) , 1.0/3.0);
+        double rhoa = rho_ap[p];
+        double rhob = rho_bp[p];
+        double rhoa_43 = pow( rhoa, 4.0/3.0); 
+        double rhob_43 = pow( rhob, 4.0/3.0); 
+        double Xa = sqrt(sigma_aap[p]) / rhoa_43;
+        double Xb = sqrt(sigma_bbp[p]) / rhob_43;
         
-        double EXa = -(3.0 * kfa) / (4.0 * M_PI); 
-        double EXb = -(3.0 * kfb) / (4.0 * M_PI);
-
-        // double absDelRho = sqrt( ( pow( (rho_a_xp[p] + rho_b_xp[p]) ,2.0) + pow( (rho_a_yp[p] + rho_b_yp[p]) ,2.0) + pow( (rho_a_zp[p] + rho_b_zp[p]) ,2.0) ) );
-        double grada_2 = pow( rho_a_xp[p] ,2.0) + pow( rho_a_yp[p]  ,2.0) + pow( rho_a_zp[p] ,2.0);
-        double gradb_2 = pow( rho_b_xp[p] ,2.0) + pow( rho_b_yp[p]  ,2.0) + pow( rho_b_zp[p] ,2.0);
-        double grada_gradb = ( rho_a_xp[p] * rho_b_xp[p] ) + ( rho_a_yp[p] * rho_b_yp[p] ) + ( rho_a_zp[p] * rho_b_zp[p] ) ;
-        double absDelRho = sqrt (grada_2 + 2.0 * grada_gradb + gradb_2);
-        // double absDelRho = sqrt( sigma_aap[p] + 2.0 * sigma_abp[p] + sigma_bbp[p] );
-
-        double Sa = sqrt(4.0 * grada_2) / (2.0 * kfa * rhoa); 
-        double Sb = sqrt(4.0 * gradb_2) / (2.0 * kfb * rhob);
-    
-         
-        // double s = absDelRho / ( 2.0 * kf * (rho_ap[p] + rho_bp[p]) );
-        double sa = absDelRho / ( 2.0 * kfa *2.0* rho_ap[p] );
-        double sb = absDelRho / ( 2.0 * kfb *2.0* rho_bp[p] );
+        double Sa = (Xa * pow(6.0, 2.0/3.0)) / (12.0 * pow(M_PI, 2.0/3.0));
+        double Sb = (Xb * pow(6.0, 2.0/3.0)) / (12.0 * pow(M_PI, 2.0/3.0));
         
-        // double Fs = pow( (1.0 + 1.296 * pow(s,2.0) + 14.0 * pow(s,4.0) + 0.2 * pow(s,6.0) ) , 1.0/15.0 ) ;
-        // double Fsa = pow( (1.0 + 1.296 * pow(sa,2.0) + 14.0 * pow(sa,4.0) + 0.2 * pow(sa,6.0) ) , 1.0/15.0 );
-        // double Fsb = pow( (1.0 + 1.296 * pow(sb,2.0) + 14.0 * pow(sb,4.0) + 0.2 * pow(sb,6.0) ) , 1.0/15.0 );
-        // double Fs = 1.0 + KAPPA - KAPPA * pow( (1.0 + (MU * pow(s,2.0)) / KAPPA ), -1.0 );
         double Fsa = 1.0 + KAPPA - KAPPA * pow( (1.0 + (MU * pow(Sa,2.0)) / KAPPA ), -1.0 );
         double Fsb = 1.0 + KAPPA - KAPPA * pow( (1.0 + (MU * pow(Sb,2.0)) / KAPPA ), -1.0 );
-        
-        double EX_GGAa = rhoa * EXa * Fsa;
-        double EX_GGAb = rhob * EXb * Fsb;
-        // exc += -Cx * pow( (rho_ap[p] + rho_bp[p]), 4.0/3.0) * Fs * grid_w_->pointer()[p]; 
-        // exc += -pow(2.0,1.0/3.0) * Cx * ( pow( rho_ap[p], 4.0/3.0) + pow( rho_bp[p], 4.0/3.0) ) * Fs * grid_w_->pointer()[p]; 
-        // exc += -pow(2.0,1.0/3.0) * Cx * ( pow( rho_ap[p], 4.0/3.0) * Fsa + pow( rho_bp[p], 4.0/3.0) * Fsb ) * grid_w_->pointer()[p]; 
-        // exc += -0.5 * ( -3.0 *2.0* kfa/(4*M_PI) * rho_ap[p] * Fsa - 3.0 *2.0* kfb / (4*M_PI) * rho_bp[p] * Fsb ) * grid_w_->pointer()[p]; 
-        exc += 0.5 * ( EX_GGAa + EX_GGAb ) * grid_w_->pointer()[p]; 
+       
+        auto E = [](double rhos, double Fss) -> double{
+
+                 double temp = -0.75 * pow(3.0, 1.0/3.0) * pow(M_PI, 2.0/3.0) * pow(rhos,4.0/3.0) * Fss / M_PI;
+                 return temp;
+        };
+ 
+        double EX_GGAa = 0.5 * E(2.0*rhoa,Fsa);
+        double EX_GGAb = 0.5 * E(2.0*rhob,Fsb);
+       
+        exc += ( EX_GGAa + EX_GGAb ) * grid_w_->pointer()[p]; 
     }
     return exc;
 }
@@ -329,7 +300,7 @@ double DFTSolver::EX_PBE(){
 // with empirica atomic parameters t and u defined below.
 // From T. Tsuneda, J. Chem. Phys. 110, 10664 (1999).
 
-double DFTSolver::EC_B88(){
+double DFTSolver::EC_B88_OP(){
 
    const double beta = 0.0042;
  
@@ -456,6 +427,43 @@ double DFTSolver::EC_B88(){
 //    }
 //    return exc;
 // }
+
+double DFTSolver::EC_PBE(){
+
+    double * rho_ap = rho_a_->pointer();
+    double * rho_bp = rho_b_->pointer();
+    
+    double * sigma_aap = sigma_aa_->pointer();
+    double * sigma_bbp = sigma_bb_->pointer();
+
+    double * zeta_p = zeta_->pointer();
+    double * rs_p = rs_->pointer();
+
+    double exc = 0.0;
+    for (int p = 0; p < phi_points_; p++) {
+
+        double rhoa = rho_ap[p];
+        double rhob = rho_bp[p];
+        double rho = rhoa + rhob;
+        double rhoa_43 = pow( rhoa, 4.0/3.0);
+        double rhob_43 = pow( rhob, 4.0/3.0);
+        double rhoa_13 = pow( rhoa, 1.0/3.0);
+        double rhob_13 = pow( rhob, 1.0/3.0);
+        double sigmaaa = sigma_aap[p];
+        double sigmabb = sigma_bbp[p];
+        double Xa = sqrt(sigmaaa) / rhoa_43;
+        double Xb = sqrt(sigmabb) / rhob_43;
+        double Xa_2 = Xa * Xa;
+        double Xb_2 = Xb * Xb;
+        double zeta = zeta_p[p];
+        double rs = rs_p[p];
+        double x = sqrt(rs);
+     
+
+    }
+
+}
+
 
 double DFTSolver::EC_VWN3_RPA(){
    
