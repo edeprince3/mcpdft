@@ -343,13 +343,13 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("    ==> Energetics <==\n");
     outfile->Printf("\n");
 
-    outfile->Printf("        nuclear repulsion energy =    %20.12lf\n",molecule_->nuclear_repulsion_energy());
+    outfile->Printf("        nuclear repulsion energy =    %20.12lf\n",molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}));
     outfile->Printf("        one-electron energy =         %20.12lf\n",one_electron_energy);
     outfile->Printf("        coulomb energy =              %20.12lf\n",coulomb_energy);
     outfile->Printf("        exchange-correlation energy = %20.12lf\n",mcpdft_xc_energy);
     outfile->Printf("\n");
 
-    double total_energy = molecule_->nuclear_repulsion_energy()+one_electron_energy+coulomb_energy+mcpdft_xc_energy;
+    double total_energy = molecule_->nuclear_repulsion_energy({0.0,0.0,0.0})+one_electron_energy+coulomb_energy+mcpdft_xc_energy;
     outfile->Printf("    * MCPDFT total energy =      %20.12lf\n",total_energy);
     outfile->Printf("\n");
 

@@ -137,7 +137,7 @@ void DFTSolver::common_init() {
     molecule_ = reference_wavefunction_->molecule();
 
     // grab the nuclear repulsion energy from the molecule
-    enuc_     = molecule_->nuclear_repulsion_energy();
+    enuc_     = molecule_->nuclear_repulsion_energy({0.0,0.0,0.0});
 
     // SO/MO transformation matrices
     Ca_ = std::shared_ptr<Matrix>(reference_wavefunction_->Ca());
