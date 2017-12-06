@@ -64,15 +64,15 @@
 #include "psi4/libfock/v.h"
 #include "psi4/libfunctional/superfunctional.h"
 
-#include "dft.h"
+#include "mcpdft_solver.h"
 
-namespace psi{ namespace mydft {
+namespace psi{ namespace mcpdft {
 
     //###########################################################
     //# The exchange and correlation functional implementations #
     //###########################################################
 
-double DFTSolver::Gfunction(double r, double A, double a1, double b1, double b2, double b3, double b4, double p) {
+double MCPDFTSolver::Gfunction(double r, double A, double a1, double b1, double b2, double b3, double b4, double p) {
 
     double G = -2.0 * A * (1.0 + a1 * r) * log( 1.0 + pow( 2.0 * A * ( b1 * sqrt(r) + b2 * r + b3 * pow(r,3.0/2.0) + b4 * pow(r, p+1.0 ) )  ,-1.0 ) );
 
@@ -84,7 +84,7 @@ double DFTSolver::Gfunction(double r, double A, double a1, double b1, double b2,
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-double DFTSolver::EX_LDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector> rho_b){
+double MCPDFTSolver::EX_LDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector> rho_b){
     
     const double alpha = (2.0/3.0);      // Slater value
     const double Cx = (9.0/8.0) * alpha * pow(3.0/M_PI,1.0/3.0);
@@ -102,26 +102,7 @@ double DFTSolver::EX_LDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector> 
     return exc;
 }
 
-double DFTSolver::EX_LSDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector> rho_b){
-    
-    const double alpha = (2.0/3.0);      // Slater value
-    const double Cx = (9.0/8.0) * alpha * pow(3.0/M_PI,1.0/3.0);
-
-    double * rho_ap = rho_a->pointer();
-    double * rho_bp = rho_b->pointer();
-    
-    double exc = 0.0;
-    for (int p = 0; p < phi_points_; p++) {
-
-        double exa = pow(2.0,1.0/3.0) * Cx * pow( rho_ap[p], 4.0/3.0) ;
-        double exb = pow(2.0,1.0/3.0) * Cx * pow( rho_bp[p], 4.0/3.0) ;
-        double ex_LSDA = exa + exb;
-        exc += - ex_LSDA * grid_w_->pointer()[p]; 
-    }
-    return exc;
-}
-
-double DFTSolver::EX_LSDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector> rho_b, std::shared_ptr<Vector> zeta){
+double MCPDFTSolver::EX_LSDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector> rho_b, std::shared_ptr<Vector> zeta){
     
     const double alpha = (2.0/3.0);      // Slater value
     const double Cx = (9.0/8.0) * alpha * pow(3.0/M_PI,1.0/3.0);
@@ -129,7 +110,6 @@ double DFTSolver::EX_LSDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector>
     double * rho_ap = rho_a->pointer();
     double * rho_bp = rho_b->pointer();
     double * zeta_p = zeta_->pointer();
-
     
     double exc = 0.0;
     for (int p = 0; p < phi_points_; p++) {
@@ -145,7 +125,7 @@ double DFTSolver::EX_LSDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector>
     return exc;
 }
 
-double DFTSolver::EX_B86_MGC(){
+double MCPDFTSolver::EX_B86_MGC(){
     
     const double Cx = 0.73855876638202240586; 
     const double beta = 0.00375;
@@ -174,7 +154,7 @@ double DFTSolver::EX_B86_MGC(){
     return exc;
 }
 
-double DFTSolver::EX_B88(){
+double MCPDFTSolver::EX_B88(){
     
     const double Cx = 0.73855876638202240586; 
     const double beta = 0.0042;
@@ -203,7 +183,7 @@ double DFTSolver::EX_B88(){
     return exc;
 }
 
-double DFTSolver::EX_PBE(){
+double MCPDFTSolver::EX_PBE(){
     
     const double delta = 0.06672455060314922;
     const double MU = (1.0/3.0) * delta * M_PI * M_PI;
@@ -244,7 +224,7 @@ double DFTSolver::EX_PBE(){
     return exc;
 }
 
-// double DFTSolver::EX_PBE(){
+// double MCPDFTSolver::EX_PBE(){
 // 
 //     const double alpha = (2.0/3.0);      // Slater value
 //     const double Cx = (9.0/8.0) * alpha * pow(3.0/M_PI,1.0/3.0);
@@ -319,7 +299,7 @@ double DFTSolver::EX_PBE(){
 // with empirical atomic parameters t and u defined below.
 // From T. Tsuneda, J. Chem. Phys. 110, 10664 (1999).
 
-double DFTSolver::EC_B88_OP(){
+double MCPDFTSolver::EC_B88_OP(){
 
    const double beta = 0.0042;
  
@@ -361,7 +341,7 @@ double DFTSolver::EC_B88_OP(){
    return exc;
 }
 
-// double DFTSolver::EC_B88(){
+// double MCPDFTSolver::EC_B88(){
 // 
 //    const double Cx = 0.73855876638202240586;
 //    const double c = pow(2.0,1.0/3.0) * Cx;
@@ -447,8 +427,7 @@ double DFTSolver::EC_B88_OP(){
 //    return exc;
 // }
 
-
-double DFTSolver::EC_PBE(){
+double MCPDFTSolver::EC_PBE(){
 
     const double P = 1.0;
     const double T1 = 0.031091;
@@ -545,105 +524,8 @@ double DFTSolver::EC_PBE(){
     return exc;
 }
 
-// double DFTSolver::EC_PBE(){
-// 
-//     const double P = 1.0;
-//     const double T1 = 0.031091;
-//     const double T2 = 0.015545;
-//     const double T3 = 0.016887;
-//     const double U1 = 0.21370;
-//     const double U2 = 0.20548;
-//     const double U3 = 0.11125;
-//     const double V1 = 7.5957;
-//     const double V2 = 14.1189;
-//     const double V3 = 10.357;
-//     const double W1 = 3.5876;
-//     const double W2 = 6.1977;
-//     const double W3 = 3.6231;
-//     const double X1 = 1.6382;
-//     const double X2 = 3.3662;
-//     const double X3 = 0.88026;
-//     const double Y1 = 0.49294;
-//     const double Y2 = 0.62517;
-//     const double Y3 = 0.49671;
-// 
-//     const double KSI = 23.266;
-//     const double PHII = 0.007389;
-//     const double LAMBDA = 8.723;
-//     const double UPSILON = 0.472;
-//     const double c = 1.709921;
-//     const double t = 0.0716;
-//     const double v = (16.0/M_PI) * pow(3.0 * M_PI * M_PI ,1.0/3.0);
-//     const double k = 0.004235;
-//     const double Z = -0.001667;
-//     const double lambda = v * k;
-//    
-//     double * rho_ap = rho_a_->pointer();
-//     double * rho_bp = rho_b_->pointer();
-//     
-//     double * sigma_aap = sigma_aa_->pointer();
-//     double * sigma_abp = sigma_ab_->pointer();
-//     double * sigma_bbp = sigma_bb_->pointer();
-// 
-//     double * zeta_p = zeta_->pointer();
-//     double * rs_p = rs_->pointer();
-// 
-//     double exc = 0.0;
-//     for (int p = 0; p < phi_points_; p++) {
-// 
-//         double rhoa = rho_ap[p];
-//         double rhob = rho_bp[p];
-//         double zeta = zeta_p[p];
-//         double sigmaaa = sigma_aap[p];
-//         double sigmaab = sigma_abp[p];
-//         double sigmabb = sigma_bbp[p];
-//         double rs = rs_p[p];
-//         
-//         double rho = rhoa + rhob;
-//         double sigma = sqrt(sigmaaa + sigmabb + 2.0 * sigmaab);
-// 
-//         // build f(zeta) weight factor where f(0) = 0 and f(1) = 1
-//         double omega =  (pow((1.0 + zeta) ,4.0/3.0) + pow((1.0 - zeta) ,4.0/3.0) - 2.0) / (2.0 * pow(2,1.0/3.0) - 2.0);
-// 
-//         // build spin scaling factor
-//         double u = 0.5 * ( pow( (1.0 + zeta) ,2.0/3.0 ) + pow( (1.0 - zeta) ,2.0/3.0) );
-//   
-//         double d = ( sqrt(sigma) / 12.0 * u ) * pow( pow(3.0,5.0) * M_PI / pow(rho,7.0) ,1.0/6.0);
-//      
-//         auto e = [](double r, double T, double U, double V, double W, double X, double Y, int P) -> double {
-// 
-//                  double dum = -2.0 * T * (1.0 + U * r) * log (1.0 + 0.5 / ( T * (V * sqrt(r) + W * r + X * pow(r,3.0/2.0) + Y * pow(r,P+1)))); 
-//         };
-//               
-//         double eps = e(rs,T1,U1,V1,W1,X1,Y1,P) - ( e(rs,T3,U3,V3,W3,X3,Y3,P) * omega * (1.0 - pow(zeta ,4.0)) ) / c 
-//                    + ( e(rs,T2,U2,V2,W2,X2,Y2,P) - e(rs,T1,U1,V1,W1,X1,Y1,P)) * omega * pow(zeta ,4.0);
-//                  
-//         double A = 2.0 * t * pow(lambda ,-1.0) * pow( exp( (-2.0 * t * eps) / (pow(u,3.0) * pow(lambda ,2.0)) ) - 1.0 , -1.0);
-//        
-//         double H = 0.5 * pow(u,3.0) * pow(lambda ,2.0) * log(1.0 + ( 2.0 * t * (pow(d ,2.0) + A * pow(d ,4.0)) )
-//                              / ( lambda * (1.0 + A * pow(d ,2.0) + pow(A,2.0) * pow(d ,4.0)) )) * pow(t ,-1.0);
-// 
-//         auto Q = [=](double sigmass) -> double{
-// 
-//                  double temp = sqrt(sigmass) * pow(2.0, 1.0/3.0) * pow( pow(3.0,5.0) * M_PI ,1.0/6.0) / ( 12.0 * pow(rho,7.0/6.0) );
-//                  return temp;
-//         };
-//     
-//         auto phi = [=](double r) -> double {
-// 
-//                    double theta = 0.001 * (2.568 + KSI * r + PHII * pow(r,2.0)) / (1.0 + LAMBDA * r + UPSILON * pow(r,2.0) + 10.0 * PHII * pow(r,3.0));
-//                    double temp = theta - Z; 
-//                    return temp;
-//         };
-//        
-//         exc += rho * (eps + H) * grid_w_->pointer()[p];
-//         exc += rho * (d + u + omega + sigma) * grid_w_->pointer()[p];
-//     }
-//     return exc;
-// }
 
-
-double DFTSolver::EC_VWN3_RPA(){
+double MCPDFTSolver::EC_VWN3_RPA(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> ZETA, std::shared_ptr<Vector> RS){
   
     const double k1 = 0.0310907;
     const double k2 = 0.01554535;
@@ -654,11 +536,11 @@ double DFTSolver::EC_VWN3_RPA(){
     const double n1 = 42.7198;
     const double n2 = 101.578;
 
-    double * rho_ap = rho_a_->pointer();
-    double * rho_bp = rho_b_->pointer();
+    double * rho_ap = RHO_A->pointer();
+    double * rho_bp = RHO_B->pointer();
     
-    double * zeta_p = zeta_->pointer();
-    double * rs_p = rs_->pointer();
+    double * zeta_p = ZETA->pointer();
+    double * rs_p = RS->pointer();
 
     double exc = 0.0;
     for (int p = 0; p < phi_points_; p++) {
@@ -703,7 +585,7 @@ double DFTSolver::EC_VWN3_RPA(){
     
 }
 
-// double DFTSolver::EC_VWN3_RPA(){
+// double MCPDFTSolver::EC_VWN3_RPA(){
 // 
 //             // build alpha_c(rs) factor
 //             double alphac = Gfunction(rs,Aa_,a1a_,b1a_,b2a_,b3a_,b4a_,pa_);

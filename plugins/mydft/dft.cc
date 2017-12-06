@@ -276,7 +276,6 @@ void DFTSolver::BuildPhiMatrix(std::shared_ptr<VBase> potential, std::shared_ptr
         }
         phi_points_ += npoints;
     }
-
     // grab AO->SO transformation matrix
     std::shared_ptr<Matrix> ao2so = reference_wavefunction_->aotoso();
 
@@ -590,14 +589,15 @@ double DFTSolver::compute_energy() {
 #endif
             // printf("%20.12lf %20.12lf %20.12lf\n",Ex_LSDA,Ex_PW86,exchange_correlation_energy);
             // printf(" Number of points: %ld\n",phi_points_);
-            printf("%20.12lf %20.12lf %20.12lf %20.12lf %20.12lf\n", // %20.12lf %20.12lf\n",
+            printf("%20.12lf %20.12lf %20.12lf %20.12lf %20.12lf %20.12lf\n", // %20.12lf %20.12lf\n",
             EX_LDA(rho_a_,rho_b_),
+            EX_LSDA(rho_a_, rho_b_) /* + EC_VWN3_RPA() */,
             EX_LSDA(rho_a_, rho_b_, zeta_) /* + EC_VWN3_RPA() */,
             (is_gga_ || is_meta_) ? EX_PBE() : 0.0,
             // (is_gga_ || is_meta_) ? EX_RPBE() : 0.0,
             // (is_gga_ || is_meta_) ? EX_UPBE() : 0.0,
-            EX_B88() + EC_B88_OP(), //EC_VWN3_RPA(),
-            // (is_gga_ || is_meta_) ? EX_LSDA(rho_a_, rho_b_, zeta_) + EC_VWN3_RPA() : 0.0,
+            // EX_B88() + EC_B88_OP(), //EC_VWN3_RPA(),
+            EX_LSDA(rho_a_, rho_b_, zeta_) + EC_VWN3_RPA(),
             exchange_correlation_energy);// - EX_LSDA(rho_a_, rho_b_, zeta_) ) ;
         }
 
@@ -763,7 +763,6 @@ void DFTSolver::BuildRho(std::shared_ptr<Matrix> Da, std::shared_ptr<Matrix> Db)
         double * tau_bp = tau_b_->pointer();
 
         for (int p = 0; p < phi_points_; p++) {
-
             double duma_x = 0.0;
             double dumb_x = 0.0;
             double duma_y = 0.0;
@@ -788,7 +787,6 @@ void DFTSolver::BuildRho(std::shared_ptr<Matrix> Da, std::shared_ptr<Matrix> Db)
                     dumtb += (phi_x[p][sigma] * phi_x[p][nu] + phi_y[p][sigma] * phi_y[p][nu] + phi_z[p][sigma] * phi_z[p][nu]) * Dbp[sigma][nu];
                 }
             }
-
             rho_a_xp[p] = duma_x;
             rho_b_xp[p] = dumb_x;
 

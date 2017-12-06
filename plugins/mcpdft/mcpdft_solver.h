@@ -70,6 +70,18 @@ class MCPDFTSolver: public Wavefunction{
 
   protected:
 
+    /// level of differentiation 
+    int deriv_;
+
+    /// is gga?
+    bool is_gga_;
+
+    /// is meta?
+    bool is_meta_;
+
+    /// is unpolarized (restricted)?
+    bool is_unpolarized_;
+
     /// number of grid points_
     long int phi_points_;
 
@@ -96,6 +108,15 @@ class MCPDFTSolver: public Wavefunction{
 
     /// grid weights
     std::shared_ptr<Vector> grid_w_;
+    
+    /// inner product of alpha density gradient with itself (gamma_aa)
+    std::shared_ptr<Vector> sigma_aa_;
+
+    /// inner product of beta density gradient with itself (gamma_bb)
+    std::shared_ptr<Vector> sigma_bb_;
+
+    /// inner product of alpha density gradient with beta density gradient (gamma_ab)
+    std::shared_ptr<Vector> sigma_ab_;
 
     /// a function to build phi/phi_x/...
     void BuildPhiMatrix(std::shared_ptr<VBase> potential, std::shared_ptr<PointFunctions> points_func,
@@ -130,6 +151,60 @@ class MCPDFTSolver: public Wavefunction{
 
     /// beta-spin density gradient z
     std::shared_ptr<Vector> rho_b_z_;
+    
+    /// translated alpha-spin density
+    std::shared_ptr<Vector> tr_rho_a_;
+
+    /// translated beta-spin density
+    std::shared_ptr<Vector> tr_rho_b_;
+
+    /// translated alpha-spin density gradient x
+    std::shared_ptr<Vector> tr_rho_a_x_;
+
+    /// translated beta-spin density gradient x
+    std::shared_ptr<Vector> tr_rho_b_x_;
+
+    /// translated alpha-spin density gradient y
+    std::shared_ptr<Vector> tr_rho_a_y_;
+
+    /// translated beta-spin density gradient y
+    std::shared_ptr<Vector> tr_rho_b_y_;
+
+    /// translated alpha-spin density gradient z
+    std::shared_ptr<Vector> tr_rho_a_z_;
+
+    /// translated beta-spin density gradient z
+    std::shared_ptr<Vector> tr_rho_b_z_;
+    
+    /// translated inner product of alpha density gradient with itself (gamma_aa)
+    std::shared_ptr<Vector> tr_sigma_aa_;
+
+    /// translated inner product of beta density gradient with itself (gamma_bb)
+    std::shared_ptr<Vector> tr_sigma_bb_;
+
+    /// translated inner product of alpha density gradient with beta density gradient (gamma_ab)
+    std::shared_ptr<Vector> tr_sigma_ab_;
+
+    /// R(r) = 4 * Pi(r) / rho(r) ^ 2
+    std::shared_ptr<Vector> R_;
+
+    /// zeta factor zeta = ( rho_a(r) - rho_b(r) ) / ( rho_a(r) + rho_b(r) )
+    std::shared_ptr<Vector> zeta_;
+    
+    /// translated zeta factor
+    std::shared_ptr<Vector> tr_zeta_;
+
+    /// effective radius of density
+    std::shared_ptr<Vector> rs_;
+
+    /// translated effective radius of density
+    std::shared_ptr<Vector> tr_rs_;
+
+    /// tau kinetic energy of alpha electrons
+    std::shared_ptr<Vector> tau_a_;
+
+    /// tau kinetic energy of beta electrons
+    std::shared_ptr<Vector> tau_b_;
 
     /// the on-top pair density
     std::shared_ptr<Vector> pi_;
@@ -139,6 +214,56 @@ class MCPDFTSolver: public Wavefunction{
 
     /// build on-top pair density
     void BuildPi(double * D2ab);
+
+    /// build R(r) = 4 * Pi(r) / rho(r) ^ 2
+    void Build_R();
+    
+    /// build translator function of density and its gradient
+    void Translate();
+
+    /// build G spin-interpolation formula
+    double Gfunction(double r, double A, double a1, double b1, double b2, double b3, double b4, double p);
+
+    //############################################################
+    //############ Exchange functions' declarations ##############
+    //############################################################
+
+    /// build EX_LDA(rho)
+    double EX_LDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector> rho_b);
+
+    /// build EX_LSDA(rho_sigma)
+    double EX_LSDA_Sigma(std::shared_ptr<Vector> rho_sigma);
+
+    /// build EX_LSDA(rho_a, rho_b, zeta)
+    double EX_LSDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector> rho_b, std::shared_ptr<Vector> zeta);
+
+    /// build EX_B86_MGC()
+    double EX_B86_MGC();
+
+    /// build EX_B88()
+    double EX_B88();
+
+    /// build EX_PBE()
+    double EX_PBE();
+
+    /// build EX_RPBE()
+    double EX_RPBE();
+
+    /// build EX_UPBE()
+    double EX_UPBE();
+
+    //############################################################
+    //########### Correlation functions' declarations ############
+    //############################################################
+
+    /// build EC_B88()
+    double EC_B88_OP();
+
+    /// build EC_PBE()
+    double EC_PBE();
+
+    /// build EC_VWN3_RPA()
+    double EC_VWN3_RPA(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> ZETA, std::shared_ptr<Vector> RS);
 };
 
 }} // end of namespaces

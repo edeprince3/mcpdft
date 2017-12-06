@@ -34,7 +34,7 @@
 #include "psi4/libmints/wavefunction.h"
 #include "psi4/libpsio/psio.hpp"
 #include "psi4/libpsio/psio.hpp"
-
+#include <psi4/libpsi4util/process.h>
 #include "mcpdft_solver.h"
 
 namespace psi{ namespace mcpdft {
@@ -46,7 +46,7 @@ int read_options(std::string name, Options& options)
         /*- The amount of information printed to the output file -*/
         options.add_int("PRINT", 1);
         /*- MCPDFT functional -*/
-        options.add_str("MCPDFT_FUNCTIONAL", "B3LYP");
+        options.add_str("MCPDFT_FUNCTIONAL", "SVWN");
         /*- reference must be UKS -*/
         options.add_str("REFERENCE", "UKS");
     }
@@ -69,8 +69,9 @@ SharedWavefunction mcpdft(SharedWavefunction ref_wfn, Options& options)
     outfile->Printf("\n\n");
 
     std::shared_ptr<MCPDFTSolver> dft (new MCPDFTSolver(ref_wfn,options));
-    dft->compute_energy(); 
+    double energy = dft->compute_energy(); 
 
+    Process::environment.globals["CURRENT ENERGY"] = energy;
     // TODO: return mcpdft wave function instead of reference
     return ref_wfn;
 }
