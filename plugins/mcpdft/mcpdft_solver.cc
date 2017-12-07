@@ -357,7 +357,9 @@ double MCPDFTSolver::compute_energy() {
     Translate();    
     
     // calculate the on-top energy
-    mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(tr_rho_a_, tr_rho_b_, tr_zeta_) + MCPDFTSolver::EC_VWN3_RPA(tr_rho_a_, tr_rho_b_, tr_zeta_, tr_rs_);
+    // mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(tr_rho_a_, tr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA(tr_rho_a_, tr_rho_b_, tr_zeta_, tr_rs_);
+    mcpdft_xc_energy =  MCPDFTSolver::EX_B88(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_)
+                     +  MCPDFTSolver::EC_B88_OP(tr_rho_a_, tr_rho_b_, tr_sigma_aa_,tr_sigma_bb_);
 
     // print total energy and its components
 

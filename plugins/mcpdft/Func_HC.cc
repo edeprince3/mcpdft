@@ -154,16 +154,16 @@ double MCPDFTSolver::EX_B86_MGC(){
     return exc;
 }
 
-double MCPDFTSolver::EX_B88(){
+double MCPDFTSolver::EX_B88(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB){
     
     const double Cx = 0.73855876638202240586; 
     const double beta = 0.0042;
     const double c = pow(2.0,1.0/3.0) * Cx;
  
-    double * rho_ap = rho_a_->pointer();
-    double * rho_bp = rho_b_->pointer();
-    double * sigma_aap = sigma_aa_->pointer();
-    double * sigma_bbp = sigma_bb_->pointer();
+    double * rho_ap = RHO_A->pointer();
+    double * rho_bp = RHO_B->pointer();
+    double * sigma_aap = SIGMA_AA->pointer();
+    double * sigma_bbp = SIGMA_BB->pointer();
  
     double exc = 0.0;
     for (int p = 0; p < phi_points_; p++) {
@@ -299,14 +299,14 @@ double MCPDFTSolver::EX_PBE(){
 // with empirical atomic parameters t and u defined below.
 // From T. Tsuneda, J. Chem. Phys. 110, 10664 (1999).
 
-double MCPDFTSolver::EC_B88_OP(){
+double MCPDFTSolver::EC_B88_OP(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB){
 
    const double beta = 0.0042;
  
-   double * rho_ap = rho_a_->pointer();
-   double * rho_bp = rho_b_->pointer();
-   double * sigma_aap = sigma_aa_->pointer();
-   double * sigma_bbp = sigma_bb_->pointer();
+   double * rho_ap = RHO_A->pointer();
+   double * rho_bp = RHO_B->pointer();
+   double * sigma_aap = SIGMA_AA->pointer();
+   double * sigma_bbp = SIGMA_BB->pointer();
 
    double exc = 0.0;
    for (int p = 0; p < phi_points_; p++) {
