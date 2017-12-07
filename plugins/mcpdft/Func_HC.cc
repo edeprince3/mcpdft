@@ -102,14 +102,33 @@ double MCPDFTSolver::EX_LDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vecto
     return exc;
 }
 
-double MCPDFTSolver::EX_LSDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector> rho_b, std::shared_ptr<Vector> zeta){
+double MCPDFTSolver::EX_LSDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector> rho_b){
     
     const double alpha = (2.0/3.0);      // Slater value
     const double Cx = (9.0/8.0) * alpha * pow(3.0/M_PI,1.0/3.0);
 
     double * rho_ap = rho_a->pointer();
     double * rho_bp = rho_b->pointer();
-    double * zeta_p = zeta_->pointer();
+    
+    double exc = 0.0;
+    for (int p = 0; p < phi_points_; p++) {
+
+        double exa = pow(2.0,1.0/3.0) * Cx * pow( rho_ap[p], 4.0/3.0) ;
+        double exb = pow(2.0,1.0/3.0) * Cx * pow( rho_bp[p], 4.0/3.0) ;
+        double ex_LSDA = exa + exb;
+        exc += - ex_LSDA * grid_w_->pointer()[p]; 
+    }
+    return exc;
+}
+
+double MCPDFTSolver::EX_LSDA(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> ZETA){
+    
+    const double alpha = (2.0/3.0);      // Slater value
+    const double Cx = (9.0/8.0) * alpha * pow(3.0/M_PI,1.0/3.0);
+
+    double * rho_ap = RHO_A->pointer();
+    double * rho_bp = RHO_B->pointer();
+    double * zeta_p = ZETA->pointer();
     
     double exc = 0.0;
     for (int p = 0; p < phi_points_; p++) {
@@ -120,7 +139,7 @@ double MCPDFTSolver::EX_LSDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vect
         double ex0 = Cx * pow( (rho_ap[p] + rho_bp[p]), 1.0/3.0) ;
         double ex1 = pow(2.0,1.0/3.0) * ex0;
         double ex_LSDA = ex0 + (ex1 - ex0) * fZet;
-        exc += - ex_LSDA * (rho_ap[p] + rho_bp[p] ) * grid_w_->pointer()[p]; 
+        exc += - ex_LSDA * (rho_ap[p] + rho_bp[p]) * grid_w_->pointer()[p]; 
     }
     return exc;
 }

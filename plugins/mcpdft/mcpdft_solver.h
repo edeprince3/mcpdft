@@ -235,7 +235,10 @@ class MCPDFTSolver: public Wavefunction{
     double EX_LSDA_Sigma(std::shared_ptr<Vector> rho_sigma);
 
     /// build EX_LSDA(rho_a, rho_b, zeta)
-    double EX_LSDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector> rho_b, std::shared_ptr<Vector> zeta);
+    double EX_LSDA(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> ZETA);
+
+    /// build EX_LSDA(rho_a, rho_b)
+    double EX_LSDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector> rho_b);
 
     /// build EX_B86_MGC()
     double EX_B86_MGC();
