@@ -202,16 +202,17 @@ double MCPDFTSolver::EX_B88(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vecto
     return exc;
 }
 
-double MCPDFTSolver::EX_PBE(){
-    
+double MCPDFTSolver::EX_PBE(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B,
+                            std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB) {
+
     const double delta = 0.06672455060314922;
     const double MU = (1.0/3.0) * delta * M_PI * M_PI;
     const double KAPPA = 0.804;
 
-    double * rho_ap = rho_a_->pointer();
-    double * rho_bp = rho_b_->pointer();
-    double * sigma_aap = sigma_aa_->pointer();
-    double * sigma_bbp = sigma_bb_->pointer();
+    double * rho_ap = RHO_A->pointer();
+    double * rho_bp = RHO_B->pointer();
+    double * sigma_aap = SIGMA_AA->pointer();
+    double * sigma_bbp = SIGMA_BB->pointer();
     
     double exc = 0.0;
     for (int p = 0; p < phi_points_; p++) {
@@ -446,103 +447,169 @@ double MCPDFTSolver::EC_B88_OP(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Ve
 //    return exc;
 // }
 
-double MCPDFTSolver::EC_PBE(){
+double MCPDFTSolver::EC_PBE(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B,
+                            std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_AB, std::shared_ptr<Vector> SIGMA_BB){
 
-    const double P = 1.0;
-    const double T1 = 0.031091;
-    const double T2 = 0.015545;
-    const double T3 = 0.016887;
-    const double U1 = 0.21370;
-    const double U2 = 0.20548;
-    const double U3 = 0.11125;
-    const double V1 = 7.5957;
-    const double V2 = 14.1189;
-    const double V3 = 10.357;
-    const double W1 = 3.5876;
-    const double W2 = 6.1977;
-    const double W3 = 3.6231;
-    const double X1 = 1.6382;
-    const double X2 = 3.3662;
-    const double X3 = 0.88026;
-    const double Y1 = 0.49294;
-    const double Y2 = 0.62517;
-    const double Y3 = 0.49671;
+    double * rho_ap = RHO_A->pointer();
+    double * rho_bp = RHO_B->pointer();
 
-    const double KSI = 23.266;
-    const double PHII = 0.007389;
-    const double LAMBDA = 8.723;
-    const double UPSILON = 0.472;
-    const double c = 1.709921;
-    const double t = 0.0716;
-    const double v = (16.0/M_PI) * pow(3.0 * M_PI * M_PI ,1.0/3.0);
-    const double k = 0.004235;
-    const double Z = -0.001667;
-    const double lambda = v * k;
-   
-    double * rho_ap = rho_a_->pointer();
-    double * rho_bp = rho_b_->pointer();
-    
-    double * sigma_aap = sigma_aa_->pointer();
-    double * sigma_abp = sigma_ab_->pointer();
-    double * sigma_bbp = sigma_bb_->pointer();
-
-    double * zeta_p = zeta_->pointer();
-    double * rs_p = rs_->pointer();
+    double * sigma_aap = SIGMA_AA->pointer();
+    double * sigma_abp = SIGMA_AB->pointer();
+    double * sigma_bbp = SIGMA_BB->pointer();
 
     double exc = 0.0;
     for (int p = 0; p < phi_points_; p++) {
 
         double rhoa = rho_ap[p];
         double rhob = rho_bp[p];
-        double zeta = zeta_p[p];
+
         double sigmaaa = sigma_aap[p];
         double sigmaab = sigma_abp[p];
         double sigmabb = sigma_bbp[p];
-        double rs = rs_p[p];
-        
+
         double rho = rhoa + rhob;
-        double sigma = sqrt(sigmaaa + sigmabb + 2.0 * sigmaab);
+        double sigma = sigmaaa + sigmabb + 2.0 * sigmaab;
 
-        // build f(zeta) weight factor where f(0) = 0 and f(1) = 1
-        double omega =  (pow((1.0 + zeta) ,4.0/3.0) + pow((1.0 - zeta) ,4.0/3.0) - 2.0) / (2.0 * pow(2,1.0/3.0) - 2.0);
+        double tol = 1.0e-20;
+        if ( rho > tol ) {
+           if ( rhoa < tol ){
 
-        // build spin scaling factor
-        double u = 0.5 * ( pow( (1.0 + zeta) ,2.0/3.0 ) + pow( (1.0 - zeta) ,2.0/3.0) );
-  
-        double d = ( sqrt(sigma) / 12.0 * u ) * pow( pow(3.0,5.0) * M_PI / pow(rho,7.0) ,1.0/6.0);
-     
-        auto e = [](double r, double T, double U, double V, double W, double X, double Y, int P) -> double {
+              double rho = rhob;
+              sigmabb = std::max(0.0,sigmaaa);
+              double sigma = sigmabb;
+              double t2 = 1.0 / rhob;
+              double t3 = pow(t2 ,1.0/3.0);
+              double t6 = pow(t2 ,1.0/6.0);
+              double t9 = sqrt(t2);
+              double t11 = t3 * t3;
+              double t17 = log(1.0 + 0.3216395899738507e2 / (0.1112037486309468e2 * t6 + 0.3844746237447211e1 * t3 + 0.1644733775567609e1
+                         * t9 + 0.2405871291288192 * t11));
+              double t18 = (1.0 + 0.1274696188700087 * t3) * t17;
+              double t20 = pow(rhob ,2.0);
+              double t21 = pow(rhob ,1.0/3.0);
+              double t23 = 1.0 / t21 / t20;
+              double t26 = exp(0.2000000587336264e1 * t18);
+              double t27 = t26 - 1.0;
+              double t31 = 0.2162211495206379 / t27 * sigmabb * t23;
+              double t33 = pow(t27 ,2.0);
+              double t35 = pow(sigmabb ,2.0);
+              double t37 = pow(t20 ,2.0);
+              double t38 = pow(t21 ,2.0);
+              double t49 = log(1.0 + 0.2162211495206379 * sigmabb * t23 * (1.0 + t31) /(1.0 + t31 + 0.4675158550002605e-1 / t33 * t35 / t38 / t37));
+              double zk = rhob * (-0.310907e-1 * t18 + 0.1554534543482745e-1 * t49);
 
-                 double dum = -2.0 * T * (1.0 + U * r) * log (1.0 + 0.5 / ( T * (V * sqrt(r) + W * r + X * pow(r,3.0/2.0) + Y * pow(r,P+1)))); 
-        };
-              
-        double eps = e(rs,T1,U1,V1,W1,X1,Y1,P) - ( e(rs,T3,U3,V3,W3,X3,Y3,P) * omega * (1.0 - pow(zeta ,4.0)) ) / c 
-                   + ( e(rs,T2,U2,V2,W2,X2,Y2,P) - e(rs,T1,U1,V1,W1,X1,Y1,P)) * omega * pow(zeta ,4.0);
-                 
-        double A = 2.0 * t * pow(lambda ,-1.0) * pow( exp( (-2.0 * t * eps) / (pow(u,3.0) * pow(lambda ,2.0)) ) - 1.0 , -1.0);
-       
-        double H = 0.5 * pow(u,3.0) * pow(lambda ,2.0) * log(1.0 + ( 2.0 * t * (pow(d ,2.0) + A * pow(d ,4.0)) )
-                             / ( lambda * (1.0 + A * pow(d ,2.0) + pow(A,2.0) * pow(d ,4.0)) )) * pow(t ,-1.0);
+              exc += rho * zk * grid_w_->pointer()[p];
 
-        auto Q = [=](double sigmass) -> double{
+           }else if ( rhob < tol ){
 
-                 double temp = sqrt(sigmass) * pow(2.0, 1.0/3.0) * pow( pow(3.0,5.0) * M_PI ,1.0/6.0) / ( 12.0 * pow(rho,7.0/6.0) );
-                 return temp;
-        };
-    
-        auto phi = [=](double r) -> double {
+                    double rho = rhoa;
+                    sigmaaa = std::max(0.0,sigmaaa);
+                    double sigma = sigmaaa;
+                    double t2 = 1.0 / rhoa;
+                    double t3 = pow(t2 ,1.0/3.0);
+                    double t6 = pow(t2 ,1.0/6.0);
+                    double t9 = sqrt(t2);
+                    double t11 = t3 * t3;
+                    double t17 = log(1.0 + 0.3216395899738507e2 / (0.1112037486309468e2 * t6 + 0.3844746237447211e1 * t3 + 0.1644733775567609e1
+                               * t9 + 0.2405871291288192 * t11));
+                    double t18 = (1.0 + 0.1274696188700087 * t3) * t17;
+                    double t20 = pow(rhoa ,2.0);
+                    double t21 = pow(rhoa ,1.0/3.0);
+                    double t23 = 1.0 / t21 / t20;
+                    double t26 = exp(0.2000000587336264e1 * t18);
+                    double t27 = t26 - 1.0;
+                    double t31 = 0.2162211495206379 / t27 * sigmaaa * t23;
+                    double t33 = pow(t27 ,2.0);
+                    double t35 = pow(sigmaaa ,2.0);
+                    double t37 = pow(t20 ,2.0);
+                    double t38 = pow(t21 ,2.0);
+                    double t49 = log(1.0 + 0.2162211495206379 * sigmaaa * t23 * (1.0 + t31) /(1.0 + t31 + 0.4675158550002605e-1 / t33 * t35 / t38 / t37));
+                    double zk = rhoa * (-0.310907e-1 * t18 + 0.1554534543482745e-1 * t49);
 
-                   double theta = 0.001 * (2.568 + KSI * r + PHII * pow(r,2.0)) / (1.0 + LAMBDA * r + UPSILON * pow(r,2.0) + 10.0 * PHII * pow(r,3.0));
-                   double temp = theta - Z; 
-                   return temp;
-        };
-       
-        exc += rho * (eps + H) * grid_w_->pointer()[p];
-        exc += rho * (d + u + omega + sigma) * grid_w_->pointer()[p];
+                    exc += rho * zk * grid_w_->pointer()[p];
+
+           }else{
+
+                double t4 = 1/rho;
+                double t5 = pow( t4, 1.0/3.0);
+                double t7 = 1.0 + 0.1325688999052018 * t5;
+                double t8 = pow(t4, 1.0/6.0);
+                double t11 = sqrt(t4);
+                double t13 = pow(t5 ,2.0);
+                double t15 = 0.598255043577108e1 * t8 + 0.2225569421150687e1 * t5 + 0.8004286349993634 * t11 + 0.1897004325747559 * t13;
+                double t18 = 1.0 + 0.1608197949869254e2 / t15;
+                double t19 = log(t18);
+                double t21 = 0.621814e-1 * t7 * t19;
+                double t23 = 1.0 + 0.6901399211255825e-1 * t5;
+                double t28 = 0.8157414703487641e1 * t8 + 0.2247591863577616e1 * t5 + 0.4300972471276643 * t11 + 0.1911512595127338 * t13;
+                double t31 = 1.0 + 0.2960874997779344e2 / t28;
+                double t32 = log(t31);
+                double t33 = t23 * t32;
+                double t35 = rhoa - 1.0 * rhob;
+                double t36 = t35 * t4;  // zeta
+                double t37 = 1.0 + t36;
+                double t38 = pow(t37 ,1.0/3.0);
+                double t41 = 1.0 - t36;
+                double t42 = pow(t41 ,1.0/3.0);
+                double t44 = t38 * t37 + t42 * t41 - 2.0;
+                double t45 = pow(t35 ,2.0);
+                double t46 = pow(t45 ,2.0);
+                double t47 = pow(rho ,2.0);
+                double t48 = pow(t47 ,2.0);
+                double t49 = 1.0 / t48;
+                double t50 = t46 * t49;
+                double t52 = 1.0 - t50;
+                double t55 = 0.37995525e-1 * t33 * t44 * t52;
+                double t57 = 1.0 + 0.1274696188700087 * t5;
+                double t62 = 0.1112037486309468e2 * t8 + 0.3844746237447211e1 * t5 + 0.1644733775567609e1 * t11 + 0.2405871291288192 * t13;
+                double t65 = 1.0 + 0.3216395899738507e2 / t62;
+                double t66 = log(t65);
+                double t69 = -0.310907e-1 * t57 * t66 + t21;
+                double t70 = t69 * t44;
+                double t72 = 0.1923661050931536e1 * t70 * t50;
+                double t73 = pow(t38 ,2.0);
+                double t75 = pow(t42 ,2.0);
+                double t77 = 0.5 * t73 + 0.5 * t75;
+                double t78 = pow(t77 ,2.0);
+                double t79 = t78 * t77;
+                double t80 = 1.0 / t78;
+                double t81 = sigma * t80;
+                double t82 = pow(rho ,1.0/3.0);
+                double t84 = 1.0 / t82 / t47;
+                double t85 = -t21 + t55 + t72;
+                double t86 = 1.0 / t79;
+                double t89 = exp(-0.3216396844291482e2 * t85 * t86);
+                double t90 = t89 - 1.0;
+                double t91 = 1.0 / t90;
+                double t92 = t91 * sigma;
+                double t93 = t80 * t84;
+                double t95 = 0.1362107888567592 * t92 * t93;
+                double t96 = 1.0 + t95;
+                double t98 = pow(t90 ,2.0);
+                double t99 = 1.0 / t98;
+                double t100 = pow(sigma ,2.0);
+                double t101 = t99 * t100;
+                double t102 = pow(t78 ,2.0);
+                double t103 = 1.0 / t102;
+                double t104 = pow(t82 ,2.0);
+                double t106 = 1.0 / t104 / t48;
+                double t107 = t103 * t106;
+                double t110 = 1.0 + t95 + 0.1855337900098064e-1 * t101 * t107;
+                double t111 = 1.0 / t110;
+                double t115 = 1.0 + 0.1362107888567592 * t81 * t84 * t96 * t111;
+                double t116 = log(t115);
+                double t118 = 0.310906908696549e-1 * t79 * t116;
+                double zk = -t21 + t55 + t72 + t118;
+
+                exc += rho * zk * grid_w_->pointer()[p];
+           }
+           }else{
+                double zk = 0.0;
+                exc += rho * zk * grid_w_->pointer()[p];
+                }
     }
     return exc;
 }
-
 
 double MCPDFTSolver::EC_VWN3_RPA(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> ZETA, std::shared_ptr<Vector> RS){
   

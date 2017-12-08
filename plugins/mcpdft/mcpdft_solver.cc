@@ -342,22 +342,45 @@ double MCPDFTSolver::compute_energy() {
 
     // now, build rho(r), rho'(r), pi(r) and evaluate the MCPDFT xc energy
 
-    double mcpdft_xc_energy = 0.0; 
-
     // build alpha- and beta-spin densities and gradients
+    outfile->Printf("\n");
+    outfile->Printf("    Building Rho... ");
+
     BuildRho(D1a,D1b);
 
+    outfile->Printf("Done.\n");
+
     // build on-top pair density
+    outfile->Printf("\n");
+    outfile->Printf("    Building Pi... ");
+
     BuildPi(D2ab);
 
+    outfile->Printf("Done.\n");
+    
     // build R(r) = 4 * Pi(r) / rho(r)
+    outfile->Printf("\n");
+    outfile->Printf("    Building the on-top ratio R... ");
+    
     Build_R();
     
+    outfile->Printf("Done.\n");
+    
     // translate the alpha and beta densities and their corresponding gradients
+    outfile->Printf("\n");
+    outfile->Printf("    Translating densities and/or density gradients... ");
     Translate();    
     
+    outfile->Printf("Done.\n");
+
     // calculate the on-top energy
-    mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(tr_rho_a_, tr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA(tr_rho_a_, tr_rho_b_, tr_zeta_, tr_rs_);
+    double mcpdft_xc_energy = 0.0; 
+
+    // mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(tr_rho_a_, tr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA(tr_rho_a_, tr_rho_b_, tr_zeta_, tr_rs_);
+    mcpdft_xc_energy = MCPDFTSolver::EX_PBE(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_) 
+                     + MCPDFTSolver::EC_PBE(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
+    // mcpdft_xc_energy =  MCPDFTSolver::EX_B88(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_)
+    //                  +  MCPDFTSolver::EC_B88_OP(tr_rho_a_, tr_rho_b_, tr_sigma_aa_,tr_sigma_bb_);
 
     // print total energy and its components
 
@@ -365,14 +388,14 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("    ==> Energetics <==\n");
     outfile->Printf("\n");
 
-    outfile->Printf("        nuclear repulsion energy =    %20.12lf\n",molecule_->nuclear_repulsion_energy());
-    // outfile->Printf("        nuclear repulsion energy =    %20.12lf\n",molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}));
+    // outfile->Printf("        nuclear repulsion energy =    %20.12lf\n",molecule_->nuclear_repulsion_energy());
+    outfile->Printf("        nuclear repulsion energy =    %20.12lf\n",molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}));
     outfile->Printf("        one-electron energy =         %20.12lf\n",one_electron_energy);
     outfile->Printf("        coulomb energy =              %20.12lf\n",coulomb_energy);
     outfile->Printf("        exchange-correlation energy = %20.12lf\n",mcpdft_xc_energy);
     outfile->Printf("\n");
 
-    double total_energy = molecule_->nuclear_repulsion_energy()+one_electron_energy+coulomb_energy+mcpdft_xc_energy;
+    double total_energy = molecule_->nuclear_repulsion_energy({0.0,0.0,0.0})+one_electron_energy+coulomb_energy+mcpdft_xc_energy;
     outfile->Printf("    * MCPDFT total energy =      %20.12lf\n",total_energy);
     outfile->Printf("\n");
 
@@ -660,14 +683,18 @@ void MCPDFTSolver::Translate(){
 
        for (int p = 0; p < phi_points_; p++) {
 
-           tr_rho_a_xp[p] = ( (R_p[p] > 1.0) ? (rho_a_xp[p]/2.0) : (rho_a_xp[p]/2.0) * ( 1.0 + sqrt(1.0 - R_p[p]) ) );
-           tr_rho_b_xp[p] = ( (R_p[p] > 1.0) ? (rho_b_xp[p]/2.0) : (rho_b_xp[p]/2.0) * ( 1.0 - sqrt(1.0 - R_p[p]) ) );
+           double rho_x = rho_a_xp[p] + rho_b_xp[p];
+           double rho_y = rho_a_yp[p] + rho_b_yp[p];
+           double rho_z = rho_a_zp[p] + rho_b_zp[p];
+
+           tr_rho_a_xp[p] = ( (R_p[p] > 1.0) ? (rho_x / 2.0) : (rho_x / 2.0) * ( 1.0 + sqrt(1.0 - R_p[p]) ) );
+           tr_rho_b_xp[p] = ( (R_p[p] > 1.0) ? (rho_x / 2.0) : (rho_x / 2.0) * ( 1.0 - sqrt(1.0 - R_p[p]) ) );
            
-           tr_rho_a_yp[p] = ( (R_p[p] > 1.0) ? (rho_a_yp[p]/2.0) : (rho_a_yp[p]/2.0) * ( 1.0 + sqrt(1.0 - R_p[p]) ) );
-           tr_rho_b_yp[p] = ( (R_p[p] > 1.0) ? (rho_b_yp[p]/2.0) : (rho_b_yp[p]/2.0) * ( 1.0 - sqrt(1.0 - R_p[p]) ) );
+           tr_rho_a_yp[p] = ( (R_p[p] > 1.0) ? (rho_y / 2.0) : (rho_y / 2.0) * ( 1.0 + sqrt(1.0 - R_p[p]) ) );
+           tr_rho_b_yp[p] = ( (R_p[p] > 1.0) ? (rho_y / 2.0) : (rho_y / 2.0) * ( 1.0 - sqrt(1.0 - R_p[p]) ) );
            
-           tr_rho_a_zp[p] = ( (R_p[p] > 1.0) ? (rho_a_zp[p]/2.0) : (rho_a_zp[p]/2.0) * ( 1.0 + sqrt(1.0 - R_p[p]) ) );
-           tr_rho_b_zp[p] = ( (R_p[p] > 1.0) ? (rho_b_zp[p]/2.0) : (rho_b_zp[p]/2.0) * ( 1.0 - sqrt(1.0 - R_p[p]) ) );
+           tr_rho_a_zp[p] = ( (R_p[p] > 1.0) ? (rho_z / 2.0) : (rho_z / 2.0) * ( 1.0 + sqrt(1.0 - R_p[p]) ) );
+           tr_rho_b_zp[p] = ( (R_p[p] > 1.0) ? (rho_z / 2.0) : (rho_z / 2.0) * ( 1.0 - sqrt(1.0 - R_p[p]) ) );
 
            tr_sigma_aap[p] = (tr_rho_a_xp[p] * tr_rho_a_xp[p]) + (tr_rho_a_yp[p] * tr_rho_a_yp[p]) + (tr_rho_a_zp[p] * tr_rho_a_zp[p]);  
            tr_sigma_abp[p] = (tr_rho_a_xp[p] * tr_rho_b_xp[p]) + (tr_rho_a_yp[p] * tr_rho_b_yp[p]) + (tr_rho_a_zp[p] * tr_rho_b_zp[p]);  

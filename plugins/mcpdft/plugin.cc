@@ -46,7 +46,7 @@ int read_options(std::string name, Options& options)
         /*- The amount of information printed to the output file -*/
         options.add_int("PRINT", 1);
         /*- MCPDFT functional -*/
-        options.add_str("MCPDFT_FUNCTIONAL", "SVWN");
+        options.add_str("MCPDFT_FUNCTIONAL", "PBE");
         /*- reference must be UKS -*/
         options.add_str("REFERENCE", "UKS");
     }
