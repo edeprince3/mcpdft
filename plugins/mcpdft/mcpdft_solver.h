@@ -185,6 +185,39 @@ class MCPDFTSolver: public Wavefunction{
     /// translated inner product of alpha density gradient with beta density gradient (gamma_ab)
     std::shared_ptr<Vector> tr_sigma_ab_;
 
+    /// fully-translated alpha-spin density
+    std::shared_ptr<Vector> ftr_rho_a_;
+
+    /// fully-translated beta-spin density
+    std::shared_ptr<Vector> ftr_rho_b_;
+
+    /// fully-translated alpha-spin density gradient x
+    std::shared_ptr<Vector> ftr_rho_a_x_;
+
+    /// fully-translated beta-spin density gradient x
+    std::shared_ptr<Vector> ftr_rho_b_x_;
+
+    /// fully-translated alpha-spin density gradient y
+    std::shared_ptr<Vector> ftr_rho_a_y_;
+
+    /// fully-translated beta-spin density gradient y
+    std::shared_ptr<Vector> ftr_rho_b_y_;
+
+    /// fully-translated alpha-spin density gradient z
+    std::shared_ptr<Vector> ftr_rho_a_z_;
+
+    /// fully-translated beta-spin density gradient z
+    std::shared_ptr<Vector> ftr_rho_b_z_;
+    
+    /// fully-translated inner product of alpha density gradient with itself (gamma_aa)
+    std::shared_ptr<Vector> ftr_sigma_aa_;
+
+    /// fully-translated inner product of beta density gradient with itself (gamma_bb)
+    std::shared_ptr<Vector> ftr_sigma_bb_;
+
+    /// fully-translated inner product of alpha density gradient with beta density gradient (gamma_ab)
+    std::shared_ptr<Vector> ftr_sigma_ab_;
+
     /// R(r) = 4 * Pi(r) / rho(r) ^ 2
     std::shared_ptr<Vector> R_;
 
@@ -194,11 +227,20 @@ class MCPDFTSolver: public Wavefunction{
     /// translated zeta factor
     std::shared_ptr<Vector> tr_zeta_;
 
+    /// fully-translated zeta factor
+    std::shared_ptr<Vector> ftr_zeta_;
+
+    /// fully-translated zeta' factor
+    std::shared_ptr<Vector> ftr_zetaPrime_;
+
     /// effective radius of density
     std::shared_ptr<Vector> rs_;
 
     /// translated effective radius of density
     std::shared_ptr<Vector> tr_rs_;
+
+    /// fully-translated effective radius of density
+    std::shared_ptr<Vector> ftr_rs_;
 
     /// tau kinetic energy of alpha electrons
     std::shared_ptr<Vector> tau_a_;
@@ -220,6 +262,9 @@ class MCPDFTSolver: public Wavefunction{
     
     /// build translator function of density and its gradient
     void Translate();
+
+    /// build full-translator function of density and its gradient
+    void Fully_Translate();
 
     /// build G spin-interpolation formula
     double Gfunction(double r, double A, double a1, double b1, double b2, double b3, double b4, double p);

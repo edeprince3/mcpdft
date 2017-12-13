@@ -366,19 +366,58 @@ double MCPDFTSolver::compute_energy() {
     
     outfile->Printf("Done.\n");
     
+    // calculate the on-top energy
+    double mcpdft_xc_energy = 0.0;
+
     // translate the alpha and beta densities and their corresponding gradients
     outfile->Printf("\n");
-    outfile->Printf("    Translating densities and/or density gradients... ");
-    Translate();    
+
+    if ( options_.get_str("TRANSLATION_TYPE") == "REGULAR") {
+
+       outfile->Printf("    Regular translation of densities and/or density gradients... ");
+       Translate();    
+       outfile->Printf("Done.\n");
+
+        if ( options_.get_str("MCPDFT_FUNCTIONAL") == "SVWN" ) {
+
+           mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(tr_rho_a_, tr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA(tr_rho_a_, tr_rho_b_, tr_zeta_, tr_rs_);
+
+        }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "PBE" ) {
+ 
+                 mcpdft_xc_energy = MCPDFTSolver::EX_PBE(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_) 
+                                  + MCPDFTSolver::EC_PBE(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
+
+        }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "PBE" ) {
+
+              
+                 mcpdft_xc_energy =  MCPDFTSolver::EX_B88(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_)
+                                  +  MCPDFTSolver::EC_B88_OP(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
+        }
+
+    }else{
+
+         outfile->Printf("    Full translation of densities and/or density gradients... ");
+         Fully_Translate();    
+         outfile->Printf("Done.\n");
     
-    outfile->Printf("Done.\n");
+         if ( options_.get_str("MCPDFT_FUNCTIONAL") == "SVWN" ) {
 
-    // calculate the on-top energy
-    double mcpdft_xc_energy = 0.0; 
+            mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(ftr_rho_a_, ftr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA(ftr_rho_a_, ftr_rho_b_, ftr_zeta_, ftr_rs_);
 
-    // mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(tr_rho_a_, tr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA(tr_rho_a_, tr_rho_b_, tr_zeta_, tr_rs_);
-    mcpdft_xc_energy = MCPDFTSolver::EX_PBE(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_) 
-                     + MCPDFTSolver::EC_PBE(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
+         }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "PBE" ) {
+ 
+                  mcpdft_xc_energy = MCPDFTSolver::EX_PBE(ftr_rho_a_, ftr_rho_b_, ftr_sigma_aa_, ftr_sigma_bb_) 
+                                   + MCPDFTSolver::EC_PBE(ftr_rho_a_, ftr_rho_b_, ftr_sigma_aa_, ftr_sigma_ab_, ftr_sigma_bb_);
+
+         }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "PBE" ) {
+
+               
+                  mcpdft_xc_energy =  MCPDFTSolver::EX_B88(ftr_rho_a_, ftr_rho_b_, ftr_sigma_aa_, ftr_sigma_bb_)
+                                   +  MCPDFTSolver::EC_B88_OP(ftr_rho_a_, ftr_rho_b_, ftr_sigma_aa_, ftr_sigma_bb_);
+         }
+    }
+    // mcpdft_xc_energy = MCPDFTSolver::EX_PBE(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_) 
+    //                  + MCPDFTSolver::EC_PBE(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
     // mcpdft_xc_energy =  MCPDFTSolver::EX_B88(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_)
     //                  +  MCPDFTSolver::EC_B88_OP(tr_rho_a_, tr_rho_b_, tr_sigma_aa_,tr_sigma_bb_);
 
@@ -699,6 +738,134 @@ void MCPDFTSolver::Translate(){
            tr_sigma_aap[p] = (tr_rho_a_xp[p] * tr_rho_a_xp[p]) + (tr_rho_a_yp[p] * tr_rho_a_yp[p]) + (tr_rho_a_zp[p] * tr_rho_a_zp[p]);  
            tr_sigma_abp[p] = (tr_rho_a_xp[p] * tr_rho_b_xp[p]) + (tr_rho_a_yp[p] * tr_rho_b_yp[p]) + (tr_rho_a_zp[p] * tr_rho_b_zp[p]);  
            tr_sigma_bbp[p] = (tr_rho_b_xp[p] * tr_rho_b_xp[p]) + (tr_rho_b_yp[p] * tr_rho_b_yp[p]) + (tr_rho_b_zp[p] * tr_rho_b_zp[p]);  
+       }
+    }
+}
+
+void MCPDFTSolver::Fully_Translate(){
+
+    double const R0 = 0.9;
+    double const R1 = 1.15;
+    double const A = -475.60656009;
+    double const B = -379.47331922;
+    double const C = -85.38149682;
+
+    ftr_rho_a_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+    ftr_rho_b_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+    
+    ftr_zeta_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+    ftr_rs_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+    
+    double * ftr_rho_ap = ftr_rho_a_->pointer();
+    double * ftr_rho_bp = ftr_rho_b_->pointer();
+    
+    double * ftr_zeta_p = ftr_zeta_->pointer();
+    double * ftr_rs_p = ftr_rs_->pointer();
+
+    double * rho_ap = rho_a_->pointer();
+    double * rho_bp = rho_b_->pointer();
+
+    double * pi_p = pi_->pointer();
+    double * R_p = R_->pointer();
+  
+
+    for (int p = 0; p < phi_points_; p++) {
+
+        double DelR = R_p[p] - R1;
+        double rho = rho_ap[p] + rho_bp[p];
+
+        if ( R_p[p] > R1 ) {
+
+           ftr_zeta_p[p] = 0.0;
+
+        }else{
+
+             ftr_zeta_p[p] = ( ( R_p[p] < R0 )
+                           ? sqrt(1.0 - R_p[p])
+                           : A * pow(DelR ,5.0) + B * pow(DelR ,4.0) + C * pow(DelR ,3.0)
+                           );
+        }
+
+        ftr_rho_ap[p] = (rho/2.0) * (1.0 + ftr_zeta_p[p]);
+        ftr_rho_bp[p] = (rho/2.0) * (1.0 - ftr_zeta_p[p]);
+        
+        ftr_rs_p[p] = pow( 3.0 / ( 4.0 * M_PI * (ftr_rho_ap[p] + ftr_rho_bp[p]) ) , 1.0/3.0 );
+    }
+
+    if ( is_gga_ || is_meta_ ) {
+
+       ftr_zetaPrime_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+
+       ftr_rho_a_x_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+       ftr_rho_b_x_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+
+       ftr_rho_a_y_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+       ftr_rho_b_y_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+
+       ftr_rho_a_z_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+       ftr_rho_b_z_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+       
+       ftr_sigma_aa_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+       ftr_sigma_ab_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+       ftr_sigma_bb_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+
+       double * ftr_zetaPrime_p = ftr_zetaPrime_->pointer();
+
+       double * rho_a_xp = rho_a_x_->pointer();
+       double * rho_b_xp = rho_b_x_->pointer();
+
+       double * rho_a_yp = rho_a_y_->pointer();
+       double * rho_b_yp = rho_b_y_->pointer();
+ 
+       double * rho_a_zp = rho_a_z_->pointer();
+       double * rho_b_zp = rho_b_z_->pointer();
+
+       double * ftr_rho_a_xp = ftr_rho_a_x_->pointer();
+       double * ftr_rho_b_xp = ftr_rho_b_x_->pointer();
+
+       double * ftr_rho_a_yp = ftr_rho_a_y_->pointer();
+       double * ftr_rho_b_yp = ftr_rho_b_y_->pointer();
+ 
+       double * ftr_rho_a_zp = ftr_rho_a_z_->pointer();
+       double * ftr_rho_b_zp = ftr_rho_b_z_->pointer();
+       
+       double * ftr_sigma_aap = ftr_sigma_aa_->pointer();
+       double * ftr_sigma_abp = ftr_sigma_ab_->pointer();
+       double * ftr_sigma_bbp = ftr_sigma_bb_->pointer();
+
+       for (int p = 0; p < phi_points_; p++) {
+
+           double rho_x = rho_a_xp[p] + rho_b_xp[p];
+           double rho_y = rho_a_yp[p] + rho_b_yp[p];
+           double rho_z = rho_a_zp[p] + rho_b_zp[p];
+
+           double DelR = R_p[p] - R1;
+           double rho = rho_ap[p] + rho_bp[p];
+
+           if ( R_p[p] > R1 ) {
+
+              ftr_zetaPrime_p[p] = 0.0;
+
+           }else{
+
+                ftr_zetaPrime_p[p] = ( ( R_p[p] < R0 )
+                              ? -0.5 * pow(1.0 - R_p[p] ,-1.0/2.0)
+                              : 5.0 * A * pow(DelR ,4.0) + 4.0 * B * pow(DelR ,3.0) + 3.0 * C * pow(DelR ,2.0)
+                              );
+           }
+
+           ftr_rho_a_xp[p] = (rho_x/2.0) * (1.0 + ftr_zeta_p[p]) + (rho/2.0) * ftr_zetaPrime_p[p];
+           ftr_rho_b_xp[p] = (rho_x/2.0) * (1.0 - ftr_zeta_p[p]) - (rho/2.0) * ftr_zetaPrime_p[p];
+           
+           ftr_rho_a_yp[p] = (rho_y/2.0) * (1.0 + ftr_zeta_p[p]) + (rho/2.0) * ftr_zetaPrime_p[p];
+           ftr_rho_b_yp[p] = (rho_y/2.0) * (1.0 - ftr_zeta_p[p]) - (rho/2.0) * ftr_zetaPrime_p[p];
+           
+           ftr_rho_a_zp[p] = (rho_z/2.0) * (1.0 + ftr_zeta_p[p]) + (rho/2.0) * ftr_zetaPrime_p[p];
+           ftr_rho_b_zp[p] = (rho_z/2.0) * (1.0 - ftr_zeta_p[p]) - (rho/2.0) * ftr_zetaPrime_p[p];
+
+           ftr_sigma_aap[p] = (ftr_rho_a_xp[p] * ftr_rho_a_xp[p]) + (ftr_rho_a_yp[p] * ftr_rho_a_yp[p]) + (ftr_rho_a_zp[p] * ftr_rho_a_zp[p]);  
+           ftr_sigma_abp[p] = (ftr_rho_a_xp[p] * ftr_rho_b_xp[p]) + (ftr_rho_a_yp[p] * ftr_rho_b_yp[p]) + (ftr_rho_a_zp[p] * ftr_rho_b_zp[p]);  
+           ftr_sigma_bbp[p] = (ftr_rho_b_xp[p] * ftr_rho_b_xp[p]) + (ftr_rho_b_yp[p] * ftr_rho_b_yp[p]) + (ftr_rho_b_zp[p] * ftr_rho_b_zp[p]);  
        }
     }
 }
