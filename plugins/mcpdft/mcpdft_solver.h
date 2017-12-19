@@ -67,6 +67,10 @@ class MCPDFTSolver: public Wavefunction{
     double compute_energy();
     virtual bool same_a_b_orbs() const { return same_a_b_orbs_; }
     virtual bool same_a_b_dens() const { return same_a_b_dens_; }
+    void ReadOPDM(double* D, const char* fileName); 
+    void ReadTPDM(double* D, const char* fileName); 
+    void PrintOPDM(double* D); 
+    void PrintTPDM(double* D); 
 
   protected:
 
@@ -223,7 +227,16 @@ class MCPDFTSolver: public Wavefunction{
 
     /// zeta factor zeta = ( rho_a(r) - rho_b(r) ) / ( rho_a(r) + rho_b(r) )
     std::shared_ptr<Vector> zeta_;
+   
+    /// spin magnetization density
+    std::shared_ptr<Vector> m_;
     
+    /// translated spin magnetization density
+    std::shared_ptr<Vector> tr_m_;
+
+    /// total density
+    std::shared_ptr<Vector> rho_;
+ 
     /// translated zeta factor
     std::shared_ptr<Vector> tr_zeta_;
 

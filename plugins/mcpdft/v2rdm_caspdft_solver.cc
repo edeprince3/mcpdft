@@ -34,10 +34,6 @@
 #include <vector>
 #include <utility>
 #include <tuple>
-#include <fstream>
-#include <iostream>
-#include <iomanip>
-
 #include "psi4/libpsi4util/libpsi4util.h"
 
 #include "psi4/libqt/qt.h"
@@ -313,19 +309,12 @@ double MCPDFTSolver::compute_energy() {
     memset((void*)D2ab,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
 
     // read 2-RDM from disk
-    // ReadTPDM(D2aa,D2bb,D2ab,D1a,D1b);
-    ReadOPDM(D1a,"opdm_a.txt");
-    ReadOPDM(D1b,"opdm_b.txt");
-    ReadTPDM(D2aa,"tpdm_aa.txt");
-    ReadTPDM(D2ab,"tpdm_ab.txt");
-    ReadTPDM(D2bb,"tpdm_bb.txt");
+    ReadTPDM(D2aa,D2bb,D2ab,D1a,D1b);
 
-    // PrintTPDM(D2ab);
-    // PrintTPDM(D1a);
-    
     // with the 1-RDM, we can evaluate the kinetic, potential, and coulomb nergies
 
     // one-electron terms:
+
     std::shared_ptr<MintsHelper> mints(new MintsHelper(reference_wavefunction_));
 
     SharedMatrix ha (new Matrix(mints->so_potential()));
@@ -893,62 +882,6 @@ void MCPDFTSolver::Fully_Translate(){
            ftr_sigma_bbp[p] = (ftr_rho_b_xp[p] * ftr_rho_b_xp[p]) + (ftr_rho_b_yp[p] * ftr_rho_b_yp[p]) + (ftr_rho_b_zp[p] * ftr_rho_b_zp[p]);  
        }
     }
-}
-
-void MCPDFTSolver::ReadTPDM(double* D, const char* fileName) {
-    
-    std::ifstream dataIn;
-    
-    dataIn.open(fileName);
-    
-    if (!dataIn)
-       std::cout << "Error opening file.\n";
-    else { 
-         for (int i = 0; i < nmo_; i++)
-             for (int j = 0; j < nmo_; j++)
-                 for (int k = 0; k < nmo_; k++)
-                     for (int l = 0; l < nmo_; l++)
-                         dataIn >> D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l];
-    dataIn.close(); 
-    }
-}
-
-void MCPDFTSolver::PrintTPDM(double* D) {
-    
-         for (int i = 0; i < nmo_; i++)
-             for (int j = 0; j < nmo_; j++)
-                 for (int k = 0; k < nmo_; k++)
-                     for (int l = 0; l < nmo_; l++)
-                         std::cout << std::fixed << std::setprecision( 15 ) << std::setw( 7 ) 
-                         <<  D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] << "     ";
-                         
-                         std::cout << std::endl << std::endl;
-}
-
-void MCPDFTSolver::ReadOPDM(double* D, const char* fileName) {
-    
-    std::ifstream dataIn;
-    
-    dataIn.open(fileName);
-    
-    if (!dataIn)
-       std::cout << "Error opening file.\n";
-    else { 
-         for (int i = 0; i < nmo_; i++)
-             for (int j = 0; j < nmo_; j++)
-                 dataIn >> D[i*nmo_+j];
-    dataIn.close(); 
-    }
-}
-
-void MCPDFTSolver::PrintOPDM(double* D) {
-    
-         for (int i = 0; i < nmo_; i++)
-             for (int j = 0; j < nmo_; j++)
-                         std::cout << std::fixed << std::setprecision( 15 ) << std::setw( 7 ) 
-                         <<  D[i*nmo_+j] << "     ";
-                         
-                         std::cout << std::endl << std::endl;
 }
 
 }} // end of namespaces

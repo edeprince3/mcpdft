@@ -33,5 +33,8 @@ cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(mcpdft CXX)
 
 find_package(psi4 1.1 REQUIRED)
+#Uncomment for using V2RDM-CAS-PDFT method
+#add_psi4_plugin(mcpdft plugin.cc v2rdm_caspdft_solver.cc read_tpdm.cc Func_HC.cc)
+#Uncomment for using MCPDFT method 
+add_psi4_plugin(mcpdft plugin.cc mcpdft_solver.cc Func_HC.cc)
 
-add_psi4_plugin(mcpdft plugin.cc mcpdft_solver.cc read_tpdm.cc Func_HC.cc)

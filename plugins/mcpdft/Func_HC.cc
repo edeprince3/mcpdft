@@ -475,7 +475,7 @@ double MCPDFTSolver::EC_PBE(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vecto
            if ( rhoa < tol ){
 
               double rho = rhob;
-              sigmabb = std::max(0.0,sigmaaa);
+              sigmabb = std::max(0.0,sigmabb);
               double sigma = sigmabb;
               double t2 = 1.0 / rhob;
               double t3 = pow(t2 ,1.0/3.0);
