@@ -320,8 +320,11 @@ double MCPDFTSolver::compute_energy() {
     ReadTPDM(D2ab,"tpdm_ab.txt");
     ReadTPDM(D2bb,"tpdm_bb.txt");
 
+    // PrintOPDM(D1a);
+    // PrintOPDM(D1b);
+    // PrintTPDM(D2aa);
     // PrintTPDM(D2ab);
-    // PrintTPDM(D1a);
+    // PrintTPDM(D2bb);
     
     // with the 1-RDM, we can evaluate the kinetic, potential, and coulomb nergies
 
@@ -427,11 +430,7 @@ double MCPDFTSolver::compute_energy() {
                                    +  MCPDFTSolver::EC_B88_OP(ftr_rho_a_, ftr_rho_b_, ftr_sigma_aa_, ftr_sigma_bb_);
          }
     }
-    // mcpdft_xc_energy = MCPDFTSolver::EX_PBE(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_) 
-    //                  + MCPDFTSolver::EC_PBE(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
-    // mcpdft_xc_energy =  MCPDFTSolver::EX_B88(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_)
-    //                  +  MCPDFTSolver::EC_B88_OP(tr_rho_a_, tr_rho_b_, tr_sigma_aa_,tr_sigma_bb_);
-
+    
     // print total energy and its components
 
     outfile->Printf("\n");
@@ -668,9 +667,11 @@ void MCPDFTSolver::Build_R(){
  
     for (int p = 0; p < phi_points_; p++) {
         
-        R_p[p] = 4 * pi_p[p] / (rho_p[p] * rho_p[p]);     
+        R_p[p] = 4 * pi_p[p] / (rho_p[p] * rho_p[p]);    
+     
+    // printf("Pi = %20.15lf\n",pi_p[p]);
+    // printf("R = %20.15lf\n",R_p[p]);
     }
-
 } 
 
 void MCPDFTSolver::Translate(){
@@ -907,22 +908,26 @@ void MCPDFTSolver::ReadTPDM(double* D, const char* fileName) {
          for (int i = 0; i < nmo_; i++)
              for (int j = 0; j < nmo_; j++)
                  for (int k = 0; k < nmo_; k++)
-                     for (int l = 0; l < nmo_; l++)
+                     for (int l = 0; l < nmo_; l++) {
+
                          dataIn >> D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l];
+                         if (D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] < 1e-20)
+                             D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] = 0.0;
+                     }
     dataIn.close(); 
     }
 }
 
 void MCPDFTSolver::PrintTPDM(double* D) {
     
-         for (int i = 0; i < nmo_; i++)
-             for (int j = 0; j < nmo_; j++)
-                 for (int k = 0; k < nmo_; k++)
-                     for (int l = 0; l < nmo_; l++)
-                         std::cout << std::fixed << std::setprecision( 15 ) << std::setw( 7 ) 
-                         <<  D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] << "     ";
+   for (int i = 0; i < nmo_; i++)
+       for (int j = 0; j < nmo_; j++)
+           for (int k = 0; k < nmo_; k++)
+               for (int l = 0; l < nmo_; l++)
+                   printf("%20.15lf\t", D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l]);
                          
-                         std::cout << std::endl << std::endl;
+   
+   printf("\n\n");
 }
 
 void MCPDFTSolver::ReadOPDM(double* D, const char* fileName) {
@@ -935,20 +940,24 @@ void MCPDFTSolver::ReadOPDM(double* D, const char* fileName) {
        std::cout << "Error opening file.\n";
     else { 
          for (int i = 0; i < nmo_; i++)
-             for (int j = 0; j < nmo_; j++)
+             for (int j = 0; j < nmo_; j++) {
+                 
                  dataIn >> D[i*nmo_+j];
+                 if (D[i*nmo_+j] < 1.e-20)
+                     D[i*nmo_+j] = 0.0;
+             }        
     dataIn.close(); 
     }
 }
 
 void MCPDFTSolver::PrintOPDM(double* D) {
     
-         for (int i = 0; i < nmo_; i++)
-             for (int j = 0; j < nmo_; j++)
-                         std::cout << std::fixed << std::setprecision( 15 ) << std::setw( 7 ) 
-                         <<  D[i*nmo_+j] << "     ";
-                         
-                         std::cout << std::endl << std::endl;
+   for (int i = 0; i < nmo_; i++)
+       for (int j = 0; j < nmo_; j++)
+           printf("%20.15lf\t", D[i*nmo_+j]);
+                     
+   
+   printf("\n\n");
 }
 
 }} // end of namespaces
