@@ -53,6 +53,8 @@ int read_options(std::string name, Options& options)
         REGULAR = The gradients of on-top density are not considered in the polarization factor zeta
         FULL = The gradients of on-top density is included in the polarization factor zeta       -*/
         options.add_str("TRANSLATION_TYPE","","REGULAR FULL");
+        /*- JK object type -*/
+        options.add_str("MCPDFT_TYPE", "DFJK", "DFJK PKJK");
     }
 
     return true;

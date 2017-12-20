@@ -613,47 +613,102 @@ std::shared_ptr<Matrix> MCPDFTSolver::BuildJ(double * D, std::shared_ptr<Matrix>
     std::shared_ptr<BasisSet> auxiliary = reference_wavefunction_->get_basisset("DF_BASIS_SCF");
 
     // JK object (note this is hard-coded to use density fitting ...)
-    std::shared_ptr<DFJK> jk = (std::shared_ptr<DFJK>)(new DFJK(primary,auxiliary));
+    if (options_.get_str("MCPDFT_TYPE") == "DFJK") {
+       
+       // outfile->Printf("\n");
+       // outfile->Printf("    ==> The JK type for the MCPDFT calculation is: %s", options_.get_str("MCPDFT_TYPE"));
+       // outfile->Printf(" <==\n");
 
-    // memory for jk (say, 50% of what is available)
-    jk->set_memory(0.5 * Process::environment.get_memory());
+       std::shared_ptr<DFJK> jk = (std::shared_ptr<DFJK>)(new DFJK(primary,auxiliary));
+       
+       // memory for jk (say, 50% of what is available)
+       jk->set_memory(0.5 * Process::environment.get_memory());
 
-    // integral cutoff
-    jk->set_cutoff(options_.get_double("INTS_TOLERANCE"));
+       // integral cutoff
+       jk->set_cutoff(options_.get_double("INTS_TOLERANCE"));
 
-    jk->set_do_J(true);
-    jk->set_do_K(false);
-    jk->set_do_wK(false);
-    jk->set_omega(false);
+       jk->set_do_J(true);
+       jk->set_do_K(false);
+       jk->set_do_wK(false);
+       jk->set_omega(false);
 
-    jk->initialize();
+       jk->initialize();
 
-    std::vector<SharedMatrix>& C_left  = jk->C_left();
-    std::vector<SharedMatrix>& C_right = jk->C_right();
+       std::vector<SharedMatrix>& C_left  = jk->C_left();
+       std::vector<SharedMatrix>& C_right = jk->C_right();
 
-    // use real and imaginary C matrices
+       // use real and imaginary C matrices
 
-    std::shared_ptr<Matrix> myC (new Matrix(C) );
+       std::shared_ptr<Matrix> myC (new Matrix(C) );
 
-    myC->zero();
+       myC->zero();
 
-    C_left.clear();
-    C_right.clear();
+       C_left.clear();
+       C_right.clear();
 
-    C_DCOPY(nmo_*nmo_,D,1,Da_->pointer()[0],1);
-    myC->gemm('t','n',1.0,Da_,C,0.0);
-    myC->transpose_this();
-    C_left.push_back(myC);
-    C_right.push_back(C);
+       C_DCOPY(nmo_*nmo_,D,1,Da_->pointer()[0],1);
+       myC->gemm('t','n',1.0,Da_,C,0.0);
+       myC->transpose_this();
+       C_left.push_back(myC);
+       C_right.push_back(C);
 
-    // Let jk compute for the given C_left/C_right
+       // Let jk compute for the given C_left/C_right
 
-    jk->compute();
+       jk->compute();
 
-    std::shared_ptr<Matrix> J = jk->J()[0];
-    J->transform(C);
+       std::shared_ptr<Matrix> J = jk->J()[0];
+       J->transform(C);
 
-    return J;
+       return J;
+
+    }else if (options_.get_str("MCPDFT_TYPE") == "PKJK") {
+
+             // outfile->Printf("\n");
+             // outfile->Printf("    ==> The JK type for the MCPDFT calculation is: %s", options_.get_str("MCPDFT_TYPE"));
+             // outfile->Printf(" <==\n");
+
+             std::shared_ptr<PKJK> jk = (std::shared_ptr<PKJK>)(new PKJK(primary,options_));
+             
+             // memory for jk (say, 50% of what is available)
+             jk->set_memory(0.5 * Process::environment.get_memory());
+
+             // integral cutoff
+             jk->set_cutoff(options_.get_double("INTS_TOLERANCE"));
+
+             jk->set_do_J(true);
+             jk->set_do_K(false);
+             jk->set_do_wK(false);
+             jk->set_omega(false);
+
+             jk->initialize();
+
+             std::vector<SharedMatrix>& C_left  = jk->C_left();
+             std::vector<SharedMatrix>& C_right = jk->C_right();
+
+             // use real and imaginary C matrices
+
+             std::shared_ptr<Matrix> myC (new Matrix(C) );
+
+             myC->zero();
+
+             C_left.clear();
+             C_right.clear();
+
+             C_DCOPY(nmo_*nmo_,D,1,Da_->pointer()[0],1);
+             myC->gemm('t','n',1.0,Da_,C,0.0);
+             myC->transpose_this();
+             C_left.push_back(myC);
+             C_right.push_back(C);
+
+             // Let jk compute for the given C_left/C_right
+
+             jk->compute();
+
+             std::shared_ptr<Matrix> J = jk->J()[0];
+             J->transform(C);
+             
+             return J;
+    }         
 }
 
 void MCPDFTSolver::Build_R(){
