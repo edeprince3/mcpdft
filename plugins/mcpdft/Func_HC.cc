@@ -102,13 +102,13 @@ double MCPDFTSolver::EX_LDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vecto
     return exc;
 }
 
-double MCPDFTSolver::EX_LSDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector> rho_b){
+double MCPDFTSolver::EX_LSDA(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B){
     
     const double alpha = (2.0/3.0);      // Slater value
     const double Cx = (9.0/8.0) * alpha * pow(3.0/M_PI,1.0/3.0);
 
-    double * rho_ap = rho_a->pointer();
-    double * rho_bp = rho_b->pointer();
+    double * rho_ap = RHO_A->pointer();
+    double * rho_bp = RHO_B->pointer();
     
     double exc = 0.0;
     for (int p = 0; p < phi_points_; p++) {
@@ -240,6 +240,92 @@ double MCPDFTSolver::EX_PBE(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vecto
         double EX_GGAb = 0.5 * E(2.0*rhob,Fsb);
        
         exc += ( EX_GGAa + EX_GGAb ) * grid_w_->pointer()[p]; 
+    }
+    return exc;
+}
+
+// Conv. (I)
+double MCPDFTSolver::EX_PBE_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B,
+                           std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB) {
+
+
+    const double delta = 0.06672455060314922;
+    const double MU = (1.0/3.0) * delta * M_PI * M_PI;
+    const double KAPPA = 0.804;
+
+    double tol = 1.0e-20;
+
+    double * rho_ap = RHO_A->pointer();
+    double * rho_bp = RHO_B->pointer();
+
+    double * sigma_aap = SIGMA_AA->pointer();
+    double * sigma_bbp = SIGMA_BB->pointer();
+
+    auto kF = [](double RHO) -> double {
+
+              double dum = pow(3.0 * M_PI * M_PI * RHO ,1.0/3.0);
+              return dum;
+    };
+
+    auto eX = [=](double RHO) -> double {
+
+              double temp = -(3.0 * kF(RHO)) / (4.0 * M_PI);
+              return temp;
+    };
+
+    auto FX = [=](double SIGMA) -> double {
+
+              double temp = 1.0 + KAPPA - KAPPA * pow( (1.0 + (MU * pow(SIGMA,2.0)) / KAPPA ), -1.0 );
+              return temp;
+    };
+
+
+    auto S = [=](double RHO, double SIGMA) -> double {
+
+             double temp = sqrt(SIGMA) / (2.0 * kF(RHO) * RHO);
+             return temp;
+    };
+
+    double exc = 0.0;
+    for (int p = 0; p < phi_points_; p++) {
+
+        double rhoa = rho_ap[p];
+        double rhob = rho_bp[p];
+        double rho = rhoa + rhob;
+
+        double sigmaaa = sigma_aap[p];
+        double sigmabb = sigma_bbp[p];
+        double sigma = 0.0;
+
+        if ( rho > tol ) {
+           if ( rhoa < tol ){
+
+              rho = rhob;
+              sigmabb = std::max(0.0,sigmabb);
+              sigma = sigmabb;
+
+              double zk = eX(2.0 * rho) * FX(S(2.0 * rho, 4.0 * sigma));
+              exc += rho * zk * grid_w_->pointer()[p];
+
+           }else if ( rhob < tol ){
+
+                    rho = rhoa;
+                    sigmaaa = std::max(0.0,sigmaaa);
+                    sigma = sigmaaa;
+
+                    double zk = eX(2.0 * rho) * FX(S(2.0 * rho, 4.0 * sigma));
+                    exc += rho * zk * grid_w_->pointer()[p];
+           }
+
+           double zka = rhoa * eX(2.0 * rhoa) * FX(S(2.0 * rhoa, 4.0 * sigmaaa));
+           double zkb = rhob * eX(2.0 * rhob) * FX(S(2.0 * rhob, 4.0 * sigmabb));
+           double zk = zka + zkb;
+           exc += zk * grid_w_->pointer()[p];
+
+        }else{
+                //double zk = 0.0;        
+                exc += 0.0;
+             }
     }
     return exc;
 }
@@ -450,6 +536,8 @@ double MCPDFTSolver::EC_B88_OP(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Ve
 double MCPDFTSolver::EC_PBE(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B,
                             std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_AB, std::shared_ptr<Vector> SIGMA_BB){
 
+    double tol = 1.0e-20;
+
     double * rho_ap = RHO_A->pointer();
     double * rho_bp = RHO_B->pointer();
 
@@ -470,13 +558,12 @@ double MCPDFTSolver::EC_PBE(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vecto
         double rho = rhoa + rhob;
         double sigma = sigmaaa + sigmabb + 2.0 * sigmaab;
 
-        double tol = 1.0e-20;
         if ( rho > tol ) {
            if ( rhoa < tol ){
 
-              double rho = rhob;
+              rho = rhob;
               sigmabb = std::max(0.0,sigmabb);
-              double sigma = sigmabb;
+              sigma = sigmabb;
               double t2 = 1.0 / rhob;
               double t3 = pow(t2 ,1.0/3.0);
               double t6 = pow(t2 ,1.0/6.0);
@@ -502,9 +589,9 @@ double MCPDFTSolver::EC_PBE(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vecto
 
            }else if ( rhob < tol ){
 
-                    double rho = rhoa;
+                    rho = rhoa;
                     sigmaaa = std::max(0.0,sigmaaa);
-                    double sigma = sigmaaa;
+                    sigma = sigmaaa;
                     double t2 = 1.0 / rhoa;
                     double t3 = pow(t2 ,1.0/3.0);
                     double t6 = pow(t2 ,1.0/6.0);
@@ -607,6 +694,162 @@ double MCPDFTSolver::EC_PBE(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vecto
                 double zk = 0.0;
                 exc += rho * zk * grid_w_->pointer()[p];
                 }
+    }
+    return exc;
+}
+
+// Conv (I)
+double MCPDFTSolver::EC_PBE_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B,
+                           std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_AB, std::shared_ptr<Vector> SIGMA_BB) {
+    const double pa = 1.0;
+    const double Aa = 0.0168869;
+    const double a1a = 0.11125;
+    const double b1a = 10.357;
+    const double b2a = 3.6231;
+    const double b3a = 0.88026;
+    const double b4a = 0.49671;
+    const double pe = 1.0;
+    const double c0p = 0.0310907;
+    const double a1p = 0.21370;
+    const double b1p = 7.5957;
+    const double b2p = 3.5876;
+    const double b3p = 1.6382;
+    const double b4p = 0.49294;
+    const double c0f = 0.01554535;
+    const double a1f = 0.20548;
+    const double b1f = 14.1189;
+    const double b2f = 6.1977;
+    const double b3f = 3.3662;
+    const double b4f = 0.62517;
+    const double d2Fz = 1.7099209341613656173;
+    const double BETA = 0.06672455060314922;
+    const double GAMMA = 0.0310906908696549;
+
+    double tol = 1.0e-20;
+
+    double * rho_ap = RHO_A->pointer();
+    double * rho_bp = RHO_B->pointer();
+
+    double * sigma_aap = SIGMA_AA->pointer();
+    double * sigma_abp = SIGMA_AB->pointer();
+    double * sigma_bbp = SIGMA_BB->pointer();
+
+        auto Fi = [=](double ZETA) -> double {
+
+                  double dumm = 0.5 * (pow((1.0 + ZETA) ,2.0/3.0 ) + pow((1.0 - ZETA) ,2.0/3.0));
+                  return dumm;
+        };
+
+        auto kF = [](double RHO) -> double {
+
+                  double dum = pow(3.0 * M_PI * M_PI * RHO ,1.0/3.0);
+                  return dum;
+        };
+
+        auto ks = [=](double RHO) -> double {
+
+                  double temp = sqrt(4.0 * kF(RHO) / M_PI);
+                  return temp;
+        };
+
+        auto Fz = [](double ZETA) -> double {
+
+                  double dum = (pow((1.0 + ZETA) ,4.0/3.0) + pow((1.0 - ZETA) ,4.0/3.0) - 2.0) / (2.0 * pow(2.0,1.0/3.0) - 2.0);
+                  return dum;
+        };
+
+        auto t = [=](double RHO, double SIGMA, double ZETA) -> double {
+
+                 double temp = sqrt(SIGMA) / (2.0 * ks(RHO) * Fi(ZETA) * RHO);
+                 return temp;
+        };
+
+        auto G = [](double r, double T, double a1, double b1, double b2, double b3, double b4, double p) -> double {
+
+                 double dum = -2.0 * T * (1.0 + a1 * r) * log(1.0 + 0.5 * pow(T * (b1 * sqrt(r) + b2 * r + b3 * pow(r,3.0/2.0) + b4 * pow(r, p+1.0)) ,-1.0));
+                 return dum;
+
+        };
+
+        auto Ac = [=](double r) -> double {
+
+                  double temp = -G(r,Aa,a1a,b1a,b2a,b3a,b4a,pa);
+                  return temp;
+        };
+
+        auto EcP = [=](double r) -> double {
+
+                   double dum = G(r,c0p,a1p,b1p,b2p,b3p,b4p,pe);
+                   return dum;
+        };
+
+        auto EcF = [=](double r) -> double {
+
+                   double dumm = G(r,c0f,a1f,b1f,b2f,b3f,b4f,pe);
+                   return dumm;
+        };
+
+        auto Ec = [=](double r, double ZETA) -> double {
+
+                  double dum = EcP(r) + ( Ac(r) * Fz(ZETA) * (1.0 - pow(ZETA ,4.0)) ) / d2Fz + ( EcF(r) - EcP(r) ) * Fz(ZETA) * pow(ZETA ,4.0);
+                  return dum;
+        };
+
+        auto A = [=](double r, double ZETA) -> double {
+
+                 double dum = (BETA/GAMMA) * pow( exp(-Ec(r,ZETA) / (pow(Fi(ZETA),3.0) * GAMMA)) - 1.0, -1.0);
+                 return dum;
+        };
+
+        auto H = [=](double RHO, double SIGMA, double r, double ZETA) -> double {
+
+                 double temp = pow(Fi(ZETA),3.0) * GAMMA * log(1.0 + (BETA/GAMMA) * pow(t(RHO,SIGMA,ZETA) ,2.0) * (1.0 + A(r,ZETA) * pow(t(RHO,SIGMA,ZETA),2.0))
+                             / (1.0 + A(r,ZETA) * pow(t(RHO,SIGMA,ZETA),2.0) + pow(A(r,ZETA),2.0) * pow(t(RHO,SIGMA,ZETA),4.0)));
+                 return temp;
+        };
+
+    double exc = 0.0;
+    for (int p = 0; p < phi_points_; p++) {
+
+        double rhoa = rho_ap[p];
+        double rhob = rho_bp[p];
+        double rho = rhoa + rhob;
+        double zeta = (rhoa - rhob) / rho;
+        double rs =  pow( 3.0 / ( 4.0 * M_PI * rho) , 1.0/3.0 );
+        double sigmaaa = sigma_aap[p];
+        double sigmaab = sigma_abp[p];
+        double sigmabb = sigma_bbp[p];
+        double sigma = sigmaaa + sigmabb + 2.0 * sigmaab;
+
+        if ( rho > tol ) {
+           if ( rhoa < tol ){
+
+              rho = rhob;
+              sigmabb = std::max(0.0,sigmabb);
+              sigma = sigmabb;
+              zeta = 1.0;
+
+           }else if ( rhob < tol ){
+
+                    rho = rhoa;
+                    sigmaaa = std::max(0.0,sigmaaa);
+                    sigma = sigmaaa;
+                    zeta = 1.0;
+
+           }else if (!(rhoa < tol) && !(rhob < tol) ) {
+                   
+                    sigmaaa = std::max(0.0,sigmaaa);
+                    sigmabb = std::max(0.0,sigmabb);
+                    sigma = sigmaaa + sigmabb + 2.0 * sigmaab;
+
+           }
+           double zk = H(rho,sigma,rs,zeta) + Ec(rs,zeta);
+           exc += rho * zk * grid_w_->pointer()[p];
+          
+        }else{
+                double zk = 0.0;
+                exc += rho * zk * grid_w_->pointer()[p];
+             }
     }
     return exc;
 }

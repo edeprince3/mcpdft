@@ -46,7 +46,7 @@ int read_options(std::string name, Options& options)
         /*- The amount of information printed to the output file -*/
         options.add_int("PRINT", 1);
         /*- MCPDFT functional -*/
-        options.add_str("MCPDFT_FUNCTIONAL", "SVWN", "SVWN PBE BOP");
+        options.add_str("MCPDFT_FUNCTIONAL", "PBE", "SVWN PBE BOP");
         /*- reference must be UKS -*/
         options.add_str("REFERENCE", "UKS");
         /*- type of density and density gradient translation:
@@ -55,6 +55,8 @@ int read_options(std::string name, Options& options)
         options.add_str("TRANSLATION_TYPE","","REGULAR FULL");
         /*- JK object type -*/
         options.add_str("MCPDFT_TYPE", "DFJK", "DFJK PKJK");
+        /*- MCPDFT reference -*/
+        options.add_str("MCPDFT_REF", "CASSCF", "v2RDM_CASSCF CASSCF");
     }
 
     return true;

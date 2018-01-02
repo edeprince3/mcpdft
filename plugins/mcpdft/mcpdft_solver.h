@@ -188,6 +188,9 @@ class MCPDFTSolver: public Wavefunction{
 
     /// translated inner product of alpha density gradient with beta density gradient (gamma_ab)
     std::shared_ptr<Vector> tr_sigma_ab_;
+    
+    /// translated inner product of total density gradient
+    std::shared_ptr<Vector> tr_sigma_;
 
     /// fully-translated alpha-spin density
     std::shared_ptr<Vector> ftr_rho_a_;
@@ -264,6 +267,15 @@ class MCPDFTSolver: public Wavefunction{
     /// the on-top pair density
     std::shared_ptr<Vector> pi_;
 
+    /// x-component of the gradient of the on-top pair density
+    std::shared_ptr<Vector> pi_x_;
+
+    /// y-component of the gradient of the on-top pair density
+    std::shared_ptr<Vector> pi_y_;
+
+    /// z-component of the gradient of the on-top pair density
+    std::shared_ptr<Vector> pi_z_;
+
     /// build spin densities and gradients
     void BuildRho(double * D1a, double * D1b);
 
@@ -271,7 +283,7 @@ class MCPDFTSolver: public Wavefunction{
     void BuildPi(double * D2ab);
 
     /// build R(r) = 4 * Pi(r) / rho(r) ^ 2
-    void Build_R();
+    // void Build_R();
     
     /// build translator function of density and its gradient
     void Translate();
@@ -296,7 +308,7 @@ class MCPDFTSolver: public Wavefunction{
     double EX_LSDA(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> ZETA);
 
     /// build EX_LSDA(rho_a, rho_b)
-    double EX_LSDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector> rho_b);
+    double EX_LSDA(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B);
 
     /// build EX_B86_MGC()
     double EX_B86_MGC();
@@ -306,6 +318,7 @@ class MCPDFTSolver: public Wavefunction{
 
     /// build EX_PBE()
     double EX_PBE(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB);
+    double EX_PBE_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB);
 
     /// build EX_RPBE()
     double EX_RPBE();
@@ -322,6 +335,8 @@ class MCPDFTSolver: public Wavefunction{
 
     /// build EC_PBE()
     double EC_PBE(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, 
+                  std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_AB, std::shared_ptr<Vector> SIGMA_BB);
+    double EC_PBE_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, 
                   std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_AB, std::shared_ptr<Vector> SIGMA_BB);
 
     /// build EC_VWN3_RPA()
