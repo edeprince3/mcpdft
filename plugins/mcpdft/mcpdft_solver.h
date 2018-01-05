@@ -341,6 +341,8 @@ class MCPDFTSolver: public Wavefunction{
 
     /// build EC_VWN3_RPA()
     double EC_VWN3_RPA(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> ZETA, std::shared_ptr<Vector> RS);
+    double EC_VWN3_RPA_III(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B);
+    // double EC_VWN3_RPA_III(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> ZETTA);
 };
 
 }} // end of namespaces

@@ -248,6 +248,35 @@ void MCPDFTSolver::BuildPhiMatrix(std::shared_ptr<VBase> potential, std::shared_
         double * y = block->y();
         double * z = block->z();
         double * w = block->w();
+        
+
+        // Doing some test to see everything including Pi etc is correct on 
+        // Molcas' grid points through comparison.
+
+        // std::ifstream dataIn;
+       
+        // dataIn.open("H2.grids_test");
+        // 
+        // if (!dataIn)
+        //    std::cout << "Error opening file.\n";
+        // else { 
+        //      int p = 0;        
+        //      while (!dataIn.eof()){
+        //    
+        //            dataIn >> x[p];
+        //            dataIn >> y[p];    
+        //            dataIn >> z[p];
+        //            p++;
+        //      }        
+        // }
+        // dataIn.close(); 
+
+        // for (int p = 0; p < npoints; p++) {
+
+        //     outfile->Printf("\n     y[");
+        //     outfile->Printf("%d",p);
+        //     outfile->Printf("] = %20.7lf\n",y[p]);
+        // }
 
         for (int p = 0; p < npoints; p++) {
 
@@ -305,12 +334,14 @@ double MCPDFTSolver::compute_energy() {
     double * D2aa = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
     double * D2bb = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
     double * D2ab = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
+    // double * D2Tot = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
 
     memset((void*)D1a,'\0',nmo_*nmo_*sizeof(double));
     memset((void*)D1b,'\0',nmo_*nmo_*sizeof(double));
     memset((void*)D2aa,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
     memset((void*)D2bb,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
     memset((void*)D2ab,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
+    // memset((void*)D2Tot,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
 
     // read 2-RDM from disk
     
@@ -325,6 +356,7 @@ double MCPDFTSolver::compute_energy() {
              ReadTPDM(D2aa,"tpdm_aa.txt");
              ReadTPDM(D2ab,"tpdm_ab.txt");
              ReadTPDM(D2bb,"tpdm_bb.txt");
+             // ReadTPDM(D2Tot,"tpdm_S.txt");
     
              // PrintOPDM(D1a);
              // PrintOPDM(D1b);
@@ -365,11 +397,11 @@ double MCPDFTSolver::compute_energy() {
 
     // build alpha- and beta-spin densities and gradients
     outfile->Printf("\n");
-    outfile->Printf("    Building Rho... ");
+    outfile->Printf("    ==> Building Rho...\n ");
 
     BuildRho(D1a,D1b);
 
-    outfile->Printf("Done.\n");
+    outfile->Printf("    ... Done. <==\n\n");
 
     // build on-top pair density
     outfile->Printf("\n");
@@ -395,19 +427,19 @@ double MCPDFTSolver::compute_energy() {
 
     if ( options_.get_str("TRANSLATION_TYPE") == "REGULAR") {
 
-       outfile->Printf("    Regular translation of densities and/or density gradients... ");
+       outfile->Printf("    ==> Regular translation of densities and/or density gradients...\n ");
        Translate();    
-       outfile->Printf("Done.\n");
+       outfile->Printf("    ... Done. <== \n\n");
 
         if ( options_.get_str("MCPDFT_FUNCTIONAL") == "SVWN" ) {
 
-           mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(tr_rho_a_, tr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA(tr_rho_a_, tr_rho_b_, tr_zeta_, tr_rs_);
+           mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(tr_rho_a_, tr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA_III(tr_rho_a_, tr_rho_b_);
            // mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(tr_rho_a_, tr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA(tr_rho_a_, tr_rho_b_, tr_zeta_, tr_rs_);
 
         }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "PBE" ) {
  
-                 mcpdft_xc_energy = MCPDFTSolver::EX_PBE(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_) 
-                                  + MCPDFTSolver::EC_PBE(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
+                 mcpdft_xc_energy = MCPDFTSolver::EX_PBE_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_) 
+                                  + MCPDFTSolver::EC_PBE_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
 
         }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "BOP" ) {
 
@@ -446,10 +478,23 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("\n");
 
     // outfile->Printf("        nuclear repulsion energy =    %20.12lf\n",molecule_->nuclear_repulsion_energy());
-    outfile->Printf("        nuclear repulsion energy =    %20.12lf\n",molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}));
-    outfile->Printf("        one-electron energy =         %20.12lf\n",one_electron_energy);
-    outfile->Printf("        coulomb energy =              %20.12lf\n",coulomb_energy);
-    outfile->Printf("        exchange-correlation energy = %20.12lf\n",mcpdft_xc_energy);
+    outfile->Printf("        nuclear repulsion energy =          %20.12lf\n",molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}));
+    outfile->Printf("        one-electron energy =               %20.12lf\n",one_electron_energy);
+    outfile->Printf("        coulomb energy =                    %20.12lf\n",coulomb_energy);
+
+    if (options_.get_str("MCPDFT_REF") == "v2RDM_CASSCF") {
+    
+    outfile->Printf("        v2RDM-CASSCF energy contribution =  %20.12lf\n",molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}) 
+    + one_electron_energy + coulomb_energy);
+  
+    }else if (options_.get_str("MCPDFT_REF") == "CASSCF") {
+
+    outfile->Printf("        CASSCF energy contribution =        %20.12lf\n",molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}) 
+    + one_electron_energy + coulomb_energy);
+
+    }
+
+    outfile->Printf("        On-top energy =                     %20.12lf\n",mcpdft_xc_energy);
     outfile->Printf("\n");
 
     double total_energy = molecule_->nuclear_repulsion_energy({0.0,0.0,0.0})+one_electron_energy+coulomb_energy+mcpdft_xc_energy;
@@ -485,6 +530,17 @@ void MCPDFTSolver::BuildPi(double * D2ab) {
 
         pi_p[p] = dum;
     }
+
+    // outfile->Printf("\n    p");
+    // outfile->Printf("    x[p]");
+    // outfile->Printf("    y[p]");
+    // outfile->Printf("    z[p]");
+    // outfile->Printf("    pi\n\n");
+
+    // for (int p = 0; p < phi_points_; p++) {
+
+    //     outfile->Printf("    %d %20.5lf %20.5lf %20.5lf %20.15lf\n",p, grid_x_->pointer()[p], grid_y_->pointer()[p], grid_z_->pointer()[p], pi_p[p]);
+    // }
 
     if ( is_gga_ || is_meta_ ) {
 
@@ -535,6 +591,10 @@ void MCPDFTSolver::BuildPi(double * D2ab) {
            pi_xp[p] = dum_x;
            pi_yp[p] = dum_y;
            pi_zp[p] = dum_z;
+
+           // outfile->Printf("pi_x %15.15lf\n",pi_xp[p]);
+           // outfile->Printf("pi_y %15.15lf\n",pi_yp[p]);
+           // outfile->Printf("pi_z %15.15lf\n",pi_zp[p]);
        }
     }
 }
@@ -560,7 +620,9 @@ void MCPDFTSolver::BuildRho(double * D1a, double * D1b) {
     // 
     // double * zeta_p = zeta_->pointer();
     // double * rs_p = rs_->pointer();
-
+    double temp_tot = 0.0;
+    double temp_a = 0.0;
+    double temp_b = 0.0;
     for (int p = 0; p < phi_points_; p++) {
         double duma   = 0.0;
         double dumb   = 0.0;
@@ -572,13 +634,21 @@ void MCPDFTSolver::BuildRho(double * D1a, double * D1b) {
         }
         rho_ap[p] = duma;
         rho_bp[p] = dumb;
-
+    
+        temp_tot += (rho_ap[p] + rho_bp[p]) * grid_w_->pointer()[p];
+        temp_a += rho_ap[p] * grid_w_->pointer()[p];
+        temp_b += rho_bp[p] * grid_w_->pointer()[p];
         // rho_p[p] = rho_ap[p] + rho_bp[p];
         // m_p[p] =  rho_ap[p] - rho_bp[p];
 
         // zeta_p[p] =  m_p[p]  / rho_p[p];
         // rs_p[p] = pow( 3.0 / ( 4.0 * M_PI * rho_p[p] ) , 1.0/3.0 );
     }
+    outfile->Printf("\n");
+    outfile->Printf("      Integrated total density = %20.12lf\n",temp_tot);
+    outfile->Printf("      Integrated alpha density = %20.12lf\n",temp_a);
+    outfile->Printf("      Integrated beta density  = %20.12lf\n",temp_b);
+    outfile->Printf("\n");
 
     if ( is_gga_ || is_meta_ ) {
 
@@ -938,44 +1008,67 @@ void MCPDFTSolver::Translate(){
     // double * tr_zeta_p = tr_zeta_->pointer();
     // double * tr_rs_p = tr_rs_->pointer();
 
+    double temp_tot = 0.0;
+    double temp_a = 0.0;
+    double temp_b = 0.0;
     for (int p = 0; p < phi_points_; p++) {
 
         double rho = rho_ap[p] + rho_bp[p];
         double pi = pi_p[p];
 
         double zeta = 0.0;
+        // tr_zeta_p[p] = 0.0;
         double R = 0.0;
 
-        if ( !(rho < tol) && !(pi < tol) ) {
+	if ( !(rho < tol) && !(pi < tol) ) {
 
            R = (4.0 * pi) / (rho * rho);
+           // outfile->Printf("R = %12.5lf\n",R);
 
-           if ( !( (1.0 - R) < tol ) ) {
+           // R = tanh(R);
+           // outfile->Printf("tanh(R) = %12.5lf\n",R);
+
+           if ( (1.0 - R) > tol ) {
 
               zeta = sqrt(1.0 - R);
+              // tr_zeta_p[p] = sqrt(1.0 - R);
 
               // Compute translated alpha and beta densities when R <= 1.0
 
               tr_rho_ap[p] = (1.0 + zeta) * (rho/2.0);
               tr_rho_bp[p] = (1.0 - zeta) * (rho/2.0);
-
+              // tr_rho_ap[p] = (1.0 + tr_zeta_p[p]) * (rho/2.0);
+              // tr_rho_bp[p] = (1.0 - tr_zeta_p[p]) * (rho/2.0);
 
            }else{
 
                 zeta = 0.0;
+                // tr_zeta_p[p] = 0.0;
 
                 // Compute translated alpha and beta densities when R > 1.0
 
                 tr_rho_ap[p] = (1.0 + zeta) * (rho/2.0);
                 tr_rho_bp[p] = (1.0 - zeta) * (rho/2.0);
+                // tr_rho_ap[p] = (1.0 + tr_zeta_p[p]) * (rho/2.0);
+                // tr_rho_bp[p] = (1.0 - tr_zeta_p[p]) * (rho/2.0);
            }
+           temp_tot += (tr_rho_ap[p] + tr_rho_bp[p]) * grid_w_->pointer()[p];
+           temp_a += tr_rho_ap[p] * grid_w_->pointer()[p];
+           temp_b += tr_rho_bp[p] * grid_w_->pointer()[p];
 
-        }else {
+           // tr_rs_p[p] = pow( 3.0 / ( 4.0 * M_PI * (tr_rho_ap[p] + tr_rho_bp[p]) ) , 1.0/3.0 );
 
-              tr_rho_ap[p] = 0.0;
-              tr_rho_bp[p] = 0.0;
+        // }else {
+
+        //       tr_rho_ap[p] = 0.0;
+        //       tr_rho_bp[p] = 0.0;
+
+        //       tr_zeta_p[p] = 0.0;
+        //       tr_rs_p[p] = 0.0;
         }
-
+        // outfile->Printf("zeta = %12.15lf\n",tr_zeta_p[p]);
+        // outfile->Printf("rs = %12.15lf\n",tr_rs_p[p]);
+        
         // tr_m_p[p] = (R_p[p] > 1.0) ? 0.0 : rho_p[p] * sqrt(1.0 - R_p[p]);
 
         // tr_rho_ap[p] = ( (R_p[p] > 1.0) ? (rho/2.0) : (rho/2.0) * ( 1.0 + sqrt(1.0 - R_p[p]) ) );
@@ -984,6 +1077,12 @@ void MCPDFTSolver::Translate(){
         // tr_zeta_p[p] =  ( tr_rho_ap[p] - tr_rho_bp[p] ) / ( tr_rho_ap[p] + tr_rho_bp[p] );
         // tr_rs_p[p] = pow( 3.0 / ( 4.0 * M_PI * (tr_rho_ap[p] + tr_rho_bp[p]) ) , 1.0/3.0 );
     }
+
+    outfile->Printf("\n");
+    outfile->Printf("      Integrated translated total density = %20.12lf\n",temp_tot);
+    outfile->Printf("      Integrated translated alpha density = %20.12lf\n",temp_a);
+    outfile->Printf("      Integrated translated beta density  = %20.12lf\n",temp_b);
+    outfile->Printf("\n");
 
     if ( is_gga_ || is_meta_ ) {
 
@@ -1051,7 +1150,7 @@ void MCPDFTSolver::Translate(){
            double R_y = 0.0;
            double R_z = 0.0;
 
-           if ( !(rho < tol) && !(pi < tol) ) {
+           if ( rho > tol && pi > tol ) {
 
                R = (4.0 * pi) / (rho * rho);
 
@@ -1098,16 +1197,16 @@ void MCPDFTSolver::Translate(){
                    tr_rho_b_zp[p] = (rho_z/2.0);
               }
 
-           }else {
+           // }else {
 
-                 tr_rho_a_xp[p] = 0.0;
-                 tr_rho_b_xp[p] = 0.0;
+           //       tr_rho_a_xp[p] = 0.0;
+           //       tr_rho_b_xp[p] = 0.0;
 
-                 tr_rho_a_yp[p] = 0.0;
-                 tr_rho_b_yp[p] = 0.0;
+           //       tr_rho_a_yp[p] = 0.0;
+           //       tr_rho_b_yp[p] = 0.0;
 
-                 tr_rho_a_zp[p] = 0.0;
-                 tr_rho_b_zp[p] = 0.0;
+           //       tr_rho_a_zp[p] = 0.0;
+           //       tr_rho_b_zp[p] = 0.0;
            }
            // tr_rho_a_xp[p] = ( (R_p[p] > 1.0) ? (rho_x / 2.0) : (rho_x / 2.0) * ( 1.0 + sqrt(1.0 - R_p[p]) ) );
            // tr_rho_b_xp[p] = ( (R_p[p] > 1.0) ? (rho_x / 2.0) : (rho_x / 2.0) * ( 1.0 - sqrt(1.0 - R_p[p]) ) );

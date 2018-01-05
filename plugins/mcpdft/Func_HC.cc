@@ -315,13 +315,13 @@ double MCPDFTSolver::EX_PBE_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vec
 
                     double zk = eX(2.0 * rho) * FX(S(2.0 * rho, 4.0 * sigma));
                     exc += rho * zk * grid_w_->pointer()[p];
+           }else {
+
+                 double zka = rhoa * eX(2.0 * rhoa) * FX(S(2.0 * rhoa, 4.0 * sigmaaa));
+                 double zkb = rhob * eX(2.0 * rhob) * FX(S(2.0 * rhob, 4.0 * sigmabb));
+                 double zk = zka + zkb;
+                 exc += zk * grid_w_->pointer()[p];
            }
-
-           double zka = rhoa * eX(2.0 * rhoa) * FX(S(2.0 * rhoa, 4.0 * sigmaaa));
-           double zkb = rhob * eX(2.0 * rhob) * FX(S(2.0 * rhob, 4.0 * sigmabb));
-           double zk = zka + zkb;
-           exc += zk * grid_w_->pointer()[p];
-
         }else{
                 //double zk = 0.0;        
                 exc += 0.0;
@@ -836,7 +836,7 @@ double MCPDFTSolver::EC_PBE_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vec
                     sigma = sigmaaa;
                     zeta = 1.0;
 
-           }else if (!(rhoa < tol) && !(rhob < tol) ) {
+           }else/* if (!(rhoa < tol) && !(rhob < tol) ) */{
                    
                     sigmaaa = std::max(0.0,sigmaaa);
                     sigmabb = std::max(0.0,sigmabb);
@@ -914,15 +914,106 @@ double MCPDFTSolver::EC_VWN3_RPA(std::shared_ptr<Vector> RHO_A, std::shared_ptr<
     
 }
 
-// double MCPDFTSolver::EC_VWN3_RPA(){
-// 
-//             // build alpha_c(rs) factor
-//             double alphac = Gfunction(rs,Aa_,a1a_,b1a_,b2a_,b3a_,b4a_,pa_);
-// 
-//             // build ec(rs,zeta) at (rs,0)
-//             double ec_rs0 = Gfunction(rs,c0p_,a1p_,b1p_,b2p_,b3p_,b4p_,pe_);
-// 
-//             // build ec(rs,zeta) at (rs,1)        
-//             double ec_rs1 = Gfunction(rs,c0f_,a1f_,b1f_,b2f_,b3f_,b4f_,pe_);
+// Conv. (III)
+double MCPDFTSolver::EC_VWN3_RPA_III(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B){ //, std::shared_ptr<Vector> ZETTA){
+
+    double tol = 1.0e-20;
+
+    const double ecp1 = 0.03109070000;
+    const double ecp2 = -0.409286;
+    const double ecp3 = 13.0720;
+    const double ecp4 = 42.7198;
+    const double ecf1 = 0.01554535000;
+    const double ecf2 = -0.743294;
+    const double ecf3 = 20.1231;
+    const double ecf4 = 101.578;
+    const double d2Fz = 1.7099209341613656173;
+
+    double * rho_ap = RHO_A->pointer();
+    double * rho_bp = RHO_B->pointer();
+
+    // double * zeta_p = ZETTA->pointer();
+    // double * rs_p = rs_->pointer();
+
+    auto x = [](double RHO) -> double {
+
+             double rs = pow( 3.0 / ( 4.0 * M_PI * RHO ) , 1.0/3.0 );
+             double dum = sqrt(rs);
+             return dum;
+    };
+
+    auto Fz = [](double ZETA) -> double {
+
+              double dum = (pow((1.0 + ZETA) ,4.0/3.0) + pow((1.0 - ZETA) ,4.0/3.0) - 2.0) / (2.0 * pow(2.0,1.0/3.0) - 2.0);
+              return dum;
+    };
+
+    auto X = [](double i, double c, double d) -> double{
+
+             double temp = pow(i,2.0) + c * i + d;
+             return temp;
+    };
+
+    auto Q = [](double c, double d) -> double{
+
+             double temp1 = sqrt( 4 * d - pow(c,2.0) );
+             return temp1;
+    };
+
+    auto q = [=](double RHO, double A, double p, double c, double d) -> double{
+
+             double dum1 = A * ( log( pow(x(RHO),2.0) / X(x(RHO),c,d) ) + 2.0 * c * atan( Q(c,d)/(2.0*x(RHO) + c) ) * pow(Q(c,d),-1.0)
+                         - c * p * ( log( pow(x(RHO)-p,2.0) / X(x(RHO),c,d) ) + 2.0 * (c + 2.0 * p) * atan( Q(c,d)/(2.0*x(RHO) + c) )
+                         * pow(Q(c,d),-1.0) ) * pow(X(p,c,d),-1.0) );
+             return dum1;
+    };
+
+    auto EcP = [=](double RHO) -> double {
+
+               double dumm = q(RHO,ecp1,ecp2,ecp3,ecp4);
+               return dumm;
+    };
+
+    auto EcF = [=](double RHO) -> double {
+
+               double dum = q(RHO,ecf1,ecf2,ecf3,ecf4);
+               return dum;
+    };
+
+    double exc = 0.0;
+    for (int p = 0; p < phi_points_; p++) {
+
+        double rhoa = rho_ap[p];
+        double rhob = rho_bp[p];
+        double rho = rhoa + rhob;
+        double zeta = 0.0;
+        // double zeta = zeta_p[p];
+
+        if ( rho > tol ) {
+           if ( rhoa < tol ){
+
+              rho = rhob;
+              zeta = 1.0;
+
+           }else if ( rhob < tol ){
+
+                    rho = rhoa;
+                    zeta = 1.0;
+
+           }else {/* if (!(rhoa < tol) && !(rhob < tol) ) */
+
+                 // zeta = zeta_p[p];
+                 zeta = (rhoa - rhob) / rho;
+           }
+           double zk = EcP(rho) + Fz(zeta) * (EcF(rho) - EcP(rho));
+           exc += rho * zk * grid_w_->pointer()[p];
+
+        }else{
+                double zk = 0.0;
+                exc += 0.0;
+             }
+    }
+    return exc;
+}
 
 }} // End namespaces
