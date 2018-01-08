@@ -150,19 +150,19 @@ void MCPDFTSolver::ReadTPDM(double * D2aa, double * D2bb, double * D2ab, double 
     //}
 
     // check traces:
-    double traa = 0.0;
-    double trbb = 0.0;
-    double trab = 0.0;
-    for (int i = 0; i < nmo_; i++) {
-        for (int j = 0; j < nmo_; j++) {
-            traa += D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
-            trbb += D2bb[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
-            trab += D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
-        }
-    }
-    printf("  tr(d2aa) = %20.12lf\n",traa);
-    printf("  tr(d2bb) = %20.12lf\n",trbb);
-    printf("  tr(d2ab) = %20.12lf\n",trab);
+    // double traa = 0.0;
+    // double trbb = 0.0;
+    // double trab = 0.0;
+    // for (int i = 0; i < nmo_; i++) {
+    //     for (int j = 0; j < nmo_; j++) {
+    //         traa += D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
+    //         trbb += D2bb[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
+    //         trab += D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
+    //     }
+    // }
+    // printf("  tr(d2aa) = %20.12lf\n",traa);
+    // printf("  tr(d2bb) = %20.12lf\n",trbb);
+    // printf("  tr(d2ab) = %20.12lf\n",trab);
 
     memset((void*)D1a,'\0',nmo_*nmo_*sizeof(double));
     memset((void*)D1b,'\0',nmo_*nmo_*sizeof(double));

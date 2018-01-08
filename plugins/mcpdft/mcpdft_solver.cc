@@ -462,13 +462,13 @@ double MCPDFTSolver::compute_energy() {
 
     }else{
 
-         outfile->Printf("    Full translation of densities and/or density gradients... ");
+         outfile->Printf("    ==> Full translation of densities and/or density gradients...\n ");
          Fully_Translate();    
-         outfile->Printf("Done.\n");
+         outfile->Printf("    ... Done. <== \n\n");
     
          if ( options_.get_str("MCPDFT_FUNCTIONAL") == "SVWN" ) {
 
-            mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(ftr_rho_a_, ftr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA(ftr_rho_a_, ftr_rho_b_, ftr_zeta_, ftr_rs_);
+            mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(ftr_rho_a_, ftr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA_III(ftr_rho_a_, ftr_rho_b_);
 
          }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "PBE" ) {
  
@@ -494,17 +494,17 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("        one-electron energy =               %20.12lf\n",one_electron_energy);
     outfile->Printf("        coulomb energy =                    %20.12lf\n",coulomb_energy);
 
-    if (options_.get_str("MCPDFT_REF") == "v2RDM_CASSCF") {
-    
+    // if ( options_.get_str("MCPDFT_REF") == "v2RDM_CASSCF") {
+    // 
     outfile->Printf("        v2RDM-CASSCF energy contribution =  %20.12lf\n",molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}) 
     + one_electron_energy + coulomb_energy);
   
-    }else if (options_.get_str("MCPDFT_REF") == "CASSCF") {
+    // }else if ( options_.get_str("MCPDFT_REF") == "CASSCF") {
 
-    outfile->Printf("        CASSCF energy contribution =        %20.12lf\n",molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}) 
-    + one_electron_energy + coulomb_energy);
+    // outfile->Printf("        CASSCF energy contribution =        %20.12lf\n",molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}) 
+    // + one_electron_energy + coulomb_energy);
 
-    }
+    // }
 
     outfile->Printf("        On-top energy =                     %20.12lf\n",mcpdft_xc_energy);
     outfile->Printf("\n");
@@ -615,8 +615,7 @@ void MCPDFTSolver::BuildRho(double * D1a, double * D1b) {
 
     rho_a_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
     rho_b_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-
-    // rho_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+    rho_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
     // m_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
 
     // zeta_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
@@ -626,13 +625,13 @@ void MCPDFTSolver::BuildRho(double * D1a, double * D1b) {
 
     double * rho_ap = rho_a_->pointer();
     double * rho_bp = rho_b_->pointer();
-
-    // double * rho_p = rho_->pointer();
+    double * rho_p = rho_->pointer();
     // double * m_p = m_->pointer();
     // 
     // double * zeta_p = zeta_->pointer();
     // double * rs_p = rs_->pointer();
     double temp_tot = 0.0;
+    double temp_totab = 0.0;
     double temp_a = 0.0;
     double temp_b = 0.0;
     for (int p = 0; p < phi_points_; p++) {
@@ -646,8 +645,10 @@ void MCPDFTSolver::BuildRho(double * D1a, double * D1b) {
         }
         rho_ap[p] = duma;
         rho_bp[p] = dumb;
-    
-        temp_tot += (rho_ap[p] + rho_bp[p]) * grid_w_->pointer()[p];
+        rho_p[p] = rho_ap[p] + rho_bp[p];    
+
+        temp_tot += rho_p[p] * grid_w_->pointer()[p];
+        temp_totab += ( rho_ap[p] + rho_bp[p] ) * grid_w_->pointer()[p];
         temp_a += rho_ap[p] * grid_w_->pointer()[p];
         temp_b += rho_bp[p] * grid_w_->pointer()[p];
         // rho_p[p] = rho_ap[p] + rho_bp[p];
@@ -978,20 +979,17 @@ std::shared_ptr<Matrix> MCPDFTSolver::BuildJ(double * D, std::shared_ptr<Matrix>
 
 void MCPDFTSolver::Build_R(){
 
+    double tol = 1.0e-20;
+
     R_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
     
     double * R_p = R_->pointer();
-
-    double * rho_a_p = rho_a_->pointer();
-    double * rho_b_p = rho_b_->pointer();
+    double * rho_p = rho_->pointer();
     double * pi_p = pi_->pointer();
  
     for (int p = 0; p < phi_points_; p++) {
         
-        R_p[p] = 4 * pi_p[p] / ( ( rho_a_p[p] + rho_b_p[p] ) * ( rho_a_p[p] + rho_b_p[p]) );    
-     
-    // printf("Pi = %20.15lf\n",pi_p[p]);
-    // printf("R = %20.15lf\n",R_p[p]);
+        R_p[p] = 4 * pi_p[p] / (rho_p[p] * rho_p[p]); 
     }
 } 
 
@@ -999,10 +997,8 @@ void MCPDFTSolver::Translate(){
 
     double tol = 1.0e-20;
 
-printf("hey!\n");fflush(stdout);
     tr_rho_a_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
     tr_rho_b_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-printf("hey!\n");fflush(stdout);
 
     // tr_zeta_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
     // tr_rs_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
@@ -1011,19 +1007,17 @@ printf("hey!\n");fflush(stdout);
     double * tr_rho_ap = tr_rho_a_->pointer();
     double * tr_rho_bp = tr_rho_b_->pointer();
 
-printf("hey!\n");fflush(stdout);
+    // printf("hey!\n");fflush(stdout);
     // double * rho_p = rho_->pointer();
     // double * m_p = m_->pointer();
     // double * tr_m_p = tr_m_->pointer();
 
-    double * rho_ap = rho_a_->pointer();
-    double * rho_bp = rho_b_->pointer();
-
-printf("hey!\n");fflush(stdout);
+    // double * rho_ap = rho_a_->pointer();
+    // double * rho_bp = rho_b_->pointer();
+    double * rho_p = rho_->pointer();
     double * pi_p = pi_->pointer();
+    double * R_p = R_->pointer();
 
-printf("hey!\n");fflush(stdout);
-    // double * R_p = R_->pointer();
     // double * tr_zeta_p = tr_zeta_->pointer();
     // double * tr_rs_p = tr_rs_->pointer();
 
@@ -1032,33 +1026,26 @@ printf("hey!\n");fflush(stdout);
     double temp_b = 0.0;
     for (int p = 0; p < phi_points_; p++) {
 
-        double rho = rho_ap[p] + rho_bp[p];
+        double rho = rho_p[p];
         double pi = pi_p[p];
-
+        
         double zeta = 0.0;
-        // tr_zeta_p[p] = 0.0;
         double R = 0.0;
 
 	if ( !(rho < tol) && !(pi < tol) ) {
 
-           //R = (4.0 * pi) / (rho * rho);
-           R = R_->pointer()[p];
-           // outfile->Printf("R = %12.5lf\n",R);
-
+           R = R_p[p];
            // R = tanh(R);
            // outfile->Printf("tanh(R) = %12.5lf\n",R);
 
            if ( (1.0 - R) > tol ) {
 
               zeta = sqrt(1.0 - R);
-              // tr_zeta_p[p] = sqrt(1.0 - R);
 
               // Compute translated alpha and beta densities when R <= 1.0
 
               tr_rho_ap[p] = (1.0 + zeta) * (rho/2.0);
               tr_rho_bp[p] = (1.0 - zeta) * (rho/2.0);
-              // tr_rho_ap[p] = (1.0 + tr_zeta_p[p]) * (rho/2.0);
-              // tr_rho_bp[p] = (1.0 - tr_zeta_p[p]) * (rho/2.0);
 
            }else{
 
@@ -1078,10 +1065,10 @@ printf("hey!\n");fflush(stdout);
 
            // tr_rs_p[p] = pow( 3.0 / ( 4.0 * M_PI * (tr_rho_ap[p] + tr_rho_bp[p]) ) , 1.0/3.0 );
 
-        // }else {
+        }else {
 
-        //       tr_rho_ap[p] = 0.0;
-        //       tr_rho_bp[p] = 0.0;
+               tr_rho_ap[p] = 0.0;
+               tr_rho_bp[p] = 0.0;
 
         //       tr_zeta_p[p] = 0.0;
         //       tr_rs_p[p] = 0.0;
@@ -1151,7 +1138,7 @@ printf("hey!\n");fflush(stdout);
            double rho_y = rho_a_yp[p] + rho_b_yp[p];
            double rho_z = rho_a_zp[p] + rho_b_zp[p];
 
-           double rho = rho_ap[p] + rho_bp[p];
+           double rho = rho_p[p];
            double pi = pi_p[p];
 
            double pi_x = pi_xp[p];
@@ -1244,107 +1231,9 @@ printf("hey!\n");fflush(stdout);
     }
 }
 
-// void MCPDFTSolver::Translate(){
-// 
-//     tr_rho_a_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-//     tr_rho_b_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-// 
-//     tr_zeta_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-//     tr_rs_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-//     tr_m_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-// 
-//     double * rho_ap = rho_a_->pointer();
-//     double * rho_bp = rho_b_->pointer();
-// 
-//     double * rho_p = rho_->pointer();
-//     // double * m_p = m_->pointer();
-//     double * tr_m_p = tr_m_->pointer();
-//     
-//     double * pi_p = pi_->pointer();
-//     double * R_p = R_->pointer();
-//     double * tr_zeta_p = tr_zeta_->pointer();
-//     double * tr_rs_p = tr_rs_->pointer();
-// 
-//     double * tr_rho_ap = tr_rho_a_->pointer();
-//     double * tr_rho_bp = tr_rho_b_->pointer();
-// 
-//     for (int p = 0; p < phi_points_; p++) {
-//         
-//         tr_m_p[p] = (R_p[p] > 1.0) ? 0.0 : rho_p[p] * sqrt(1.0 - R_p[p]);
-//          
-//         tr_rho_ap[p] = ( (R_p[p] > 1.0) ? (rho_p[p]/2.0) : (rho_p[p]/2.0) * ( 1.0 + sqrt(1.0 - R_p[p]) ) );
-//         tr_rho_bp[p] = ( (R_p[p] > 1.0) ? (rho_p[p]/2.0) : (rho_p[p]/2.0) * ( 1.0 - sqrt(1.0 - R_p[p]) ) );
-//     
-//         tr_zeta_p[p] =  ( tr_rho_ap[p] - tr_rho_bp[p] ) / ( tr_rho_ap[p] + tr_rho_bp[p] );
-//         tr_rs_p[p] = pow( 3.0 / ( 4.0 * M_PI * (tr_rho_ap[p] + tr_rho_bp[p]) ) , 1.0/3.0 );
-//     }
-// 
-//     if ( is_gga_ || is_meta_ ) {
-// 
-//        tr_rho_a_x_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-//        tr_rho_b_x_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-// 
-//        tr_rho_a_y_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-//        tr_rho_b_y_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-// 
-//        tr_rho_a_z_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-//        tr_rho_b_z_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-//        
-//        tr_sigma_aa_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-//        tr_sigma_ab_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-//        tr_sigma_bb_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-//        
-//        tr_sigma_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-// 
-//        double * rho_a_xp = rho_a_x_->pointer();
-//        double * rho_b_xp = rho_b_x_->pointer();
-// 
-//        double * rho_a_yp = rho_a_y_->pointer();
-//        double * rho_b_yp = rho_b_y_->pointer();
-//  
-//        double * rho_a_zp = rho_a_z_->pointer();
-//        double * rho_b_zp = rho_b_z_->pointer();
-// 
-//        double * tr_rho_a_xp = tr_rho_a_x_->pointer();
-//        double * tr_rho_b_xp = tr_rho_b_x_->pointer();
-// 
-//        double * tr_rho_a_yp = tr_rho_a_y_->pointer();
-//        double * tr_rho_b_yp = tr_rho_b_y_->pointer();
-//  
-//        double * tr_rho_a_zp = tr_rho_a_z_->pointer();
-//        double * tr_rho_b_zp = tr_rho_b_z_->pointer();
-//        
-//        double * tr_sigma_aap = tr_sigma_aa_->pointer();
-//        double * tr_sigma_abp = tr_sigma_ab_->pointer();
-//        double * tr_sigma_bbp = tr_sigma_bb_->pointer();
-// 
-//        double * tr_sigma_p = tr_sigma_->pointer();
-// 
-//        for (int p = 0; p < phi_points_; p++) {
-// 
-//            double rho_x = rho_a_xp[p] + rho_b_xp[p];
-//            double rho_y = rho_a_yp[p] + rho_b_yp[p];
-//            double rho_z = rho_a_zp[p] + rho_b_zp[p];
-// 
-//            tr_rho_a_xp[p] = ( (R_p[p] > 1.0) ? (rho_x / 2.0) : (rho_x / 2.0) * ( 1.0 + sqrt(1.0 - R_p[p]) ) );
-//            tr_rho_b_xp[p] = ( (R_p[p] > 1.0) ? (rho_x / 2.0) : (rho_x / 2.0) * ( 1.0 - sqrt(1.0 - R_p[p]) ) );
-//            
-//            tr_rho_a_yp[p] = ( (R_p[p] > 1.0) ? (rho_y / 2.0) : (rho_y / 2.0) * ( 1.0 + sqrt(1.0 - R_p[p]) ) );
-//            tr_rho_b_yp[p] = ( (R_p[p] > 1.0) ? (rho_y / 2.0) : (rho_y / 2.0) * ( 1.0 - sqrt(1.0 - R_p[p]) ) );
-//            
-//            tr_rho_a_zp[p] = ( (R_p[p] > 1.0) ? (rho_z / 2.0) : (rho_z / 2.0) * ( 1.0 + sqrt(1.0 - R_p[p]) ) );
-//            tr_rho_b_zp[p] = ( (R_p[p] > 1.0) ? (rho_z / 2.0) : (rho_z / 2.0) * ( 1.0 - sqrt(1.0 - R_p[p]) ) );
-// 
-//            tr_sigma_aap[p] = (tr_rho_a_xp[p] * tr_rho_a_xp[p]) + (tr_rho_a_yp[p] * tr_rho_a_yp[p]) + (tr_rho_a_zp[p] * tr_rho_a_zp[p]);  
-//            tr_sigma_abp[p] = (tr_rho_a_xp[p] * tr_rho_b_xp[p]) + (tr_rho_a_yp[p] * tr_rho_b_yp[p]) + (tr_rho_a_zp[p] * tr_rho_b_zp[p]);  
-//            tr_sigma_bbp[p] = (tr_rho_b_xp[p] * tr_rho_b_xp[p]) + (tr_rho_b_yp[p] * tr_rho_b_yp[p]) + (tr_rho_b_zp[p] * tr_rho_b_zp[p]);
-//   
-//            tr_sigma_p[p] = tr_sigma_aap[p] + 2.0 * tr_sigma_abp[p] + tr_sigma_bbp[p];
-//        }
-//     }
-// }
-
 void MCPDFTSolver::Fully_Translate(){
+    
+    double tol = 1.0e-20;
 
     double const R0 = 0.9;
     double const R1 = 1.15;
@@ -1355,50 +1244,70 @@ void MCPDFTSolver::Fully_Translate(){
     ftr_rho_a_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
     ftr_rho_b_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
     
-    ftr_zeta_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-    ftr_rs_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-    
     double * ftr_rho_ap = ftr_rho_a_->pointer();
     double * ftr_rho_bp = ftr_rho_b_->pointer();
     
-    double * ftr_zeta_p = ftr_zeta_->pointer();
-    double * ftr_rs_p = ftr_rs_->pointer();
-
-    double * rho_ap = rho_a_->pointer();
-    double * rho_bp = rho_b_->pointer();
-
+    double * rho_p = rho_->pointer();
     double * pi_p = pi_->pointer();
     double * R_p = R_->pointer();
-  
 
-double duma = 0.0;
-double dumb = 0.0;
+    double temp_tot = 0.0;
+    double temp_a = 0.0;
+    double temp_b = 0.0;
     for (int p = 0; p < phi_points_; p++) {
 
+        double rho = rho_p[p];
+        double pi = pi_p[p];
         double DelR = R_p[p] - R1;
-        double rho = rho_ap[p] + rho_bp[p];
 
-        if ( R_p[p] > R1 ) {
+        double zeta = 0.0;
+        double R = 0.0;
 
-           ftr_zeta_p[p] = 0.0;
+	if ( !(rho < tol) && !(pi < tol) ) {
+
+           R = R_p[p];
+           // R = tanh(R);
+
+           if ( ((1.0 - R) > tol) && ( R < R0 ) ) {
+
+              zeta = sqrt(1.0 - R);
+
+              ftr_rho_ap[p] = (1.0 + zeta) * (rho/2.0);
+              ftr_rho_bp[p] = (1.0 - zeta) * (rho/2.0);
+
+           }else if( !(R < R0) && !(R > R1) ) {
+
+                   zeta = A * pow(DelR, 5.0) + B * pow(DelR, 4.0) + C * pow(DelR, 3.0);
+
+                   ftr_rho_ap[p] = (1.0 + zeta) * (rho/2.0);
+                   ftr_rho_bp[p] = (1.0 - zeta) * (rho/2.0);
+
+           }else if( R > R1 ) {
+
+                   zeta = 0.0;
+
+                   ftr_rho_ap[p] = (1.0 + zeta) * (rho/2.0);
+                   ftr_rho_bp[p] = (1.0 - zeta) * (rho/2.0);
+           }
 
         }else{
 
-             ftr_zeta_p[p] = ( ( R_p[p] < R0 )
-                           ? sqrt(1.0 - R_p[p])
-                           : A * pow(DelR ,5.0) + B * pow(DelR ,4.0) + C * pow(DelR ,3.0)
-                           );
+             ftr_rho_ap[p] = 0.0;
+             ftr_rho_bp[p] = 0.0;
         }
 
-        ftr_rho_ap[p] = (rho/2.0) * (1.0 + ftr_zeta_p[p]);
-        ftr_rho_bp[p] = (rho/2.0) * (1.0 - ftr_zeta_p[p]);
-        
-duma += ftr_rho_ap[p] * grid_w_->pointer()[p];
-dumb += ftr_rho_bp[p] * grid_w_->pointer()[p];
+        temp_a += ftr_rho_ap[p] * grid_w_->pointer()[p];
+        temp_b += ftr_rho_bp[p] * grid_w_->pointer()[p];
+        temp_tot += ( ftr_rho_bp[p] + ftr_rho_ap[p] ) * grid_w_->pointer()[p];
 
-        ftr_rs_p[p] = pow( 3.0 / ( 4.0 * M_PI * (ftr_rho_ap[p] + ftr_rho_bp[p]) ) , 1.0/3.0 );
+        // ftr_rs_p[p] = pow( 3.0 / ( 4.0 * M_PI * (ftr_rho_ap[p] + ftr_rho_bp[p]) ) , 1.0/3.0 );
     }
-printf("%20.12lf %20.12lf\n",duma,dumb);
+
+    outfile->Printf("\n");
+    outfile->Printf("      Integrated fully translated total density = %20.12lf\n",temp_tot);
+    outfile->Printf("      Integrated fully translated alpha density = %20.12lf\n",temp_a);
+    outfile->Printf("      Integrated fully translated beta density  = %20.12lf\n",temp_b);
+    outfile->Printf("\n");
 
     if ( is_gga_ || is_meta_ ) {
 
@@ -1441,6 +1350,10 @@ printf("%20.12lf %20.12lf\n",duma,dumb);
        double * ftr_sigma_abp = ftr_sigma_ab_->pointer();
        double * ftr_sigma_bbp = ftr_sigma_bb_->pointer();
 
+       double * rho_p = rho_->pointer();
+       double * pi_p = pi_->pointer();
+       double * R_p = R_->pointer();
+
        for (int p = 0; p < phi_points_; p++) {
 
            double rho_x = rho_a_xp[p] + rho_b_xp[p];
@@ -1448,7 +1361,7 @@ printf("%20.12lf %20.12lf\n",duma,dumb);
            double rho_z = rho_a_zp[p] + rho_b_zp[p];
 
            double DelR = R_p[p] - R1;
-           double rho = rho_ap[p] + rho_bp[p];
+           double rho = rho_p[p];
 
            if ( R_p[p] > R1 ) {
 
@@ -1462,90 +1375,90 @@ printf("%20.12lf %20.12lf\n",duma,dumb);
                               );
            }
 
-           ftr_rho_a_xp[p] = (rho_x/2.0) * (1.0 + ftr_zeta_p[p]) + (rho/2.0) * ftr_zetaPrime_p[p];
-           ftr_rho_b_xp[p] = (rho_x/2.0) * (1.0 - ftr_zeta_p[p]) - (rho/2.0) * ftr_zetaPrime_p[p];
-           
-           ftr_rho_a_yp[p] = (rho_y/2.0) * (1.0 + ftr_zeta_p[p]) + (rho/2.0) * ftr_zetaPrime_p[p];
-           ftr_rho_b_yp[p] = (rho_y/2.0) * (1.0 - ftr_zeta_p[p]) - (rho/2.0) * ftr_zetaPrime_p[p];
-           
-           ftr_rho_a_zp[p] = (rho_z/2.0) * (1.0 + ftr_zeta_p[p]) + (rho/2.0) * ftr_zetaPrime_p[p];
-           ftr_rho_b_zp[p] = (rho_z/2.0) * (1.0 - ftr_zeta_p[p]) - (rho/2.0) * ftr_zetaPrime_p[p];
+           // ftr_rho_a_xp[p] = (rho_x/2.0) * (1.0 + ftr_zeta_p[p]) + (rho/2.0) * ftr_zetaPrime_p[p];
+           // ftr_rho_b_xp[p] = (rho_x/2.0) * (1.0 - ftr_zeta_p[p]) - (rho/2.0) * ftr_zetaPrime_p[p];
+           // 
+           // ftr_rho_a_yp[p] = (rho_y/2.0) * (1.0 + ftr_zeta_p[p]) + (rho/2.0) * ftr_zetaPrime_p[p];
+           // ftr_rho_b_yp[p] = (rho_y/2.0) * (1.0 - ftr_zeta_p[p]) - (rho/2.0) * ftr_zetaPrime_p[p];
+           // 
+           // ftr_rho_a_zp[p] = (rho_z/2.0) * (1.0 + ftr_zeta_p[p]) + (rho/2.0) * ftr_zetaPrime_p[p];
+           // ftr_rho_b_zp[p] = (rho_z/2.0) * (1.0 - ftr_zeta_p[p]) - (rho/2.0) * ftr_zetaPrime_p[p];
 
-           ftr_sigma_aap[p] = (ftr_rho_a_xp[p] * ftr_rho_a_xp[p]) + (ftr_rho_a_yp[p] * ftr_rho_a_yp[p]) + (ftr_rho_a_zp[p] * ftr_rho_a_zp[p]);  
-           ftr_sigma_abp[p] = (ftr_rho_a_xp[p] * ftr_rho_b_xp[p]) + (ftr_rho_a_yp[p] * ftr_rho_b_yp[p]) + (ftr_rho_a_zp[p] * ftr_rho_b_zp[p]);  
-           ftr_sigma_bbp[p] = (ftr_rho_b_xp[p] * ftr_rho_b_xp[p]) + (ftr_rho_b_yp[p] * ftr_rho_b_yp[p]) + (ftr_rho_b_zp[p] * ftr_rho_b_zp[p]);  
+           // ftr_sigma_aap[p] = (ftr_rho_a_xp[p] * ftr_rho_a_xp[p]) + (ftr_rho_a_yp[p] * ftr_rho_a_yp[p]) + (ftr_rho_a_zp[p] * ftr_rho_a_zp[p]);  
+           // ftr_sigma_abp[p] = (ftr_rho_a_xp[p] * ftr_rho_b_xp[p]) + (ftr_rho_a_yp[p] * ftr_rho_b_yp[p]) + (ftr_rho_a_zp[p] * ftr_rho_b_zp[p]);  
+           // ftr_sigma_bbp[p] = (ftr_rho_b_xp[p] * ftr_rho_b_xp[p]) + (ftr_rho_b_yp[p] * ftr_rho_b_yp[p]) + (ftr_rho_b_zp[p] * ftr_rho_b_zp[p]);  
 
        }
     }
 }
 
-void MCPDFTSolver::ReadTPDM(double* D, const char* fileName) {
-    
-    double tol = 1.0e-20;
-
-    std::ifstream dataIn;
-    
-    dataIn.open(fileName);
-    
-    if (!dataIn)
-       std::cout << "Error opening file.\n";
-    else { 
-         for (int i = 0; i < nmo_; i++)
-             for (int j = 0; j < nmo_; j++)
-                 for (int k = 0; k < nmo_; k++)
-                     for (int l = 0; l < nmo_; l++) {
-
-                         dataIn >> D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l];
-                         if (D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] < tol)
-                             D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] = 0.0;
-                     }
-    dataIn.close(); 
-    }
-}
-
-void MCPDFTSolver::PrintTPDM(double* D) {
-    
-   for (int i = 0; i < nmo_; i++)
-       for (int j = 0; j < nmo_; j++)
-           for (int k = 0; k < nmo_; k++)
-               for (int l = 0; l < nmo_; l++)
-                   outfile->Printf("%20.15lf\t", D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l]);
-                         
-   
-   printf("\n\n");
-}
-
-void MCPDFTSolver::ReadOPDM(double* D, const char* fileName) {
-   
-    double tol = 1.0e-20;
-  
-    std::ifstream dataIn;
-    
-    dataIn.open(fileName);
-    
-    if (!dataIn)
-       std::cout << "Error opening file.\n";
-    else { 
-         for (int i = 0; i < nmo_; i++)
-             for (int j = 0; j < nmo_; j++) {
-                 
-                 dataIn >> D[i*nmo_+j];
-                 if (D[i*nmo_+j] < tol)
-                     D[i*nmo_+j] = 0.0;
-             }        
-    dataIn.close(); 
-    }
-}
-
-void MCPDFTSolver::PrintOPDM(double* D) {
-    
-   for (int i = 0; i < nmo_; i++)
-       for (int j = 0; j < nmo_; j++)
-           printf("%20.15lf\t", D[i*nmo_+j]);
-                     
-   
-   printf("\n\n");
-}
+// void MCPDFTSolver::ReadTPDM(double* D, const char* fileName) {
+//     
+//     double tol = 1.0e-20;
+// 
+//     std::ifstream dataIn;
+//     
+//     dataIn.open(fileName);
+//     
+//     if (!dataIn)
+//        std::cout << "Error opening file.\n";
+//     else { 
+//          for (int i = 0; i < nmo_; i++)
+//              for (int j = 0; j < nmo_; j++)
+//                  for (int k = 0; k < nmo_; k++)
+//                      for (int l = 0; l < nmo_; l++) {
+// 
+//                          dataIn >> D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l];
+//                          if (D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] < tol)
+//                              D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] = 0.0;
+//                      }
+//     dataIn.close(); 
+//     }
+// }
+// 
+// void MCPDFTSolver::PrintTPDM(double* D) {
+//     
+//    for (int i = 0; i < nmo_; i++)
+//        for (int j = 0; j < nmo_; j++)
+//            for (int k = 0; k < nmo_; k++)
+//                for (int l = 0; l < nmo_; l++)
+//                    outfile->Printf("%20.15lf\t", D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l]);
+//                          
+//    
+//    printf("\n\n");
+// }
+// 
+// void MCPDFTSolver::ReadOPDM(double* D, const char* fileName) {
+//    
+//     double tol = 1.0e-20;
+//   
+//     std::ifstream dataIn;
+//     
+//     dataIn.open(fileName);
+//     
+//     if (!dataIn)
+//        std::cout << "Error opening file.\n";
+//     else { 
+//          for (int i = 0; i < nmo_; i++)
+//              for (int j = 0; j < nmo_; j++) {
+//                  
+//                  dataIn >> D[i*nmo_+j];
+//                  if (D[i*nmo_+j] < tol)
+//                      D[i*nmo_+j] = 0.0;
+//              }        
+//     dataIn.close(); 
+//     }
+// }
+// 
+// void MCPDFTSolver::PrintOPDM(double* D) {
+//     
+//    for (int i = 0; i < nmo_; i++)
+//        for (int j = 0; j < nmo_; j++)
+//            printf("%20.15lf\t", D[i*nmo_+j]);
+//                      
+//    
+//    printf("\n\n");
+// }
 
 }} // end of namespaces
 

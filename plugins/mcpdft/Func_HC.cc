@@ -932,9 +932,6 @@ double MCPDFTSolver::EC_VWN3_RPA_III(std::shared_ptr<Vector> RHO_A, std::shared_
     double * rho_ap = RHO_A->pointer();
     double * rho_bp = RHO_B->pointer();
 
-    // double * zeta_p = ZETTA->pointer();
-    // double * rs_p = rs_->pointer();
-
     auto x = [](double RHO) -> double {
 
              double rs = pow( 3.0 / ( 4.0 * M_PI * RHO ) , 1.0/3.0 );
@@ -987,7 +984,6 @@ double MCPDFTSolver::EC_VWN3_RPA_III(std::shared_ptr<Vector> RHO_A, std::shared_
         double rhob = rho_bp[p];
         double rho = rhoa + rhob;
         double zeta = 0.0;
-        // double zeta = zeta_p[p];
 
         if ( rho > tol ) {
            if ( rhoa < tol ){
@@ -1002,7 +998,6 @@ double MCPDFTSolver::EC_VWN3_RPA_III(std::shared_ptr<Vector> RHO_A, std::shared_
 
            }else {/* if (!(rhoa < tol) && !(rhob < tol) ) */
 
-                 // zeta = zeta_p[p];
                  zeta = (rhoa - rhob) / rho;
            }
            double zk = EcP(rho) + Fz(zeta) * (EcF(rho) - EcP(rho));

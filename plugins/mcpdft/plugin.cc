@@ -46,17 +46,17 @@ int read_options(std::string name, Options& options)
         /*- The amount of information printed to the output file -*/
         options.add_int("PRINT", 1);
         /*- MCPDFT functional -*/
-        options.add_str("MCPDFT_FUNCTIONAL", "PBE", "SVWN PBE BOP");
+        options.add_str("MCPDFT_FUNCTIONAL", "SVWN", "SVWN PBE BOP");
         /*- reference must be UKS -*/
         options.add_str("REFERENCE", "UKS");
         /*- type of density and density gradient translation:
         REGULAR = The gradients of on-top density are not considered in the polarization factor zeta
         FULL = The gradients of on-top density is included in the polarization factor zeta       -*/
-        options.add_str("TRANSLATION_TYPE","","REGULAR FULL");
+        options.add_str("TRANSLATION_TYPE", "REGULAR", "REGULAR FULL");
         /*- JK object type -*/
         options.add_str("MCPDFT_TYPE", "DFJK", "DFJK PKJK");
-        /*- MCPDFT reference -*/
-        options.add_str("MCPDFT_REF", "CASSCF", "v2RDM_CASSCF CASSCF");
+        // /*- MCPDFT reference -*/
+        // options.add_str("MCPDFT_REF", "v2RDM_CASSCF", "v2RDM_CASSCF CASSCF");
     }
 
     return true;

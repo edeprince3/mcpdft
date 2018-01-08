@@ -124,10 +124,11 @@ class MCPDFTSolver: public Wavefunction{
 
     /// read 2-RDM from disk
     void ReadTPDM(double * D2aa, double * D2bb, double * D2ab, double * D1a, double * D1b);
-    void ReadOPDM(double* D, const char* fileName); 
-    void ReadTPDM(double* D, const char* fileName); 
-    void PrintOPDM(double* D); 
-    void PrintTPDM(double* D); 
+    
+    // void ReadOPDM(double* D, const char* fileName); 
+    // void ReadTPDM(double* D, const char* fileName); 
+    // void PrintOPDM(double* D); 
+    // void PrintTPDM(double* D); 
 
     /// build coulomb matrix
     std::shared_ptr<Matrix> BuildJ(double * D, std::shared_ptr<Matrix> C);
@@ -138,6 +139,9 @@ class MCPDFTSolver: public Wavefunction{
     /// beta-spin density
     std::shared_ptr<Vector> rho_b_;
 
+    /// total density
+    std::shared_ptr<Vector> rho_;
+ 
     /// alpha-spin density gradient x
     std::shared_ptr<Vector> rho_a_x_;
 
@@ -237,9 +241,6 @@ class MCPDFTSolver: public Wavefunction{
     /// translated spin magnetization density
     std::shared_ptr<Vector> tr_m_;
 
-    /// total density
-    std::shared_ptr<Vector> rho_;
- 
     /// translated zeta factor
     std::shared_ptr<Vector> tr_zeta_;
 
