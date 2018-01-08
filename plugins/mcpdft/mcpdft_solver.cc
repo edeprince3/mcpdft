@@ -350,7 +350,8 @@ double MCPDFTSolver::compute_energy() {
     //    outfile->Printf("\n");
     //    outfile->Printf("    ==> Reading v2RDM-CASSCF 1- and 2RDMs in MO basis...\n ");
 
-    //    ReadTPDM(D2aa,D2bb,D2ab,D1a,D1b);
+    // AED:
+        ReadTPDM(D2aa,D2bb,D2ab,D1a,D1b);
     // 
     //    outfile->Printf("    ... Done. <==\n\n");
   
@@ -359,11 +360,13 @@ double MCPDFTSolver::compute_energy() {
     //          outfile->Printf("\n");
     //          outfile->Printf("    ==> Reading v2RDM-CASSCF 1- and 2RDMs in MO basis...\n ");
 
-              ReadOPDM(D1a,"opdm_a.txt");
-              ReadOPDM(D1b,"opdm_b.txt");
-              ReadTPDM(D2aa,"tpdm_aa.txt");
-              ReadTPDM(D2ab,"tpdm_ab.txt");
-              ReadTPDM(D2bb,"tpdm_bb.txt");
+    // sina's:
+    //          ReadOPDM(D1a,"opdm_a.txt");
+    //          ReadOPDM(D1b,"opdm_b.txt");
+    //          ReadTPDM(D2aa,"tpdm_aa.txt");
+    //          ReadTPDM(D2ab,"tpdm_ab.txt");
+    //          ReadTPDM(D2bb,"tpdm_bb.txt");
+
     //          // ReadTPDM(D2Tot,"tpdm_S.txt");
     // 
     //          outfile->Printf("    ... Done. <==\n\n");
@@ -421,12 +424,12 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("Done.\n");
     
     // build R(r) = 4 * Pi(r) / rho(r)
-    // outfile->Printf("\n");
-    // outfile->Printf("    Building the on-top ratio R... ");
-    // 
-    // Build_R();
-    // 
-    // outfile->Printf("Done.\n");
+    outfile->Printf("\n");
+    outfile->Printf("    Building the on-top ratio R... ");
+     
+    Build_R();
+     
+    outfile->Printf("Done.\n");
     
     // calculate the on-top energy
     double mcpdft_xc_energy = 0.0;
@@ -442,8 +445,8 @@ double MCPDFTSolver::compute_energy() {
 
         if ( options_.get_str("MCPDFT_FUNCTIONAL") == "SVWN" ) {
 
-           // mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(tr_rho_a_, tr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA_III(tr_rho_a_, tr_rho_b_);
-           // mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(tr_rho_a_, tr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA(tr_rho_a_, tr_rho_b_, tr_zeta_, tr_rs_);
+           mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(tr_rho_a_, tr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA_III(tr_rho_a_, tr_rho_b_);
+           //mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(tr_rho_a_, tr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA(tr_rho_a_, tr_rho_b_, tr_zeta_, tr_rs_);
 
         }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "PBE" ) {
  
@@ -870,11 +873,12 @@ std::shared_ptr<Matrix> MCPDFTSolver::BuildJ(double * D, std::shared_ptr<Matrix>
     // get primary basis:
     std::shared_ptr<BasisSet> primary = reference_wavefunction_->get_basisset("ORBITAL");
 
-    // get auxiliary basis:
-    std::shared_ptr<BasisSet> auxiliary = reference_wavefunction_->get_basisset("DF_BASIS_SCF");
 
     // JK object (note this is hard-coded to use density fitting ...)
     if (options_.get_str("MCPDFT_TYPE") == "DFJK") {
+
+        // get auxiliary basis:
+        std::shared_ptr<BasisSet> auxiliary = reference_wavefunction_->get_basisset("DF_BASIS_SCF");
        
        // outfile->Printf("\n");
        // outfile->Printf("    ==> The JK type for the MCPDFT calculation is: %s", options_.get_str("MCPDFT_TYPE"));
@@ -972,30 +976,33 @@ std::shared_ptr<Matrix> MCPDFTSolver::BuildJ(double * D, std::shared_ptr<Matrix>
     }         
 }
 
-// void MCPDFTSolver::Build_R(){
-// 
-//     R_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-//     
-//     double * R_p = R_->pointer();
-// 
-//     double * rho_p = rho_->pointer();
-//     double * pi_p = pi_->pointer();
-//  
-//     for (int p = 0; p < phi_points_; p++) {
-//         
-//         R_p[p] = 4 * pi_p[p] / (rho_p[p] * rho_p[p]);    
-//      
-//     // printf("Pi = %20.15lf\n",pi_p[p]);
-//     // printf("R = %20.15lf\n",R_p[p]);
-//     }
-// } 
+void MCPDFTSolver::Build_R(){
+
+    R_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+    
+    double * R_p = R_->pointer();
+
+    double * rho_a_p = rho_a_->pointer();
+    double * rho_b_p = rho_b_->pointer();
+    double * pi_p = pi_->pointer();
+ 
+    for (int p = 0; p < phi_points_; p++) {
+        
+        R_p[p] = 4 * pi_p[p] / ( ( rho_a_p[p] + rho_b_p[p] ) * ( rho_a_p[p] + rho_b_p[p]) );    
+     
+    // printf("Pi = %20.15lf\n",pi_p[p]);
+    // printf("R = %20.15lf\n",R_p[p]);
+    }
+} 
 
 void MCPDFTSolver::Translate(){
 
     double tol = 1.0e-20;
 
+printf("hey!\n");fflush(stdout);
     tr_rho_a_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
     tr_rho_b_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+printf("hey!\n");fflush(stdout);
 
     // tr_zeta_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
     // tr_rs_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
@@ -1004,6 +1011,7 @@ void MCPDFTSolver::Translate(){
     double * tr_rho_ap = tr_rho_a_->pointer();
     double * tr_rho_bp = tr_rho_b_->pointer();
 
+printf("hey!\n");fflush(stdout);
     // double * rho_p = rho_->pointer();
     // double * m_p = m_->pointer();
     // double * tr_m_p = tr_m_->pointer();
@@ -1011,8 +1019,10 @@ void MCPDFTSolver::Translate(){
     double * rho_ap = rho_a_->pointer();
     double * rho_bp = rho_b_->pointer();
 
+printf("hey!\n");fflush(stdout);
     double * pi_p = pi_->pointer();
 
+printf("hey!\n");fflush(stdout);
     // double * R_p = R_->pointer();
     // double * tr_zeta_p = tr_zeta_->pointer();
     // double * tr_rs_p = tr_rs_->pointer();
@@ -1031,7 +1041,8 @@ void MCPDFTSolver::Translate(){
 
 	if ( !(rho < tol) && !(pi < tol) ) {
 
-           R = (4.0 * pi) / (rho * rho);
+           //R = (4.0 * pi) / (rho * rho);
+           R = R_->pointer()[p];
            // outfile->Printf("R = %12.5lf\n",R);
 
            // R = tanh(R);
@@ -1360,6 +1371,8 @@ void MCPDFTSolver::Fully_Translate(){
     double * R_p = R_->pointer();
   
 
+double duma = 0.0;
+double dumb = 0.0;
     for (int p = 0; p < phi_points_; p++) {
 
         double DelR = R_p[p] - R1;
@@ -1380,8 +1393,12 @@ void MCPDFTSolver::Fully_Translate(){
         ftr_rho_ap[p] = (rho/2.0) * (1.0 + ftr_zeta_p[p]);
         ftr_rho_bp[p] = (rho/2.0) * (1.0 - ftr_zeta_p[p]);
         
+duma += ftr_rho_ap[p] * grid_w_->pointer()[p];
+dumb += ftr_rho_bp[p] * grid_w_->pointer()[p];
+
         ftr_rs_p[p] = pow( 3.0 / ( 4.0 * M_PI * (ftr_rho_ap[p] + ftr_rho_bp[p]) ) , 1.0/3.0 );
     }
+printf("%20.12lf %20.12lf\n",duma,dumb);
 
     if ( is_gga_ || is_meta_ ) {
 
@@ -1457,6 +1474,7 @@ void MCPDFTSolver::Fully_Translate(){
            ftr_sigma_aap[p] = (ftr_rho_a_xp[p] * ftr_rho_a_xp[p]) + (ftr_rho_a_yp[p] * ftr_rho_a_yp[p]) + (ftr_rho_a_zp[p] * ftr_rho_a_zp[p]);  
            ftr_sigma_abp[p] = (ftr_rho_a_xp[p] * ftr_rho_b_xp[p]) + (ftr_rho_a_yp[p] * ftr_rho_b_yp[p]) + (ftr_rho_a_zp[p] * ftr_rho_b_zp[p]);  
            ftr_sigma_bbp[p] = (ftr_rho_b_xp[p] * ftr_rho_b_xp[p]) + (ftr_rho_b_yp[p] * ftr_rho_b_yp[p]) + (ftr_rho_b_zp[p] * ftr_rho_b_zp[p]);  
+
        }
     }
 }

@@ -117,37 +117,37 @@ void MCPDFTSolver::ReadTPDM(double * D2aa, double * D2bb, double * D2ab, double 
     }
     psio->close(PSIF_V2RDM_D2BB,1);
 
-    for (int i = 0; i < nmo_; i++) {
-        for (int j = 0; j < nmo_; j++) {
-            for (int k = 0; k < nmo_; k++) {
-                for (int l = 0; l < nmo_; l++) {
-                    int ik = i*nmo_+k;
-                    int jl = j*nmo_+l;
-                    //double dum = D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l]-D2bb[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l];
+    //for (int i = 0; i < nmo_; i++) {
+    //    for (int j = 0; j < nmo_; j++) {
+    //        for (int k = 0; k < nmo_; k++) {
+    //            for (int l = 0; l < nmo_; l++) {
+    //                int ik = i*nmo_+k;
+    //                int jl = j*nmo_+l;
+    //                //double dum = D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l]-D2bb[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l];
 
-                    double aa_1 = D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l];
-                    double aa_2 = D2aa[j*nmo_*nmo_*nmo_+i*nmo_*nmo_+k*nmo_+l];
-                    double aa_3 = D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+l*nmo_+k];
-                    double aa_4 = D2aa[j*nmo_*nmo_*nmo_+i*nmo_*nmo_+l*nmo_+k];
+    //                double aa_1 = D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l];
+    //                double aa_2 = D2aa[j*nmo_*nmo_*nmo_+i*nmo_*nmo_+k*nmo_+l];
+    //                double aa_3 = D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+l*nmo_+k];
+    //                double aa_4 = D2aa[j*nmo_*nmo_*nmo_+i*nmo_*nmo_+l*nmo_+k];
 
-                    double ab_1 = D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l];
-                    double ab_2 = D2ab[j*nmo_*nmo_*nmo_+i*nmo_*nmo_+k*nmo_+l];
-                    double ab_3 = D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+l*nmo_+k];
-                    double ab_4 = D2ab[j*nmo_*nmo_*nmo_+i*nmo_*nmo_+l*nmo_+k];
-                    double val = 0.5 * (ab_1-ab_2-ab_3+ab_4);
-                    double dum = D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l]-val;
+    //                double ab_1 = D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l];
+    //                double ab_2 = D2ab[j*nmo_*nmo_*nmo_+i*nmo_*nmo_+k*nmo_+l];
+    //                double ab_3 = D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+l*nmo_+k];
+    //                double ab_4 = D2ab[j*nmo_*nmo_*nmo_+i*nmo_*nmo_+l*nmo_+k];
+    //                double val = 0.5 * (ab_1-ab_2-ab_3+ab_4);
+    //                double dum = D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l]-val;
 
-                    // print here check against ci
-                    //printf("%5i %5i %20.12lf\n",ik,jl,D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l]);
-                    //printf("%5i %5i %5i %5i %20.12lf %20.12lf %20.12lf %20.12lf\n",i,j,k,l,ab_1,ab_2,ab_3,ab_4);
-                    //if ( fabs(dum) > 1e-6 ) {
-                    //    //printf("%5i %5i %20.12lf %20.12lf\n",ik,jl,D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l],D2bb[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l]);
-                    //    printf("%5i %5i %5i %5i %20.12lf %20.12lf\n",i,j,k,l,D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l],val);
-                    //}
-                }
-            }
-        }
-    }
+    //                // print here check against ci
+    //                //printf("%5i %5i %20.12lf\n",ik,jl,D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l]);
+    //                //printf("%5i %5i %5i %5i %20.12lf %20.12lf %20.12lf %20.12lf\n",i,j,k,l,ab_1,ab_2,ab_3,ab_4);
+    //                //if ( fabs(dum) > 1e-6 ) {
+    //                //    //printf("%5i %5i %20.12lf %20.12lf\n",ik,jl,D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l],D2bb[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l]);
+    //                //    printf("%5i %5i %5i %5i %20.12lf %20.12lf\n",i,j,k,l,D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l],val);
+    //                //}
+    //            }
+    //        }
+    //    }
+    //}
 
     // check traces:
     double traa = 0.0;
@@ -160,9 +160,9 @@ void MCPDFTSolver::ReadTPDM(double * D2aa, double * D2bb, double * D2ab, double 
             trab += D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
         }
     }
-    //printf("  tr(d2aa) = %20.12lf\n",traa);
-    //printf("  tr(d2bb) = %20.12lf\n",trbb);
-    //printf("  tr(d2ab) = %20.12lf\n",trab);
+    printf("  tr(d2aa) = %20.12lf\n",traa);
+    printf("  tr(d2bb) = %20.12lf\n",trbb);
+    printf("  tr(d2ab) = %20.12lf\n",trab);
 
     memset((void*)D1a,'\0',nmo_*nmo_*sizeof(double));
     memset((void*)D1b,'\0',nmo_*nmo_*sizeof(double));
@@ -184,6 +184,8 @@ void MCPDFTSolver::ReadTPDM(double * D2aa, double * D2bb, double * D2ab, double 
             }
             D1a[i*nmo_+j] = 1.0/(nalpha_+nbeta_-1.0) * duma;
             D1b[i*nmo_+j] = 1.0/(nalpha_+nbeta_-1.0) * dumb;
+            //D1a[i*nmo_+j] = 1.0/nbeta_ * duma;
+            //D1b[i*nmo_+j] = 1.0/nalpha_ * dumb;
 
         }
 
@@ -191,9 +193,6 @@ void MCPDFTSolver::ReadTPDM(double * D2aa, double * D2bb, double * D2ab, double 
         trb += D1b[i*nmo_+i];
 
     }
-
-    //printf("  tr(da) = %20.12lf\n",tra);
-    //printf("  tr(db) = %20.12lf\n",trb);
 
 }
 

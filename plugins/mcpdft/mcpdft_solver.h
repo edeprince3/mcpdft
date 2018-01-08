@@ -283,7 +283,7 @@ class MCPDFTSolver: public Wavefunction{
     void BuildPi(double * D2ab);
 
     /// build R(r) = 4 * Pi(r) / rho(r) ^ 2
-    // void Build_R();
+    void Build_R();
     
     /// build translator function of density and its gradient
     void Translate();
