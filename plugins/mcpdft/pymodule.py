@@ -43,6 +43,8 @@ def run_mcpdft(name, **kwargs):
     lowername = name.lower()
     kwargs = p4util.kwargs_lower(kwargs)
 
+    psi4.core.set_local_option('SCF', 'DF_INTS_IO', 'SAVE')
+
     v2rdm_wfn = kwargs.get('ref_wfn', None)
     if v2rdm_wfn is None:
         raise ValidationError("""Error: %s requires a reference wave function (v2rdm-casscf).""" % name)
