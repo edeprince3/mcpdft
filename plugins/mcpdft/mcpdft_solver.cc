@@ -342,28 +342,37 @@ double MCPDFTSolver::compute_energy() {
     memset((void*)D2bb,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
     memset((void*)D2ab,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
     // memset((void*)D2Tot,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
-
+    
     // read 2-RDM from disk
     
-    if (options_.get_str("MCPDFT_REF") == "v2RDM_CASSCF") {
-    
-       ReadTPDM(D2aa,D2bb,D2ab,D1a,D1b);
+    // if (options_.get_str("MCPDFT_REF") == "v2RDM_CASSCF") {
+    // 
+    //    outfile->Printf("\n");
+    //    outfile->Printf("    ==> Reading v2RDM-CASSCF 1- and 2RDMs in MO basis...\n ");
+
+    //    ReadTPDM(D2aa,D2bb,D2ab,D1a,D1b);
+    // 
+    //    outfile->Printf("    ... Done. <==\n\n");
   
-    }else if (options_.get_str("MCPDFT_REF") == "CASSCF") {
-    
-             ReadOPDM(D1a,"opdm_a.txt");
-             ReadOPDM(D1b,"opdm_b.txt");
-             ReadTPDM(D2aa,"tpdm_aa.txt");
-             ReadTPDM(D2ab,"tpdm_ab.txt");
-             ReadTPDM(D2bb,"tpdm_bb.txt");
-             // ReadTPDM(D2Tot,"tpdm_S.txt");
-    
-             // PrintOPDM(D1a);
-             // PrintOPDM(D1b);
-             // PrintTPDM(D2aa);
-             // PrintTPDM(D2ab);
-             // PrintTPDM(D2bb);
-    }
+    // }else if (options_.get_str("MCPDFT_REF") == "CASSCF") {
+    // 
+    //          outfile->Printf("\n");
+    //          outfile->Printf("    ==> Reading v2RDM-CASSCF 1- and 2RDMs in MO basis...\n ");
+
+              ReadOPDM(D1a,"opdm_a.txt");
+              ReadOPDM(D1b,"opdm_b.txt");
+              ReadTPDM(D2aa,"tpdm_aa.txt");
+              ReadTPDM(D2ab,"tpdm_ab.txt");
+              ReadTPDM(D2bb,"tpdm_bb.txt");
+    //          // ReadTPDM(D2Tot,"tpdm_S.txt");
+    // 
+    //          outfile->Printf("    ... Done. <==\n\n");
+    //          // PrintOPDM(D1a);
+    //          // PrintOPDM(D1b);
+    //          // PrintTPDM(D2aa);
+    //          // PrintTPDM(D2ab);
+    //          // PrintTPDM(D2bb);
+    // }
     
     // with the 1-RDM, we can evaluate the kinetic, potential, and coulomb nergies
 
@@ -433,7 +442,7 @@ double MCPDFTSolver::compute_energy() {
 
         if ( options_.get_str("MCPDFT_FUNCTIONAL") == "SVWN" ) {
 
-           mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(tr_rho_a_, tr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA_III(tr_rho_a_, tr_rho_b_);
+           // mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(tr_rho_a_, tr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA_III(tr_rho_a_, tr_rho_b_);
            // mcpdft_xc_energy =  MCPDFTSolver::EX_LSDA(tr_rho_a_, tr_rho_b_) + MCPDFTSolver::EC_VWN3_RPA(tr_rho_a_, tr_rho_b_, tr_zeta_, tr_rs_);
 
         }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "PBE" ) {
@@ -1454,6 +1463,8 @@ void MCPDFTSolver::Fully_Translate(){
 
 void MCPDFTSolver::ReadTPDM(double* D, const char* fileName) {
     
+    double tol = 1.0e-20;
+
     std::ifstream dataIn;
     
     dataIn.open(fileName);
@@ -1467,7 +1478,7 @@ void MCPDFTSolver::ReadTPDM(double* D, const char* fileName) {
                      for (int l = 0; l < nmo_; l++) {
 
                          dataIn >> D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l];
-                         if (D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] < 1e-20)
+                         if (D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] < tol)
                              D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] = 0.0;
                      }
     dataIn.close(); 
@@ -1480,14 +1491,16 @@ void MCPDFTSolver::PrintTPDM(double* D) {
        for (int j = 0; j < nmo_; j++)
            for (int k = 0; k < nmo_; k++)
                for (int l = 0; l < nmo_; l++)
-                   printf("%20.15lf\t", D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l]);
+                   outfile->Printf("%20.15lf\t", D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l]);
                          
    
    printf("\n\n");
 }
 
 void MCPDFTSolver::ReadOPDM(double* D, const char* fileName) {
-    
+   
+    double tol = 1.0e-20;
+  
     std::ifstream dataIn;
     
     dataIn.open(fileName);
@@ -1499,7 +1512,7 @@ void MCPDFTSolver::ReadOPDM(double* D, const char* fileName) {
              for (int j = 0; j < nmo_; j++) {
                  
                  dataIn >> D[i*nmo_+j];
-                 if (D[i*nmo_+j] < 1.e-20)
+                 if (D[i*nmo_+j] < tol)
                      D[i*nmo_+j] = 0.0;
              }        
     dataIn.close(); 

@@ -67,10 +67,6 @@ class MCPDFTSolver: public Wavefunction{
     double compute_energy();
     virtual bool same_a_b_orbs() const { return same_a_b_orbs_; }
     virtual bool same_a_b_dens() const { return same_a_b_dens_; }
-    void ReadOPDM(double* D, const char* fileName); 
-    void ReadTPDM(double* D, const char* fileName); 
-    void PrintOPDM(double* D); 
-    void PrintTPDM(double* D); 
 
   protected:
 
@@ -128,6 +124,10 @@ class MCPDFTSolver: public Wavefunction{
 
     /// read 2-RDM from disk
     void ReadTPDM(double * D2aa, double * D2bb, double * D2ab, double * D1a, double * D1b);
+    void ReadOPDM(double* D, const char* fileName); 
+    void ReadTPDM(double* D, const char* fileName); 
+    void PrintOPDM(double* D); 
+    void PrintTPDM(double* D); 
 
     /// build coulomb matrix
     std::shared_ptr<Matrix> BuildJ(double * D, std::shared_ptr<Matrix> C);
