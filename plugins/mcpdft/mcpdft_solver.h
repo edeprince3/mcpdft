@@ -282,6 +282,9 @@ class MCPDFTSolver: public Wavefunction{
 
     /// build on-top pair density
     void BuildPi(double * D2ab);
+ 
+    /// build gradient of the on-top pair density
+    void Build_Grad_Pi();
 
     /// build R(r) = 4 * Pi(r) / rho(r) ^ 2
     void Build_R();
