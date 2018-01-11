@@ -454,17 +454,17 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("        one-electron energy =               %20.12lf\n",one_electron_energy);
     outfile->Printf("        coulomb energy =                    %20.12lf\n",coulomb_energy);
 
-    // if ( options_.get_str("MCPDFT_REF") == "v2RDM_CASSCF") {
-    // 
-    outfile->Printf("        v2RDM-CASSCF energy contribution =  %20.12lf\n",molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}) 
-    + one_electron_energy + coulomb_energy);
+    if ( options_.get_str("REFERENCE_TPDM") == "V2RDM") {
+
+        outfile->Printf("        v2RDM-CASSCF energy contribution =  %20.12lf\n",
+            molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}) + one_electron_energy + coulomb_energy);
   
-    // }else if ( options_.get_str("MCPDFT_REF") == "CASSCF") {
+    }else {
 
-    // outfile->Printf("        CASSCF energy contribution =        %20.12lf\n",molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}) 
-    // + one_electron_energy + coulomb_energy);
+        outfile->Printf("        CASSCF energy contribution =        %20.12lf\n",
+            molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}) + one_electron_energy + coulomb_energy);
 
-    // }
+    }
 
     outfile->Printf("        On-top energy =                     %20.12lf\n",mcpdft_xc_energy);
     outfile->Printf("\n");
