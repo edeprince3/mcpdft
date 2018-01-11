@@ -31,23 +31,19 @@
 #include <psi4/libpsio/psio.hpp>
 #include <psi4/libtrans/integraltransform.h>
 
+#include <psi4/libpsi4util/PsiOutStream.h>
+
+#include <fstream>
+#include <iostream>
+#include <iomanip>
+
 #include "mcpdft_solver.h"
 
 using namespace psi;
 
 namespace psi{namespace mcpdft{
 
-struct tpdm {
-    int i;
-    int j;
-    int k;
-    int l;
-    double val;
-};
-
-void MCPDFTSolver::ReadTPDM(double * D2ab, double * D1a, double * D1b){
-
-    memset((void*)D2ab,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
+void MCPDFTSolver::ReadTPDM() {
 
     std::shared_ptr<PSIO> psio (new PSIO());
 
@@ -63,27 +59,31 @@ void MCPDFTSolver::ReadTPDM(double * D2ab, double * D1a, double * D1b){
     long int nab;
     psio->read_entry(PSIF_V2RDM_D2AB,"length",(char*)&nab,sizeof(long int));
 
-    for (int n = 0; n < nab; n++) {
-        tpdm d2;
-        psio->read(PSIF_V2RDM_D2AB,"D2ab",(char*)&d2,sizeof(tpdm),addr_ab,&addr_ab);
-        int i = d2.i;
-        int j = d2.j;
-        int k = d2.k;
-        int l = d2.l;
-        long int id = i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l;
-        D2ab[id] = d2.val;
-    }
+    tpdm * d2 = (tpdm *)malloc(nab * sizeof(tpdm));
+    memset((void*)d2,'\0',nab * sizeof(tpdm));
+
+    psio->read_entry(PSIF_V2RDM_D2AB,"D2ab",(char*)d2,nab * sizeof(tpdm));
+
     psio->close(PSIF_V2RDM_D2AB,1);
 
     // check traces:
-    double trab = 0.0;
-    for (int i = 0; i < nmo_; i++) {
-        for (int j = 0; j < nmo_; j++) {
-            trab += D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
-        }
-    }
+    //double trab = 0.0;
+    //for (int i = 0; i < nmo_; i++) {
+    //    for (int j = 0; j < nmo_; j++) {
+    //        trab += D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
+    //    }
+    //}
     //printf("  tr(d2ab) = %20.12lf\n",trab);
 
+    // build on-top pair density (already built of REFERENCE_TPDM = V2RDM)
+    outfile->Printf("\n");
+    outfile->Printf("    ==> Build Pi <==\n");
+
+    BuildPiFast(d2,nab);
+
+    free(d2);
+
+/*
     memset((void*)D1a,'\0',nmo_*nmo_*sizeof(double));
     memset((void*)D1b,'\0',nmo_*nmo_*sizeof(double));
 
@@ -108,7 +108,42 @@ void MCPDFTSolver::ReadTPDM(double * D2ab, double * D1a, double * D1b){
         trb += D1b[i*nmo_+i];
 
     }
+*/
 
+}
+
+void MCPDFTSolver::ReadCITPDM(double* D, const char* fileName) {
+
+    std::ifstream dataIn;
+
+    dataIn.open(fileName);
+
+    if (!dataIn)
+       std::cout << "Error opening file.\n";
+    else {
+         for (int i = 0; i < nmo_; i++)
+             for (int j = 0; j < nmo_; j++)
+                 for (int k = 0; k < nmo_; k++)
+                     for (int l = 0; l < nmo_; l++) {
+
+                         dataIn >> D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l];
+                         if (D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] < 1e-20)
+                             D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] = 0.0;
+                     }
+    dataIn.close();
+    }
+}
+
+void MCPDFTSolver::PrintTPDM(double* D) {
+
+   for (int i = 0; i < nmo_; i++)
+       for (int j = 0; j < nmo_; j++)
+           for (int k = 0; k < nmo_; k++)
+               for (int l = 0; l < nmo_; l++)
+                   printf("%20.15lf\t", D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l]);
+
+
+   printf("\n\n");
 }
 
 }} //end namespaces

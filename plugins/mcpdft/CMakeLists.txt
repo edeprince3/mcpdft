@@ -33,5 +33,6 @@ cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(mcpdft CXX)
 
 find_package(psi4 1.1 REQUIRED)
-add_psi4_plugin(mcpdft plugin.cc mcpdft_solver.cc read_tpdm.cc Func_HC.cc)
+
+add_psi4_plugin(mcpdft plugin.cc mcpdft_solver.cc read_opdm.cc read_tpdm.cc Func_HC.cc)
 

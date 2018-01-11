@@ -54,8 +54,24 @@
 #define PSIF_V2RDM_D3AAB      274
 #define PSIF_V2RDM_D3BBA      275
 #define PSIF_V2RDM_D3BBB      276
+#define PSIF_V2RDM_D1A        277
+#define PSIF_V2RDM_D1B        278
 
 namespace psi{ namespace mcpdft{
+
+struct tpdm {
+    int i;
+    int j;
+    int k;
+    int l;
+    double val;
+};
+
+struct opdm {
+    int i;
+    int j;
+    double val;
+};
 
 class MCPDFTSolver: public Wavefunction{
 
@@ -126,18 +142,11 @@ class MCPDFTSolver: public Wavefunction{
     void BuildPhiMatrix(std::shared_ptr<VBase> potential, std::shared_ptr<PointFunctions> points_func,
             std::string phi_type, std::shared_ptr<Matrix> myphi);
 
-    /// read 2-RDM from disk
-<<<<<<< HEAD
-    void ReadTPDM(double * D2aa, double * D2bb, double * D2ab, double * D1a, double * D1b);
-    
-    // void ReadOPDM(double* D, const char* fileName); 
-    // void ReadTPDM(double* D, const char* fileName); 
-    // void PrintOPDM(double* D); 
-    // void PrintTPDM(double* D); 
-=======
-    void ReadTPDM(double * D2ab, double * D1a, double * D1b);
+    /// read v2RDM 2-RDM from disk
+    void ReadTPDM();
 
->>>>>>> 2d86844b... ReadTPDM->ReadCITPDM to avoid confusion with v2rdm-specific functions. adds input option REFERENCE_TPDM to toggle between "V2RDM" and "CI" RDMs
+    /// read v2RDM 1-RDM from disk
+    void ReadOPDM(double * D1a, double * D1b);
 
     /// build coulomb matrix
     std::shared_ptr<Matrix> BuildJ(double * D, std::shared_ptr<Matrix> C);
@@ -289,8 +298,14 @@ class MCPDFTSolver: public Wavefunction{
     /// build spin densities and gradients
     void BuildRho(double * D1a, double * D1b);
 
+    /// build spin densities and gradients using only non-zero elements of OPDM
+    void BuildRhoFast(opdm * D1a, opdm * D1b, int na, int nb);
+
     /// build on-top pair density
     void BuildPi(double * D2ab);
+ 
+    /// build on-top pair density using only non-zero elements of TPDM
+    void BuildPiFast(tpdm * D2ab, int nab);
  
     /// build gradient of the on-top pair density
     void Build_Grad_Pi();
