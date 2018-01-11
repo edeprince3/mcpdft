@@ -55,8 +55,8 @@ int read_options(std::string name, Options& options)
         options.add_str("TRANSLATION_TYPE", "REGULAR", "REGULAR FULL");
         /*- JK object type -*/
         options.add_str("MCPDFT_TYPE", "DFJK", "DFJK PKJK");
-        // /*- MCPDFT reference -*/
-        // options.add_str("MCPDFT_REF", "v2RDM_CASSCF", "v2RDM_CASSCF CASSCF");
+        /*- reference TPDM -*/
+        options.add_str("REFERENCE_TPDM", "V2RDM", "V2RDM CI");
     }
 
     return true;

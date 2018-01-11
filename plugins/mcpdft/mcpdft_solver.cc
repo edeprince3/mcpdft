@@ -331,51 +331,28 @@ double MCPDFTSolver::compute_energy() {
     // allocate memory for 1- and 2-RDM
     double * D1a  = (double*)malloc(nmo_*nmo_*sizeof(double));
     double * D1b  = (double*)malloc(nmo_*nmo_*sizeof(double));
-    double * D2aa = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
-    double * D2bb = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
     double * D2ab = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
     // double * D2Tot = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
 
     memset((void*)D1a,'\0',nmo_*nmo_*sizeof(double));
     memset((void*)D1b,'\0',nmo_*nmo_*sizeof(double));
-    memset((void*)D2aa,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
-    memset((void*)D2bb,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
     memset((void*)D2ab,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
     // memset((void*)D2Tot,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
     
     // read 2-RDM from disk
-    
-    // if (options_.get_str("MCPDFT_REF") == "v2RDM_CASSCF") {
-    // 
-    //    outfile->Printf("\n");
-    //    outfile->Printf("    ==> Reading v2RDM-CASSCF 1- and 2RDMs in MO basis...\n ");
+    if ( options_.get_str("REFERENCE_TPDM") == "V2RDM" ) {
+        ReadTPDM(D2ab,D1a,D1b);
+    }else if ( options_.get_str("REFERENCE_TPDM") == "CI" ) {
+        ReadCIOPDM(D1a,"opdm_a.txt");
+        ReadCIOPDM(D1b,"opdm_b.txt");
+        ReadCITPDM(D2ab,"tpdm_ab.txt");
+    }else {
+        throw PsiException("invalid REFERENCE_TPDM type",__FILE__,__LINE__);
+    }
 
-    // AED:
-        ReadTPDM(D2aa,D2bb,D2ab,D1a,D1b);
-    // 
-    //    outfile->Printf("    ... Done. <==\n\n");
-  
-    // }else if (options_.get_str("MCPDFT_REF") == "CASSCF") {
-    // 
-    //          outfile->Printf("\n");
-    //          outfile->Printf("    ==> Reading v2RDM-CASSCF 1- and 2RDMs in MO basis...\n ");
-
-    // sina's:
-    //          ReadOPDM(D1a,"opdm_a.txt");
-    //          ReadOPDM(D1b,"opdm_b.txt");
-    //          ReadTPDM(D2aa,"tpdm_aa.txt");
-    //          ReadTPDM(D2ab,"tpdm_ab.txt");
-    //          ReadTPDM(D2bb,"tpdm_bb.txt");
-
-    //          // ReadTPDM(D2Tot,"tpdm_S.txt");
-    // 
-    //          outfile->Printf("    ... Done. <==\n\n");
-    //          // PrintOPDM(D1a);
-    //          // PrintOPDM(D1b);
-    //          // PrintTPDM(D2aa);
-    //          // PrintTPDM(D2ab);
-    //          // PrintTPDM(D2bb);
-    // }
+    // PrintOPDM(D1a);
+    // PrintOPDM(D1b);
+    // PrintTPDM(D2ab);
     
     // with the 1-RDM, we can evaluate the kinetic, potential, and coulomb nergies
 
@@ -1521,7 +1498,57 @@ void MCPDFTSolver::Fully_Translate(){
            ftr_sigma_abp[p] = (ftr_rho_a_xp[p] * ftr_rho_b_xp[p]) + (ftr_rho_a_yp[p] * ftr_rho_b_yp[p]) + (ftr_rho_a_zp[p] * ftr_rho_b_zp[p]);  
            ftr_sigma_bbp[p] = (ftr_rho_b_xp[p] * ftr_rho_b_xp[p]) + (ftr_rho_b_yp[p] * ftr_rho_b_yp[p]) + (ftr_rho_b_zp[p] * ftr_rho_b_zp[p]);  
 
-       }
+void MCPDFTSolver::ReadCITPDM(double* D, const char* fileName) {
+    
+    std::ifstream dataIn;
+    
+    dataIn.open(fileName);
+    
+    if (!dataIn)
+       std::cout << "Error opening file.\n";
+    else { 
+         for (int i = 0; i < nmo_; i++)
+             for (int j = 0; j < nmo_; j++)
+                 for (int k = 0; k < nmo_; k++)
+                     for (int l = 0; l < nmo_; l++) {
+
+                         dataIn >> D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l];
+                         if (D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] < 1e-20)
+                             D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] = 0.0;
+                     }
+    dataIn.close(); 
+    }
+}
+
+void MCPDFTSolver::PrintTPDM(double* D) {
+    
+   for (int i = 0; i < nmo_; i++)
+       for (int j = 0; j < nmo_; j++)
+           for (int k = 0; k < nmo_; k++)
+               for (int l = 0; l < nmo_; l++)
+                   printf("%20.15lf\t", D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l]);
+                         
+   
+   printf("\n\n");
+}
+
+void MCPDFTSolver::ReadCIOPDM(double* D, const char* fileName) {
+    
+    std::ifstream dataIn;
+    
+    dataIn.open(fileName);
+    
+    if (!dataIn)
+       std::cout << "Error opening file.\n";
+    else { 
+         for (int i = 0; i < nmo_; i++)
+             for (int j = 0; j < nmo_; j++) {
+                 
+                 dataIn >> D[i*nmo_+j];
+                 if (D[i*nmo_+j] < 1.e-20)
+                     D[i*nmo_+j] = 0.0;
+             }        
+    dataIn.close(); 
     }
 }
 
