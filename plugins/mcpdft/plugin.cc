@@ -43,20 +43,20 @@ extern "C"
 int read_options(std::string name, Options& options)
 {
     if (name == "MCPDFT"|| options.read_globals()) {
+        /*- Reference must be UKS -*/
+        options.add_str("REFERENCE", "UKS");
         /*- The amount of information printed to the output file -*/
         options.add_int("PRINT", 1);
         /*- MCPDFT functional -*/
         options.add_str("MCPDFT_FUNCTIONAL", "SVWN", "SVWN PBE BOP");
-        /*- reference must be UKS -*/
-        options.add_str("REFERENCE", "UKS");
         /*- type of density and density gradient translation:
         REGULAR = The gradients of on-top density are not considered in the polarization factor zeta
         FULL = The gradients of on-top density is included in the polarization factor zeta       -*/
-        options.add_str("TRANSLATION_TYPE", "REGULAR", "REGULAR FULL");
-        /*- JK object type -*/
-        options.add_str("MCPDFT_TYPE", "DF", "DF CONV");
+        options.add_str("MCPDFT_TRANSLATION_TYPE", "REGULAR", "REGULAR FULL");
+        /*- JK object type can be DF or PK -*/
+        options.add_str("MCPDFT_TYPE", "DF", "DF PK");
         /*- reference TPDM -*/
-        options.add_str("REFERENCE_TPDM", "V2RDM", "V2RDM CI");
+        options.add_str("MCPDFT_REFERENCE_TPDM", "V2RDM", "V2RDM CI");
     }
 
     return true;

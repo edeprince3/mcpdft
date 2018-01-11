@@ -340,12 +340,12 @@ double MCPDFTSolver::compute_energy() {
     
     // read 1- and 2-RDM from disk and build rho(r), rho'(r), pi(r), and pi'(r)
 
-    if ( options_.get_str("REFERENCE_TPDM") == "V2RDM" ) {
+    if ( options_.get_str("MCPDFT_REFERENCE_TPDM") == "V2RDM" ) {
 
         ReadTPDM();
         ReadOPDM(D1a,D1b);
 
-    }else if ( options_.get_str("REFERENCE_TPDM") == "CI" ) {
+    }else if ( options_.get_str("MCPDFT_REFERENCE_TPDM") == "CI" ) {
 
         double * D2ab = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
         memset((void*)D2ab,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
@@ -354,13 +354,13 @@ double MCPDFTSolver::compute_energy() {
         ReadCIOPDM(D1b,"opdm_b.txt");
         ReadCITPDM(D2ab,"tpdm_ab.txt");
 
-        // build alpha- and beta-spin densities and gradients (already built for REFERENCE_TPDM = V2RDM)
+        // build alpha- and beta-spin densities and gradients (already built for MCPDFT_REFERENCE_TPDM = V2RDM)
         outfile->Printf("\n");
         outfile->Printf("    ==> Build Rho <== \n ");
 
         BuildRho(D1a,D1b);
 
-        // build on-top pair density (already built for REFERENCE_TPDM = V2RDM)
+        // build on-top pair density (already built for MCPDFT_REFERENCE_TPDM = V2RDM)
         outfile->Printf("\n");
         outfile->Printf("    ==> Build Pi <==\n");
 
@@ -369,7 +369,7 @@ double MCPDFTSolver::compute_energy() {
 
 
     }else {
-        throw PsiException("invalid REFERENCE_TPDM type",__FILE__,__LINE__);
+        throw PsiException("invalid MCPDFT_REFERENCE_TPDM type",__FILE__,__LINE__);
     }
 
     // build R(r) = 4 * Pi(r) / rho(r)
@@ -378,7 +378,7 @@ double MCPDFTSolver::compute_energy() {
     Build_R();
 
     // translate the alpha and beta densities and their corresponding gradients
-    if ( options_.get_str("TRANSLATION_TYPE") == "REGULAR") {
+    if ( options_.get_str("MCPDFT_TRANSLATION_TYPE") == "REGULAR") {
 
         outfile->Printf("    ==> Regular translation of densities and/or density gradients <==\n ");
         Translate();    
@@ -454,7 +454,7 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("        one-electron energy =               %20.12lf\n",one_electron_energy);
     outfile->Printf("        coulomb energy =                    %20.12lf\n",coulomb_energy);
 
-    if ( options_.get_str("REFERENCE_TPDM") == "V2RDM") {
+    if ( options_.get_str("MCPDFT_REFERENCE_TPDM") == "V2RDM") {
 
         outfile->Printf("        v2RDM-CASSCF energy contribution =  %20.12lf\n",
             molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}) + one_electron_energy + coulomb_energy);
@@ -1003,7 +1003,7 @@ std::shared_ptr<Matrix> MCPDFTSolver::BuildJ(double * D, std::shared_ptr<Matrix>
 
        return J;
 
-    }else if (options_.get_str("MCPDFT_TYPE") == "CONV") {
+    }else if (options_.get_str("MCPDFT_TYPE") == "PK") {
 
              // outfile->Printf("\n");
              // outfile->Printf("    ==> The JK type for the MCPDFT calculation is: %s", options_.get_str("MCPDFT_TYPE"));
