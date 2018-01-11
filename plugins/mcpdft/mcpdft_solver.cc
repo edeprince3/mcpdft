@@ -952,7 +952,7 @@ std::shared_ptr<Matrix> MCPDFTSolver::BuildJ(double * D, std::shared_ptr<Matrix>
 
 
     // JK object (note this is hard-coded to use density fitting ...)
-    if (options_.get_str("MCPDFT_TYPE") == "DFJK") {
+    if (options_.get_str("MCPDFT_TYPE") == "DF") {
 
         // get auxiliary basis:
         std::shared_ptr<BasisSet> auxiliary = reference_wavefunction_->get_basisset("DF_BASIS_SCF");
@@ -1003,7 +1003,7 @@ std::shared_ptr<Matrix> MCPDFTSolver::BuildJ(double * D, std::shared_ptr<Matrix>
 
        return J;
 
-    }else if (options_.get_str("MCPDFT_TYPE") == "PKJK") {
+    }else if (options_.get_str("MCPDFT_TYPE") == "CONV") {
 
              // outfile->Printf("\n");
              // outfile->Printf("    ==> The JK type for the MCPDFT calculation is: %s", options_.get_str("MCPDFT_TYPE"));

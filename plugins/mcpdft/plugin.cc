@@ -54,7 +54,7 @@ int read_options(std::string name, Options& options)
         FULL = The gradients of on-top density is included in the polarization factor zeta       -*/
         options.add_str("TRANSLATION_TYPE", "REGULAR", "REGULAR FULL");
         /*- JK object type -*/
-        options.add_str("MCPDFT_TYPE", "DF", "DF PK");
+        options.add_str("MCPDFT_TYPE", "DF", "DF CONV");
         /*- reference TPDM -*/
         options.add_str("REFERENCE_TPDM", "V2RDM", "V2RDM CI");
     }
