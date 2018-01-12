@@ -74,6 +74,13 @@
 // mcpdft 
 #include "mcpdft_solver.h"
 
+// blas
+#include "blas.h"
+#include "blas_mangle.h"
+
+using namespace psi;
+using namespace fnocc;
+
 namespace psi{ namespace mcpdft {
 
 // the MCPDFTSolver class derives from the Wavefunction class and inherits its members
@@ -301,30 +308,34 @@ void MCPDFTSolver::BuildPhiMatrix(std::shared_ptr<VBase> potential, std::shared_
     // transform one index of (derivative) phi matrix (AO->SO)
     std::shared_ptr<Matrix> temp (new Matrix(myphi));
 
-    for (int p = 0; p < phi_points_; p++) {
-        for (int sigma = 0; sigma < nso_; sigma++) {
-            double dum = 0.0;
-            for (int nu = 0; nu < nso_; nu++) {
-                dum += myphi->pointer()[p][nu] * ao2so->pointer()[nu][sigma];
-            }
-            temp->pointer()[p][sigma] = dum;
-        }
-    }
+    F_DGEMM('n','n',nso_,phi_points_,nso_,1.0,ao2so->pointer()[0],nso_,myphi->pointer()[0],nso_,0.0,temp->pointer()[0],nso_);
 
-    C_DCOPY(nso_*phi_points_,temp->pointer()[0],1,myphi->pointer()[0],1);
+    //for (int p = 0; p < phi_points_; p++) {
+    //    for (int sigma = 0; sigma < nso_; sigma++) {
+    //        double dum = 0.0;
+    //        for (int nu = 0; nu < nso_; nu++) {
+    //            //dum += myphi->pointer()[p][nu] * ao2so->pointer()[nu][sigma];
+    //            dum += ao2so->pointer()[nu][sigma] * myphi->pointer()[p][nu];
+    //        }
+    //        temp->pointer()[p][sigma] = dum;
+    //    }
+    //}
+
+    //C_DCOPY(nso_*phi_points_,temp->pointer()[0],1,myphi->pointer()[0],1);
 
     // transform orbital index in phi matrices to MO basis
     // NOTE: this will not work if Ca and Cb are different.  it is imperative that
     // the v2rdm-casscf computation preceding mcpdft is run with reference = rhf/rohf
-    for (int p = 0; p < phi_points_; p++) {
-        for (int sigma = 0; sigma < nso_; sigma++) {
-            double dum = 0.0;
-            for (int nu = 0; nu < nso_; nu++) {
-                dum += temp->pointer()[p][nu] * Ca_->pointer()[nu][sigma];
-            }
-            myphi->pointer()[p][sigma] = dum;
-        }
-    }
+    F_DGEMM('n','n',nso_,phi_points_,nso_,1.0,Ca_->pointer()[0],nso_,temp->pointer()[0],nso_,0.0,myphi->pointer()[0],nso_);
+    //for (int p = 0; p < phi_points_; p++) {
+    //    for (int sigma = 0; sigma < nso_; sigma++) {
+    //        double dum = 0.0;
+    //        for (int nu = 0; nu < nso_; nu++) {
+    //            dum += temp->pointer()[p][nu] * Ca_->pointer()[nu][sigma];
+    //        }
+    //        myphi->pointer()[p][sigma] = dum;
+    //    }
+    //}
 }
 
 double MCPDFTSolver::compute_energy() {
