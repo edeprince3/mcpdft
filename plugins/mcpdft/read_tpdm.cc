@@ -118,8 +118,7 @@ void MCPDFTSolver::ReadCITPDM(double* D, const char* fileName) {
 
     dataIn.open(fileName);
 
-    if (!dataIn)
-       std::cout << "Error opening file.\n";
+    if (!dataIn) throw PsiException("No D2ab on disk",__FILE__,__LINE__);
     else {
          for (int i = 0; i < nmo_; i++)
              for (int j = 0; j < nmo_; j++)
