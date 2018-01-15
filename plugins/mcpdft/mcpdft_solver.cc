@@ -413,6 +413,11 @@ double MCPDFTSolver::compute_energy() {
         mcpdft_xc_energy = EX_LSDA(tr_rho_a_, tr_rho_b_) 
                          + EC_VWN3_RPA_III(tr_rho_a_, tr_rho_b_);
 
+    }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "BLYP" ) {
+          
+        mcpdft_xc_energy = EX_B88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_)
+                         + EC_LYP_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
+    
     }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "PBE" ) {
  
         mcpdft_xc_energy = EX_PBE_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_) 
@@ -420,7 +425,7 @@ double MCPDFTSolver::compute_energy() {
 
     }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "BOP" ) {
           
-        mcpdft_xc_energy = EX_B88(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_)
+        mcpdft_xc_energy = EX_B88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_)
                          + EC_B88_OP(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
     }
     

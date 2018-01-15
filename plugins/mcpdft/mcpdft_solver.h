@@ -301,6 +301,7 @@ class MCPDFTSolver: public Wavefunction{
 
     /// build EX_B88()
     double EX_B88(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB);
+    double EX_B88_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB);
 
     /// build EX_PBE()
     double EX_PBE(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB);
@@ -318,6 +319,10 @@ class MCPDFTSolver: public Wavefunction{
 
     /// build EC_B88()
     double EC_B88_OP(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB);
+
+    /// build EC_LYP()
+    double EC_LYP_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, 
+                  std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_AB, std::shared_ptr<Vector> SIGMA_BB);
 
     /// build EC_PBE()
     double EC_PBE(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, 

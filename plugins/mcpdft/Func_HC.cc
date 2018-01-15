@@ -81,6 +81,7 @@ double MCPDFTSolver::Gfunction(double r, double A, double a1, double b1, double 
 }
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     //+++++++++++++++++++ Exchange functionals ++++++++++++++++++
+    // LDA/LSDA, B86_MGC, B88, PBE                              +
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -173,7 +174,8 @@ double MCPDFTSolver::EX_B86_MGC(){
     return exc;
 }
 
-double MCPDFTSolver::EX_B88(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB){
+double MCPDFTSolver::EX_B88(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B,
+                            std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB){
     
     const double Cx = 0.73855876638202240586; 
     const double beta = 0.0042;
@@ -198,6 +200,74 @@ double MCPDFTSolver::EX_B88(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vecto
 
         exc += -rhoa_43 * ( c + (beta * Xa_2) / (1.0 + 6.0 * beta * Xa * asinh(Xa)) ) * grid_w_->pointer()[p]; 
         exc += -rhob_43 * ( c + (beta * Xb_2) / (1.0 + 6.0 * beta * Xb * asinh(Xb)) ) * grid_w_->pointer()[p]; 
+    }
+    return exc;
+}
+
+double MCPDFTSolver::EX_B88_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B,
+                           std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB){
+
+    double tol = 1.0e-20;
+
+    const double Cx = 0.73855876638202240586;
+    const double beta = 0.0042;
+    const double c = pow(2.0,1.0/3.0) * Cx;
+
+    double * rho_ap = RHO_A->pointer();
+    double * rho_bp = RHO_B->pointer();
+    double * sigma_aap = SIGMA_AA->pointer();
+    double * sigma_bbp = SIGMA_BB->pointer();
+
+    double exc = 0.0;
+    for (int p = 0; p < phi_points_; p++) {
+
+        double rhoa = rho_ap[p];
+        double rhob = rho_bp[p];
+        double rho = rhoa + rhob;
+        double sigmaaa = sigma_aap[p];
+        double sigmabb = sigma_bbp[p];
+        double rhoa_43 = 0.0;
+        double rhob_43 = 0.0;
+        double Xa   = 0.0;
+        double Xb   = 0.0;
+        double Xa_2 = 0.0;
+        double Xb_2 = 0.0;
+
+        if ( rho > tol ) {
+           if ( rhoa < tol ){
+
+              rhoa = 0.0;
+              sigmabb = std::max(0.0,sigma_bbp[p]);
+              rhob_43 = pow( rhob, 4.0/3.0);
+              Xb = sqrt(sigma_bbp[p]) / rhob_43;
+              Xb_2 = Xb * Xb;
+
+           }else if ( rhob < tol ){
+
+                    rhob = 0.0;
+                    sigmaaa = std::max(0.0,sigma_aap[p]);
+                    rhoa_43 = pow( rhoa, 4.0/3.0);
+                    Xa = sqrt(sigma_aap[p]) / rhoa_43;
+                    Xa_2 = Xa * Xa;
+           }else{
+
+                sigmaaa = std::max(0.0,sigma_aap[p]);
+                sigmabb = std::max(0.0,sigma_bbp[p]);
+                rhoa_43 = pow( rhoa, 4.0/3.0);
+                rhob_43 = pow( rhob, 4.0/3.0);
+                Xa = sqrt(sigma_aap[p]) / rhoa_43;
+                Xb = sqrt(sigma_bbp[p]) / rhob_43;
+                Xa_2 = Xa * Xa;
+                Xb_2 = Xb * Xb;
+
+           }
+           exc += -rhoa_43 * ( c + (beta * Xa_2) / (1.0 + 6.0 * beta * Xa * asinh(Xa)) ) * grid_w_->pointer()[p];
+           exc += -rhob_43 * ( c + (beta * Xb_2) / (1.0 + 6.0 * beta * Xb * asinh(Xb)) ) * grid_w_->pointer()[p];
+
+        }else{
+
+             exc += 0.0;
+        }
     }
     return exc;
 }
@@ -244,7 +314,6 @@ double MCPDFTSolver::EX_PBE(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vecto
     return exc;
 }
 
-// Conv. (I)
 double MCPDFTSolver::EX_PBE_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B,
                            std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB) {
 
@@ -399,6 +468,7 @@ double MCPDFTSolver::EX_PBE_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vec
 
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     //+++++++++++++++++ Correlation Functionals +++++++++++++++++
+    // B88_OP, VWN3, LYP, PBE
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 // Note: This correlation functional depends on B86MGC exchange functional
@@ -532,6 +602,231 @@ double MCPDFTSolver::EC_B88_OP(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Ve
 //    }
 //    return exc;
 // }
+
+double MCPDFTSolver::EC_VWN3_RPA(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> ZETA, std::shared_ptr<Vector> RS){
+  
+    const double k1 = 0.0310907;
+    const double k2 = 0.01554535;
+    const double l1 = -0.409286;
+    const double l2 = -0.743294;
+    const double m1 = 13.0720;
+    const double m2 = 20.1231;
+    const double n1 = 42.7198;
+    const double n2 = 101.578;
+
+    double * rho_ap = RHO_A->pointer();
+    double * rho_bp = RHO_B->pointer();
+    
+    double * zeta_p = ZETA->pointer();
+    double * rs_p = RS->pointer();
+
+    double exc = 0.0;
+    for (int p = 0; p < phi_points_; p++) {
+        
+        double rhoa = rho_ap[p];
+        double rhob = rho_bp[p];
+        double rho = rhoa + rhob;
+        double zeta = zeta_p[p];
+        double rs = rs_p[p];
+        double x = sqrt(rs);
+        
+        double y = (9.0/8.0) * pow(1.0 + zeta, 4.0/3.0) + (9.0/8.0) * pow(1.0 - zeta, 4.0/3.0) - (9.0/4.0);
+        double z = (4.0 * y) / (9.0 * pow(2.0,1.0/3.0) - 9.0);
+
+        auto X = [](double i, double c, double d) -> double{
+                 
+                 double temp = pow(i,2.0) + c * i + d;
+                 return temp;
+        };
+        
+        auto Q = [](double c, double d) -> double{
+        
+                 double temp1 = sqrt( 4 * d - pow(c,2.0) );
+                 return temp1;
+        };
+
+        auto q = [=](double A, double p, double c, double d) -> double{
+            
+                 double dum1 = A * ( log( pow(x,2.0) / X(x,c,d) ) + 2.0 * c * atan( Q(c,d)/(2.0*x + c) ) * pow(Q(c,d),-1.0)    
+                           - c * p * ( log( pow(x-p,2.0) / X(x,c,d) ) + 2.0 * (c + 2.0 * p) * atan( Q(c,d)/(2.0*x + c) ) * pow(Q(c,d),-1.0) ) * pow(X(p,c,d),-1.0) ); 
+                 return dum1;
+        };
+
+        double Lambda = q(k1, l1, m1, n1);
+        double lambda = q(k2, l2, m2, n2);
+       
+        double e =  Lambda + z * (lambda - Lambda); 
+ 
+        exc += e * rho * grid_w_->pointer()[p]; 
+    }
+    return exc;
+    
+}
+
+// Conv. (III)
+double MCPDFTSolver::EC_VWN3_RPA_III(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B){ //, std::shared_ptr<Vector> ZETTA){
+
+    double tol = 1.0e-20;
+
+    const double ecp1 = 0.03109070000;
+    const double ecp2 = -0.409286;
+    const double ecp3 = 13.0720;
+    const double ecp4 = 42.7198;
+    const double ecf1 = 0.01554535000;
+    const double ecf2 = -0.743294;
+    const double ecf3 = 20.1231;
+    const double ecf4 = 101.578;
+    const double d2Fz = 1.7099209341613656173;
+
+    double * rho_ap = RHO_A->pointer();
+    double * rho_bp = RHO_B->pointer();
+
+    auto x = [](double RHO) -> double {
+
+             double rs = pow( 3.0 / ( 4.0 * M_PI * RHO ) , 1.0/3.0 );
+             double dum = sqrt(rs);
+             return dum;
+    };
+
+    auto Fz = [](double ZETA) -> double {
+
+              double dum = (pow((1.0 + ZETA) ,4.0/3.0) + pow((1.0 - ZETA) ,4.0/3.0) - 2.0) / (2.0 * pow(2.0,1.0/3.0) - 2.0);
+              return dum;
+    };
+
+    auto X = [](double i, double c, double d) -> double{
+
+             double temp = pow(i,2.0) + c * i + d;
+             return temp;
+    };
+
+    auto Q = [](double c, double d) -> double{
+
+             double temp1 = sqrt( 4 * d - pow(c,2.0) );
+             return temp1;
+    };
+
+    auto q = [=](double RHO, double A, double p, double c, double d) -> double{
+
+             double dum1 = A * ( log( pow(x(RHO),2.0) / X(x(RHO),c,d) ) + 2.0 * c * atan( Q(c,d)/(2.0*x(RHO) + c) ) * pow(Q(c,d),-1.0)
+                         - c * p * ( log( pow(x(RHO)-p,2.0) / X(x(RHO),c,d) ) + 2.0 * (c + 2.0 * p) * atan( Q(c,d)/(2.0*x(RHO) + c) )
+                         * pow(Q(c,d),-1.0) ) * pow(X(p,c,d),-1.0) );
+             return dum1;
+    };
+
+    auto EcP = [=](double RHO) -> double {
+
+               double dumm = q(RHO,ecp1,ecp2,ecp3,ecp4);
+               return dumm;
+    };
+
+    auto EcF = [=](double RHO) -> double {
+
+               double dum = q(RHO,ecf1,ecf2,ecf3,ecf4);
+               return dum;
+    };
+
+    double exc = 0.0;
+    for (int p = 0; p < phi_points_; p++) {
+
+        double rhoa = rho_ap[p];
+        double rhob = rho_bp[p];
+        double rho = rhoa + rhob;
+        double zeta = 0.0;
+
+        if ( rho > tol ) {
+           if ( rhoa < tol ){
+
+              rho = rhob;
+              zeta = 1.0;
+
+           }else if ( rhob < tol ){
+
+                    rho = rhoa;
+                    zeta = 1.0;
+
+           }else {/* if (!(rhoa < tol) && !(rhob < tol) ) */
+
+                 zeta = (rhoa - rhob) / rho;
+           }
+           double zk = EcP(rho) + Fz(zeta) * (EcF(rho) - EcP(rho));
+           exc += rho * zk * grid_w_->pointer()[p];
+
+        }else{
+                double zk = 0.0;
+                exc += 0.0;
+             }
+    }
+    return exc;
+}
+
+// Conv. (I)
+double MCPDFTSolver::EC_LYP_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B,
+                           std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_AB, std::shared_ptr<Vector> SIGMA_BB) {
+    double tol = 1.0e-20;
+
+    const double A = 0.04918;
+    const double B = 0.132;
+    const double C = 0.2533;
+    const double Dd = 0.349;
+
+    double * rho_ap = RHO_A->pointer();
+    double * rho_bp = RHO_B->pointer();
+
+    double * sigma_aap = SIGMA_AA->pointer();
+    double * sigma_abp = SIGMA_AB->pointer();
+    double * sigma_bbp = SIGMA_BB->pointer();
+
+    double exc = 0.0;
+    for (int p = 0; p < phi_points_; p++) {
+
+        double rhoa = rho_ap[p];
+        double rhob = rho_bp[p];
+        double rho = rhoa + rhob;
+        double sigmaaa = sigma_aap[p];
+        double sigmaab = sigma_abp[p];
+        double sigmabb = sigma_bbp[p];
+        double sigma = sigmaaa + sigmabb + 2.0 * sigmaab;
+
+        if ( rho > tol ) {
+           if ( rhoa < tol ){
+
+              double zk = 0.0;
+
+           }else if ( rhob < tol ){
+
+                    double zk = 0.0;
+           }else{
+
+                sigmabb = std::max(0.0,sigmabb);
+                sigmaaa = std::max(0.0,sigmaaa);
+                double rho_2    = pow(rho,2.0);
+                double rho_a_2  = pow(rhoa,2.0);
+                double rho_b_2  = pow(rhob,2.0);
+                double rho_m13  = pow(rho,-1.0/3.0);
+                double rho_a_83 = pow(rhoa,8.0/3.0);
+                double rho_b_83 = pow(rhob,8.0/3.0);
+
+                double f = pow( 1.0 + Dd * rho_m13, -1.0);
+
+                double omega = exp(-C * rho_m13) * f * pow(rho,-11.0/3.0);
+
+                double delta = (C + Dd * f) * rho_m13;
+
+                double zk  = -4.0 * A  * rhoa * rhob * f / rho  - A * B * omega * (rhoa * rhob * (36.462398978764777098 * (rho_a_83 + rho_b_83)
+                           + (2.6111111111111111111 - 0.38888888888888888889 * delta) * sigma - (2.5 - 0.055555555555555555556 * delta) * (sigmaaa + sigmabb)
+                           - 0.11111111111111111111 * (delta - 11.0) * ((rhoa * sigmaaa + rhob * sigmabb) / rho ) ) - 0.66666666666666666667 * rho_2 * sigma
+                           + (0.66666666666666666667 * rho_2 - rho_a_2) * sigmabb + (0.66666666666666666667 * rho_2 - rho_b_2) * sigmaaa);
+
+                exc += zk * grid_w_->pointer()[p];
+           }
+           }else{
+                double zk = 0.0;
+                exc += zk * grid_w_->pointer()[p];
+                }
+    }
+    return exc;
+}
 
 double MCPDFTSolver::EC_PBE(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B,
                             std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_AB, std::shared_ptr<Vector> SIGMA_BB){
@@ -849,163 +1144,6 @@ double MCPDFTSolver::EC_PBE_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vec
         }else{
                 double zk = 0.0;
                 exc += rho * zk * grid_w_->pointer()[p];
-             }
-    }
-    return exc;
-}
-
-double MCPDFTSolver::EC_VWN3_RPA(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> ZETA, std::shared_ptr<Vector> RS){
-  
-    const double k1 = 0.0310907;
-    const double k2 = 0.01554535;
-    const double l1 = -0.409286;
-    const double l2 = -0.743294;
-    const double m1 = 13.0720;
-    const double m2 = 20.1231;
-    const double n1 = 42.7198;
-    const double n2 = 101.578;
-
-    double * rho_ap = RHO_A->pointer();
-    double * rho_bp = RHO_B->pointer();
-    
-    double * zeta_p = ZETA->pointer();
-    double * rs_p = RS->pointer();
-
-    double exc = 0.0;
-    for (int p = 0; p < phi_points_; p++) {
-        
-        double rhoa = rho_ap[p];
-        double rhob = rho_bp[p];
-        double rho = rhoa + rhob;
-        double zeta = zeta_p[p];
-        double rs = rs_p[p];
-        double x = sqrt(rs);
-        
-        double y = (9.0/8.0) * pow(1.0 + zeta, 4.0/3.0) + (9.0/8.0) * pow(1.0 - zeta, 4.0/3.0) - (9.0/4.0);
-        double z = (4.0 * y) / (9.0 * pow(2.0,1.0/3.0) - 9.0);
-
-        auto X = [](double i, double c, double d) -> double{
-                 
-                 double temp = pow(i,2.0) + c * i + d;
-                 return temp;
-        };
-        
-        auto Q = [](double c, double d) -> double{
-        
-                 double temp1 = sqrt( 4 * d - pow(c,2.0) );
-                 return temp1;
-        };
-
-        auto q = [=](double A, double p, double c, double d) -> double{
-            
-                 double dum1 = A * ( log( pow(x,2.0) / X(x,c,d) ) + 2.0 * c * atan( Q(c,d)/(2.0*x + c) ) * pow(Q(c,d),-1.0)    
-                           - c * p * ( log( pow(x-p,2.0) / X(x,c,d) ) + 2.0 * (c + 2.0 * p) * atan( Q(c,d)/(2.0*x + c) ) * pow(Q(c,d),-1.0) ) * pow(X(p,c,d),-1.0) ); 
-                 return dum1;
-        };
-
-        double Lambda = q(k1, l1, m1, n1);
-        double lambda = q(k2, l2, m2, n2);
-       
-        double e =  Lambda + z * (lambda - Lambda); 
- 
-        exc += e * rho * grid_w_->pointer()[p]; 
-    }
-    return exc;
-    
-}
-
-// Conv. (III)
-double MCPDFTSolver::EC_VWN3_RPA_III(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B){ //, std::shared_ptr<Vector> ZETTA){
-
-    double tol = 1.0e-20;
-
-    const double ecp1 = 0.03109070000;
-    const double ecp2 = -0.409286;
-    const double ecp3 = 13.0720;
-    const double ecp4 = 42.7198;
-    const double ecf1 = 0.01554535000;
-    const double ecf2 = -0.743294;
-    const double ecf3 = 20.1231;
-    const double ecf4 = 101.578;
-    const double d2Fz = 1.7099209341613656173;
-
-    double * rho_ap = RHO_A->pointer();
-    double * rho_bp = RHO_B->pointer();
-
-    auto x = [](double RHO) -> double {
-
-             double rs = pow( 3.0 / ( 4.0 * M_PI * RHO ) , 1.0/3.0 );
-             double dum = sqrt(rs);
-             return dum;
-    };
-
-    auto Fz = [](double ZETA) -> double {
-
-              double dum = (pow((1.0 + ZETA) ,4.0/3.0) + pow((1.0 - ZETA) ,4.0/3.0) - 2.0) / (2.0 * pow(2.0,1.0/3.0) - 2.0);
-              return dum;
-    };
-
-    auto X = [](double i, double c, double d) -> double{
-
-             double temp = pow(i,2.0) + c * i + d;
-             return temp;
-    };
-
-    auto Q = [](double c, double d) -> double{
-
-             double temp1 = sqrt( 4 * d - pow(c,2.0) );
-             return temp1;
-    };
-
-    auto q = [=](double RHO, double A, double p, double c, double d) -> double{
-
-             double dum1 = A * ( log( pow(x(RHO),2.0) / X(x(RHO),c,d) ) + 2.0 * c * atan( Q(c,d)/(2.0*x(RHO) + c) ) * pow(Q(c,d),-1.0)
-                         - c * p * ( log( pow(x(RHO)-p,2.0) / X(x(RHO),c,d) ) + 2.0 * (c + 2.0 * p) * atan( Q(c,d)/(2.0*x(RHO) + c) )
-                         * pow(Q(c,d),-1.0) ) * pow(X(p,c,d),-1.0) );
-             return dum1;
-    };
-
-    auto EcP = [=](double RHO) -> double {
-
-               double dumm = q(RHO,ecp1,ecp2,ecp3,ecp4);
-               return dumm;
-    };
-
-    auto EcF = [=](double RHO) -> double {
-
-               double dum = q(RHO,ecf1,ecf2,ecf3,ecf4);
-               return dum;
-    };
-
-    double exc = 0.0;
-    for (int p = 0; p < phi_points_; p++) {
-
-        double rhoa = rho_ap[p];
-        double rhob = rho_bp[p];
-        double rho = rhoa + rhob;
-        double zeta = 0.0;
-
-        if ( rho > tol ) {
-           if ( rhoa < tol ){
-
-              rho = rhob;
-              zeta = 1.0;
-
-           }else if ( rhob < tol ){
-
-                    rho = rhoa;
-                    zeta = 1.0;
-
-           }else {/* if (!(rhoa < tol) && !(rhob < tol) ) */
-
-                 zeta = (rhoa - rhob) / rho;
-           }
-           double zk = EcP(rho) + Fz(zeta) * (EcF(rho) - EcP(rho));
-           exc += rho * zk * grid_w_->pointer()[p];
-
-        }else{
-                double zk = 0.0;
-                exc += 0.0;
              }
     }
     return exc;
