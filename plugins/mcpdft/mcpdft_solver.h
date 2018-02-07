@@ -90,6 +90,36 @@ class MCPDFTSolver: public Wavefunction{
 
   protected:
 
+    /// active-space geminals for each symmetry:
+    std::vector < std::vector < std::pair<int,int> > > gems;
+
+    /// total number of active molecular orbitals
+    int amo_;
+
+    /// total number of frozen core orbitals
+    int nfrzc_;
+
+    /// total number of frozen virtual orbitals
+    int nfrzv_;
+
+    /// total number of restricted doubly occupied orbitals
+    int nrstc_;
+
+    /// total number of restricted unoccupied orbitals
+    int nrstv_;
+
+    /// active molecular orbitals per irrep
+    int * amopi_;
+
+    /// restricted core orbitals per irrep.  these will be optimized
+    int * rstcpi_;
+
+    /// restricted virtual orbitals per irrep.  these will be optimized
+    int * rstvpi_;
+
+    // multiplicity
+    int multiplicity_;
+
     /// level of differentiation 
     int deriv_;
 

@@ -65,6 +65,7 @@
 #include "psi4/libmints/molecule.h"
 #include "psi4/lib3index/dftensor.h"
 #include "psi4/libqt/qt.h"
+#include "psi4/libmints/factory.h"
 
 // for potential object
 #include "psi4/libfock/v.h"
@@ -92,6 +93,10 @@ MCPDFTSolver::MCPDFTSolver(std::shared_ptr<Wavefunction> reference_wavefunction,
 }
 
 MCPDFTSolver::~MCPDFTSolver() {
+
+    free(amopi_);
+    free(rstvpi_);
+    free(rstcpi_);
 }
 
 // initialize members of the MCPDFTSolver class
@@ -133,9 +138,9 @@ void MCPDFTSolver::common_init() {
     nirrep_   = reference_wavefunction_->nirrep();
 
     // make sure we are running in c1 symmetry
-    if ( nirrep_ > 1 ) {
-        throw PsiException("plugin mcpdft only works with symmetry c1",__FILE__,__LINE__);
-    }
+    // if ( nirrep_ > 1 ) {
+    //     throw PsiException("plugin mcpdft only works with symmetry c1",__FILE__,__LINE__);
+    // }
 
     // total number of symmetry orbitals
     nso_      = reference_wavefunction_->nso();
@@ -145,6 +150,140 @@ void MCPDFTSolver::common_init() {
 
     // grab the molecule from the reference wave function
     molecule_ = reference_wavefunction_->molecule();
+
+    // restricted doubly occupied orbitals per irrep
+    rstcpi_   = (int*)malloc(nirrep_*sizeof(int));
+    memset((void*)rstcpi_,'\0',nirrep_*sizeof(int));
+
+    // restricted unoccupied occupied orbitals per irrep
+    rstvpi_   = (int*)malloc(nirrep_*sizeof(int));
+    memset((void*)rstvpi_,'\0',nirrep_*sizeof(int));
+
+    // active orbitals per irrep:
+    amopi_    = (int*)malloc(nirrep_*sizeof(int));
+    memset((void*)amopi_,'\0',nirrep_*sizeof(int));
+    
+    // multiplicity:
+    multiplicity_ = Process::environment.molecule()->multiplicity();
+
+    if (options_["FROZEN_DOCC"].has_changed()) {
+
+        if (options_["FROZEN_DOCC"].size() != nirrep_) {
+            throw PsiException("The FROZEN_DOCC array has the wrong dimensions_",__FILE__,__LINE__);
+        }
+
+        for (int h = 0; h < nirrep_; h++) {
+            frzcpi_[h] = options_["FROZEN_DOCC"][h].to_double();
+        }
+    }
+
+    if (options_["RESTRICTED_DOCC"].has_changed()) {
+
+        if (options_["RESTRICTED_DOCC"].size() != nirrep_) {
+            throw PsiException("The RESTRICTED_DOCC array has the wrong dimensions_",__FILE__,__LINE__);
+        }
+
+        for (int h = 0; h < nirrep_; h++) {
+            rstcpi_[h] = options_["RESTRICTED_DOCC"][h].to_double();
+        }
+    }
+
+    if (options_["RESTRICTED_UOCC"].has_changed()) {
+
+        if (options_["RESTRICTED_UOCC"].size() != nirrep_) {
+            throw PsiException("The RESTRICTED_UOCC array has the wrong dimensions_",__FILE__,__LINE__);
+        }
+
+        for (int h = 0; h < nirrep_; h++) {
+            rstvpi_[h] = options_["RESTRICTED_UOCC"][h].to_double();
+        }
+    }
+
+    if (options_["FROZEN_UOCC"].has_changed()) {
+
+        if (options_["FROZEN_UOCC"].size() != nirrep_) {
+            throw PsiException("The FROZEN_UOCC array has the wrong dimensions_",__FILE__,__LINE__);
+        }
+
+        for (int h = 0; h < nirrep_; h++) {
+            frzvpi_[h] = options_["FROZEN_UOCC"][h].to_double();
+        }
+    }
+
+    // user could specify active space with ACTIVE array
+    if ( options_["ACTIVE"].has_changed() ) {
+        
+        if (options_["ACTIVE"].size() != nirrep_) {
+            throw PsiException("The ACTIVE array has the wrong dimensions_",__FILE__,__LINE__);
+        }
+
+        // warn user that active array takes precedence over restricted_uocc array
+        if (options_["RESTRICTED_UOCC"].has_changed()) {
+            outfile->Printf("\n");
+            outfile->Printf("    <<< WARNING!! >>>\n");
+            outfile->Printf("\n");
+            outfile->Printf("    The ACTIVE array takes precedence over the RESTRICTED_UOCC array.\n");
+            outfile->Printf("    Check below whether your active space was correctly specified.\n");
+            outfile->Printf("\n");
+        }
+
+        // overwrite rstvpi_ array using the information in the frozen_docc,
+        // restricted_docc, active, and frozen_virtual arrays.  start with nso total
+        // orbitals and let the linear dependency check below adjust the spaces as needed
+        for (int h = 0; h < nirrep_; h++) {
+            amopi_[h]  = options_["ACTIVE"][h].to_double();
+            rstvpi_[h] = nsopi_[h] - frzcpi_[h] - rstcpi_[h] - frzvpi_[h] - amopi_[h];
+        }
+    }
+
+    // were there linear dependencies in the primary basis set?
+    if ( nmo_ != nso_ ) {
+
+        // which irreps lost orbitals?
+        int * lost = (int*)malloc(nirrep_*sizeof(int));
+        memset((void*)lost,'\0',nirrep_*sizeof(int));
+
+        bool active_space_changed = false;
+
+        for (int h = 0; h < factory_->nirrep(); h++){
+
+            lost[h] = nsopi_[h] - nmopi_[h];
+
+            if ( lost[h] > 0 ) {
+                active_space_changed = true;
+            }
+
+            // eliminate frozen virtual orbitals first
+            if ( frzvpi_[h] > 0 && lost[h] > 0 ) {
+                frzvpi_[h] -= ( frzvpi_[h] < lost[h] ? frzvpi_[h] : lost[h] );
+                lost[h]    -= ( frzvpi_[h] < lost[h] ? frzvpi_[h] : lost[h] );
+            }
+
+            // if necessary, eliminate restricted virtual orbitals next
+            if ( rstvpi_[h] > 0 && lost[h] > 0 ) {
+                rstvpi_[h] -= ( rstvpi_[h] < lost[h] ? rstvpi_[h] : lost[h] );
+            }
+        }
+        if ( active_space_changed ) {
+            outfile->Printf("\n");
+            outfile->Printf("    <<< WARNING!! >>>\n");
+            outfile->Printf("\n");
+            outfile->Printf("    Your basis set may have linear dependencies.\n");
+            outfile->Printf("    The number of restricted or frozen virtual orbitals per irrep may have changed.\n");
+            outfile->Printf("\n");
+            outfile->Printf("    No. orbitals removed per irrep: [");
+            for (int h = 0; h < nirrep_; h++)
+                outfile->Printf("%4i",nsopi_[h] - nmopi_[h]);
+            outfile->Printf(" ]\n");
+            //outfile->Printf("    No. frozen virtuals per irrep:  [");
+            //for (int h = 0; h < nirrep_; h++)
+            //    outfile->Printf("%4i",frzvpi_[h]);
+            //outfile->Printf(" ]\n");
+            //outfile->Printf("\n");
+            outfile->Printf("    Check that your active space is still correct.\n");
+            outfile->Printf("\n");
+        }
+    }
 
     // SO/MO transformation matrices
     Ca_ = std::shared_ptr<Matrix>(reference_wavefunction_->Ca());
@@ -166,6 +305,55 @@ void MCPDFTSolver::common_init() {
     epsilon_a_->copy(reference_wavefunction_->epsilon_a().get());
     epsilon_b_= std::shared_ptr<Vector>(new Vector(nirrep_, nmopi_));
     epsilon_b_->copy(reference_wavefunction_->epsilon_b().get());
+
+    amo_      = 0;
+    nfrzc_    = 0;
+    nfrzv_    = 0;
+    nrstc_    = 0;
+    nrstv_    = 0;
+
+    int ndocc = 0;
+    int nvirt = 0;
+    for (int h = 0; h < nirrep_; h++){
+        nfrzc_   += frzcpi_[h];
+        nrstc_   += rstcpi_[h];
+        nrstv_   += rstvpi_[h];
+        nfrzv_   += frzvpi_[h];
+        amo_   += nmopi_[h]-frzcpi_[h]-rstcpi_[h]-rstvpi_[h]-frzvpi_[h];
+        ndocc    += doccpi_[h];
+        amopi_[h] = nmopi_[h]-frzcpi_[h]-rstcpi_[h]-rstvpi_[h]-frzvpi_[h];
+    }
+
+    int ndoccact = ndocc - nfrzc_ - nrstc_;
+    nvirt    = amo_ - ndoccact;
+
+    // sanity check for orbital occupancies:
+    for (int h = 0; h < nirrep_; h++) {
+        int tot = doccpi_[h] + soccpi_[h] + rstvpi_[h] + frzvpi_[h];
+        if (doccpi_[h] + soccpi_[h] + rstvpi_[h] + frzvpi_[h] > nmopi_[h] ) {
+            outfile->Printf("\n");
+            outfile->Printf("    <<< WARNING >>> irrep %5i has too many orbitals:\n",h);
+            outfile->Printf("\n");
+            outfile->Printf("                    docc = %5i\n",doccpi_[h]);
+            outfile->Printf("                    socc = %5i\n",soccpi_[h]);
+            outfile->Printf("                    rstu = %5i\n",rstvpi_[h]);
+            outfile->Printf("                    frzv = %5i\n",frzvpi_[h]);
+            outfile->Printf("                    tot  = %5i\n",doccpi_[h] + soccpi_[h] + rstvpi_[h] + frzvpi_[h]);
+            outfile->Printf("\n");
+            outfile->Printf("                    total no. orbitals should be %5i\n",nmopi_[h]);
+            outfile->Printf("\n");
+            throw PsiException("at least one irrep has too many orbitals",__FILE__,__LINE__);
+        }
+        if (frzcpi_[h] + rstcpi_[h] > doccpi_[h] ) {
+            outfile->Printf("\n");
+            outfile->Printf("    <<< WARNING >>> irrep %5i has too many frozen and restricted core orbitals:\n",h);
+            outfile->Printf("                    frzc = %5i\n",frzcpi_[h]);
+            outfile->Printf("                    rstd = %5i\n",rstcpi_[h]);
+            outfile->Printf("                    docc = %5i\n",doccpi_[h]);
+            outfile->Printf("\n");
+            throw PsiException("at least one irrep has too many frozen core orbitals",__FILE__,__LINE__);
+        }
+    }
 
     // memory is from process::environment
     memory_ = Process::environment.get_memory();
@@ -216,27 +404,100 @@ void MCPDFTSolver::common_init() {
     is_meta_ = functional->is_meta();
     is_unpolarized_ = functional->is_unpolarized();
 
-    super_phi_   = std::shared_ptr<Matrix>(new Matrix("SUPER PHI",phi_points_,nso_));
-
-    if ( is_gga_ || is_meta_ ) {
-        super_phi_x_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI X",phi_points_,nso_));
-        super_phi_y_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Y",phi_points_,nso_));
-        super_phi_z_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Z",phi_points_,nso_));
+    Dimension phi_points_list = Dimension(nirrep_,"phi_points");
+    for (int h; h < nirrep_; h++) {
+        phi_points_list[h] = phi_points_;
     }
 
-    grid_x_      = std::shared_ptr<Vector>(new Vector("GRID X",phi_points_));
-    grid_y_      = std::shared_ptr<Vector>(new Vector("GRID Y",phi_points_));
-    grid_z_      = std::shared_ptr<Vector>(new Vector("GRID Z",phi_points_));
-    grid_w_      = std::shared_ptr<Vector>(new Vector("GRID W",phi_points_));
+    super_phi_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI",phi_points_list,nsopi_));
 
-    // build phi matrix and derivative phi matrices
-    BuildPhiMatrix(potential, points_func, "PHI",  super_phi_);
+    //super_phi_   = std::shared_ptr<Matrix>(new Matrix("SUPER PHI",phi_points_,nso_));
 
     if ( is_gga_ || is_meta_ ) {
+
+        super_phi_x_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI X",phi_points_list,nsopi_));
+        super_phi_y_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Y",phi_points_list,nsopi_));
+        super_phi_z_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Z",phi_points_list,nsopi_));
+    }
+
+    grid_x_      = std::shared_ptr<Vector>(new Vector("GRID X",phi_points_list));
+    grid_y_      = std::shared_ptr<Vector>(new Vector("GRID Y",phi_points_list));
+    grid_z_      = std::shared_ptr<Vector>(new Vector("GRID Z",phi_points_list));
+    grid_w_      = std::shared_ptr<Vector>(new Vector("GRID W",phi_points_list));
+
+    // build phi matrix and derivative phi matrices
+    BuildPhiMatrix(potential, points_func, "PHI",super_phi_);
+
+    if ( is_gga_ || is_meta_ ) {
+
         BuildPhiMatrix(potential, points_func, "PHI_X",super_phi_x_);
         BuildPhiMatrix(potential, points_func, "PHI_Y",super_phi_y_);
         BuildPhiMatrix(potential, points_func, "PHI_Z",super_phi_z_);
     }
+
+    // // print orbitals per irrep in each space
+    // outfile->Printf("  ==> Active space details <==\n");
+    // outfile->Printf("\n");
+    // //outfile->Printf("        Freeze core orbitals?                   %5s\n",nfrzc_ > 0 ? "yes" : "no");
+    // outfile->Printf("        Number of frozen core orbitals:         %5i\n",nfrzc_);
+    // outfile->Printf("        Number of restricted occupied orbitals: %5i\n",nrstc_);
+    // outfile->Printf("        Number of active occupied orbitals:     %5i\n",ndoccact);
+    // outfile->Printf("        Number of active virtual orbitals:      %5i\n",nvirt);
+    // outfile->Printf("        Number of restricted virtual orbitals:  %5i\n",nrstv_);
+    // outfile->Printf("        Number of frozen virtual orbitals:      %5i\n",nfrzv_);
+    // outfile->Printf("\n");
+    // std::vector<std::string> labels = reference_wavefunction_->molecule()->irrep_labels();
+    // outfile->Printf("        Irrep:           ");
+    // for (int h = 0; h < nirrep_; h++) {
+    //     outfile->Printf("%4s",labels[h].c_str());
+    //     if ( h < nirrep_ - 1 ) {
+    //         outfile->Printf(",");
+    //     }
+    // }
+    // outfile->Printf(" \n");
+    // outfile->Printf(" \n");
+
+    // outfile->Printf("        frozen_docc     [");
+    // for (int h = 0; h < nirrep_; h++) {
+    //     outfile->Printf("%4i",frzcpi_[h]);
+    //     if ( h < nirrep_ - 1 ) {
+    //         outfile->Printf(",");
+    //     }
+    // }
+    // outfile->Printf(" ]\n");
+    // outfile->Printf("        restricted_docc [");
+    // for (int h = 0; h < nirrep_; h++) {
+    //     outfile->Printf("%4i",rstcpi_[h]);
+    //     if ( h < nirrep_ - 1 ) {
+    //         outfile->Printf(",");
+    //     }
+    // }
+    // outfile->Printf(" ]\n");
+    // outfile->Printf("        active          [");
+    // for (int h = 0; h < nirrep_; h++) {
+    //     outfile->Printf("%4i",amopi_[h]);
+    //     if ( h < nirrep_ - 1 ) {
+    //         outfile->Printf(",");
+    //     }
+    // }
+    // outfile->Printf(" ]\n");
+    // outfile->Printf("        restricted_uocc [");
+    // for (int h = 0; h < nirrep_; h++) {
+    //     outfile->Printf("%4i",rstvpi_[h]);
+    //     if ( h < nirrep_ - 1 ) {
+    //         outfile->Printf(",");
+    //     }
+    // }
+    // outfile->Printf(" ]\n");
+    // outfile->Printf("        frozen_uocc     [");
+    // for (int h = 0; h < nirrep_; h++) {
+    //     outfile->Printf("%4i",frzvpi_[h]);
+    //     if ( h < nirrep_ - 1 ) {
+    //         outfile->Printf(",");
+    //     }
+    // }
+    // outfile->Printf(" ]\n");
+    // outfile->Printf("\n");
 }
 
 void MCPDFTSolver::BuildPhiMatrix(std::shared_ptr<VBase> potential, std::shared_ptr<PointFunctions> points_func,
@@ -258,7 +519,6 @@ void MCPDFTSolver::BuildPhiMatrix(std::shared_ptr<VBase> potential, std::shared_
         double * y = block->y();
         double * z = block->z();
         double * w = block->w();
-        
 
         // Doing some test to see everything including Pi etc is correct on 
         // Molcas' grid points through comparison.
@@ -290,20 +550,25 @@ void MCPDFTSolver::BuildPhiMatrix(std::shared_ptr<VBase> potential, std::shared_
 
         for (int p = 0; p < npoints; p++) {
 
-            grid_x_->pointer()[phi_points_ + p] = x[p];
-            grid_y_->pointer()[phi_points_ + p] = y[p];
-            grid_z_->pointer()[phi_points_ + p] = z[p];
-            grid_w_->pointer()[phi_points_ + p] = w[p];
+            grid_x_->pointer()[phi_points_list[h] + p] = x[p];
+            grid_y_->pointer()[phi_points_list[h] + p] = y[p];
+            grid_z_->pointer()[phi_points_list[h] + p] = z[p];
+            grid_w_->pointer()[phi_points_list[h] + p] = w[p];
 
             for (int nu = 0; nu < nlocal; nu++) {
                 int nug = function_map[nu];
-                myphi->pointer()[phi_points_ + p][nug] = phi[p][nu];
+                myphi->pointer()[phi_points_list[h] + p][nug] = phi[p][nu];
             }
         }
-        phi_points_ += npoints;
+        phi_points_list[h] += npoints;
     }
     // grab AO->SO transformation matrix
-    std::shared_ptr<Matrix> ao2so = reference_wavefunction_->aotoso();
+    // std::shared_ptr<Matrix> ao2so = reference_wavefunction_->aotoso();
+   
+    std::shared_ptr<BasisSet> primary = reference_wavefunction_->get_basisset("ORBITAL");
+    std::shared_ptr<IntegralFactory> integral = std::make_shared<IntegralFactory>(primary, primary, primary, primary);
+    auto pet = std::make_shared<PetiteList>(primary, integral);
+    std::shared_ptr<Matrix> AO2USO = SharedMatrix(pet->aotoso());
 
     // transform one index of (derivative) phi matrix (AO->SO)
     std::shared_ptr<Matrix> temp (new Matrix(myphi));
@@ -340,7 +605,6 @@ void MCPDFTSolver::BuildPhiMatrix(std::shared_ptr<VBase> potential, std::shared_
 
 double MCPDFTSolver::compute_energy() {
 
-    // first, let's try this without any symmetry
 
     // allocate memory for 1- and 2-RDM
     double * D1a  = (double*)malloc(nmo_*nmo_*sizeof(double));
