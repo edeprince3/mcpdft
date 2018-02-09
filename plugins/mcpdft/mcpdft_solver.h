@@ -172,12 +172,27 @@ class MCPDFTSolver: public Wavefunction{
     void BuildPhiMatrix(std::shared_ptr<VBase> potential, std::shared_ptr<PointFunctions> points_func,
             std::string phi_type, std::shared_ptr<Matrix> myphi);
 
+    /// transform the orbital labels in phi/phi_x/... from the AO to the MO basis
+    void TransformPhiMatrixAOMO(std::shared_ptr<Matrix> phi_in, std::shared_ptr<Matrix> phi_out);
+
+    /// print 2-RDM
+    void PrintTPDM(double* D);
+
     /// read v2RDM 2-RDM from disk
     void ReadTPDM();
 
     /// read v2RDM 1-RDM from disk
-    void ReadOPDM(double * D1a, double * D1b);
+    void ReadOPDM();
 
+<<<<<<< HEAD
+=======
+    /// read CI 2-RDM from disk
+    void ReadCITPDM(double* D, const char* fileName); 
+
+    /// read CI 1-RDM from disk
+    void ReadCIOPDM(std::shared_ptr<Matrix> D, const char* fileName); 
+
+>>>>>>> 7f3b89d9... removes old D1a and D1b containers completely, relying instead on Da_ and Db_.
     /// build coulomb matrix
     std::shared_ptr<Matrix> BuildJ(double * D, std::shared_ptr<Matrix> C);
 
@@ -284,7 +299,7 @@ class MCPDFTSolver: public Wavefunction{
     std::shared_ptr<Vector> pi_z_;
 
     /// build spin densities and gradients
-    void BuildRho(double * D1a, double * D1b);
+    void BuildRho();
 
     /// build spin densities and gradients using only non-zero elements of OPDM
     void BuildRhoFast(opdm * D1a, opdm * D1b, int na, int nb);

@@ -605,35 +605,31 @@ void MCPDFTSolver::BuildPhiMatrix(std::shared_ptr<VBase> potential, std::shared_
 
 double MCPDFTSolver::compute_energy() {
 
-
-    // allocate memory for 1- and 2-RDM
-    double * D1a  = (double*)malloc(nmo_*nmo_*sizeof(double));
-    double * D1b  = (double*)malloc(nmo_*nmo_*sizeof(double));
-
-    memset((void*)D1a,'\0',nmo_*nmo_*sizeof(double));
-    memset((void*)D1b,'\0',nmo_*nmo_*sizeof(double));
-    
     // read 1- and 2-RDM from disk and build rho(r), rho'(r), pi(r), and pi'(r)
 
     if ( options_.get_str("MCPDFT_REFERENCE_TPDM") == "V2RDM" ) {
 
         ReadTPDM();
-        ReadOPDM(D1a,D1b);
+        ReadOPDM();
 
     }else if ( options_.get_str("MCPDFT_REFERENCE_TPDM") == "CI" ) {
 
+        // read 1-RDM
+        ReadCIOPDM(Da_,"opdm_a.txt");
+        ReadCIOPDM(Db_,"opdm_b.txt");
+
+        // allocate memory 2-RDM
         double * D2ab = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
         memset((void*)D2ab,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
 
-        ReadCIOPDM(D1a,"opdm_a.txt");
-        ReadCIOPDM(D1b,"opdm_b.txt");
+        // read 2-RDM
         ReadCITPDM(D2ab,"tpdm_ab.txt");
 
         // build alpha- and beta-spin densities and gradients (already built for MCPDFT_REFERENCE_TPDM = V2RDM)
         outfile->Printf("\n");
         outfile->Printf("    ==> Build Rho <== \n ");
 
-        BuildRho(D1a,D1b);
+        BuildRho();
 
         // build on-top pair density (already built for MCPDFT_REFERENCE_TPDM = V2RDM)
         outfile->Printf("\n");
@@ -709,8 +705,9 @@ double MCPDFTSolver::compute_energy() {
     hb->add(mints->so_kinetic());
     hb->transform(Cb_);
 
-    double one_electron_energy = C_DDOT(nmo_*nmo_,D1a,1,ha->pointer()[0],1)
-                               + C_DDOT(nmo_*nmo_,D1b,1,hb->pointer()[0],1);
+    double one_electron_energy = Da_->vector_dot(ha) 
+                               + Db_->vector_dot(hb);
+    
 
     // coulomb energy should be computed using J object
 
@@ -724,32 +721,34 @@ double MCPDFTSolver::compute_energy() {
 
     double coulomb_energy = 0.5 * ( caa + cab + cba + cbb );
 
+    double nuclear_repulsion_energy = molecule_->nuclear_repulsion_energy({0.0,0.0,0.0});
+
     // print total energy and its components
 
     outfile->Printf("    ==> Energetics <==\n");
     outfile->Printf("\n");
 
     // outfile->Printf("        nuclear repulsion energy =    %20.12lf\n",molecule_->nuclear_repulsion_energy());
-    outfile->Printf("        nuclear repulsion energy =          %20.12lf\n",molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}));
+    outfile->Printf("        nuclear repulsion energy =          %20.12lf\n",nuclear_repulsion_energy);
     outfile->Printf("        one-electron energy =               %20.12lf\n",one_electron_energy);
     outfile->Printf("        coulomb energy =                    %20.12lf\n",coulomb_energy);
 
     if ( options_.get_str("MCPDFT_REFERENCE_TPDM") == "V2RDM") {
 
         outfile->Printf("        v2RDM-CASSCF energy contribution =  %20.12lf\n",
-            molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}) + one_electron_energy + coulomb_energy);
+            nuclear_repulsion_energy + one_electron_energy + coulomb_energy);
   
     }else {
 
         outfile->Printf("        CASSCF energy contribution =        %20.12lf\n",
-            molecule_->nuclear_repulsion_energy({0.0,0.0,0.0}) + one_electron_energy + coulomb_energy);
+            nuclear_repulsion_energy + one_electron_energy + coulomb_energy);
 
     }
 
     outfile->Printf("        On-top energy =                     %20.12lf\n",mcpdft_xc_energy);
     outfile->Printf("\n");
 
-    double total_energy = molecule_->nuclear_repulsion_energy({0.0,0.0,0.0})+one_electron_energy+coulomb_energy+mcpdft_xc_energy;
+    double total_energy = nuclear_repulsion_energy + one_electron_energy + coulomb_energy + mcpdft_xc_energy;
     outfile->Printf("    * MCPDFT total energy =      %20.12lf\n",total_energy);
     outfile->Printf("\n");
 
@@ -942,7 +941,7 @@ void MCPDFTSolver::BuildPiFast(tpdm * D2ab, int nab) {
     }
 }
 
-void MCPDFTSolver::BuildRho(double * D1a, double * D1b) {
+void MCPDFTSolver::BuildRho() {
 
     rho_a_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
     rho_b_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
@@ -964,13 +963,17 @@ void MCPDFTSolver::BuildRho(double * D1a, double * D1b) {
     double temp_tot = 0.0;
     double temp_a = 0.0;
     double temp_b = 0.0;
+
+    double ** dap = Da_->pointer();
+    double ** dbp = Db_->pointer();
+
     for (int p = 0; p < phi_points_; p++) {
         double duma   = 0.0;
         double dumb   = 0.0;
         for (int sigma = 0; sigma < nmo_; sigma++) {
             for (int nu = 0; nu < nmo_; nu++) {
-                duma += phi[p][sigma] * phi[p][nu] * D1a[sigma*nmo_ + nu];
-                dumb += phi[p][sigma] * phi[p][nu] * D1b[sigma*nmo_ + nu];
+                duma += phi[p][sigma] * phi[p][nu] * dap[sigma][nu];
+                dumb += phi[p][sigma] * phi[p][nu] * dbp[sigma][nu];
             }
         }
         rho_ap[p] = duma;
@@ -1042,17 +1045,14 @@ void MCPDFTSolver::BuildRho(double * D1a, double * D1b) {
 
             for (int sigma = 0; sigma < nmo_; sigma++) {
                 for (int nu = 0; nu < nmo_; nu++) {
-                    duma_x += ( phi_x[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_x[p][nu] ) * D1a[sigma*nmo_ + nu];
-                    dumb_x += ( phi_x[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_x[p][nu] ) * D1b[sigma*nmo_ + nu];
+                    duma_x += ( phi_x[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_x[p][nu] ) * dap[sigma][nu];
+                    dumb_x += ( phi_x[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_x[p][nu] ) * dbp[sigma][nu];
 
-                    duma_y += ( phi_y[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_y[p][nu] ) * D1a[sigma*nmo_ + nu];
-                    dumb_y += ( phi_y[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_y[p][nu] ) * D1b[sigma*nmo_ + nu];
+                    duma_y += ( phi_y[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_y[p][nu] ) * dap[sigma][nu];
+                    dumb_y += ( phi_y[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_y[p][nu] ) * dbp[sigma][nu];
 
-                    duma_z += ( phi_z[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_z[p][nu] ) * D1a[sigma*nmo_ + nu];
-                    dumb_z += ( phi_z[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_z[p][nu] ) * D1b[sigma*nmo_ + nu];
-
-                    // dumta += (phi_x[p][sigma] * phi_x[p][nu] + phi_y[p][sigma] * phi_y[p][nu] + phi_z[p][sigma] * phi_z[p][nu]) * D1a[sigma*nmo_ + nu];
-                    // dumtb += (phi_x[p][sigma] * phi_x[p][nu] + phi_y[p][sigma] * phi_y[p][nu] + phi_z[p][sigma] * phi_z[p][nu]) * D1b[sigma*nmo_ + nu];
+                    duma_z += ( phi_z[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_z[p][nu] ) * dap[sigma][nu];
+                    dumb_z += ( phi_z[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_z[p][nu] ) * dbp[sigma][nu];
                 }
             }
             rho_a_xp[p] = duma_x;

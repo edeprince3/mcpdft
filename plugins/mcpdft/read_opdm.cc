@@ -41,10 +41,7 @@ using namespace psi;
 
 namespace psi{namespace mcpdft{
 
-void MCPDFTSolver::ReadOPDM(double * D1a, double * D1b){
-
-    memset((void*)D1a,'\0',nmo_*nmo_*sizeof(double));
-    memset((void*)D1b,'\0',nmo_*nmo_*sizeof(double));
+void MCPDFTSolver::ReadOPDM() {
 
     std::shared_ptr<PSIO> psio (new PSIO());
 
@@ -63,9 +60,22 @@ void MCPDFTSolver::ReadOPDM(double * D1a, double * D1b){
     psio->close(PSIF_V2RDM_D1A,1);
 
     for (int n = 0; n < na; n++) {
+
         int i = opdm_a[n].i;
         int j = opdm_a[n].j;
-        D1a[i*nmo_+j] = opdm_a[n].val;
+
+        int hi = symmetry_[i];
+        int hj = symmetry_[j];
+
+        if ( hi != hj ) {
+            throw PsiException("error: something is wrong with the symmetry of the alpha OPDM",__FILE__,__LINE__);
+        }
+
+        int ii = i - pitzer_offset_[hi];
+        int jj = j - pitzer_offset_[hi];
+
+        Da_->pointer(hi)[ii][jj] = opdm_a[n].val;
+
     }
 
     // D1b
@@ -80,9 +90,22 @@ void MCPDFTSolver::ReadOPDM(double * D1a, double * D1b){
     psio->close(PSIF_V2RDM_D1B,1);
 
    for (int n = 0; n < nb; n++) {
+
         int i = opdm_b[n].i;
         int j = opdm_b[n].j;
-        D1b[i*nmo_+j] = opdm_b[n].val;
+
+        int hi = symmetry_[i];
+        int hj = symmetry_[j];
+
+        if ( hi != hj ) {
+            throw PsiException("error: something is wrong with the symmetry of the beta OPDM",__FILE__,__LINE__);
+        }
+
+        int ii = i - pitzer_offset_[hi];
+        int jj = j - pitzer_offset_[hi];
+
+        Db_->pointer(hi)[ii][jj] = opdm_b[n].val;
+
     }
 
     BuildRhoFast(opdm_a,opdm_b,na,nb);
@@ -92,21 +115,22 @@ void MCPDFTSolver::ReadOPDM(double * D1a, double * D1b){
 
 }
 
-void MCPDFTSolver::ReadCIOPDM(double* D, const char* fileName) {
+void MCPDFTSolver::ReadCIOPDM(std::shared_ptr<Matrix> D, const char* fileName) {
 
     std::ifstream dataIn;
 
     dataIn.open(fileName);
 
-    if (!dataIn) throw PsiException("No D1a on disk",__FILE__,__LINE__);
+    if (!dataIn) throw PsiException("No D1 on disk",__FILE__,__LINE__);
     else {
-         for (int i = 0; i < nmo_; i++)
-             for (int j = 0; j < nmo_; j++) {
-
-                 dataIn >> D[i*nmo_+j];
-                 if (D[i*nmo_+j] < 1.e-20)
-                     D[i*nmo_+j] = 0.0;
-             }
+        double ** dp = D->pointer();
+        for (int i = 0; i < nmo_; i++) {
+            for (int j = 0; j < nmo_; j++) {
+                dataIn >> dp[i][j];
+                if (dp[i][j] < 1.0e-20)
+                    dp[i][j] = 0.0;
+            }
+        }
         dataIn.close();
     }
 }
