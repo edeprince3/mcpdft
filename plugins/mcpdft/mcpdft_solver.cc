@@ -65,7 +65,6 @@
 #include "psi4/libmints/molecule.h"
 #include "psi4/lib3index/dftensor.h"
 #include "psi4/libqt/qt.h"
-#include "psi4/libmints/factory.h"
 
 // for potential object
 #include "psi4/libfock/v.h"
@@ -94,9 +93,6 @@ MCPDFTSolver::MCPDFTSolver(std::shared_ptr<Wavefunction> reference_wavefunction,
 
 MCPDFTSolver::~MCPDFTSolver() {
 
-    free(amopi_);
-    free(rstvpi_);
-    free(rstcpi_);
 }
 
 // initialize members of the MCPDFTSolver class
@@ -151,140 +147,6 @@ void MCPDFTSolver::common_init() {
     // grab the molecule from the reference wave function
     molecule_ = reference_wavefunction_->molecule();
 
-    // restricted doubly occupied orbitals per irrep
-    rstcpi_   = (int*)malloc(nirrep_*sizeof(int));
-    memset((void*)rstcpi_,'\0',nirrep_*sizeof(int));
-
-    // restricted unoccupied occupied orbitals per irrep
-    rstvpi_   = (int*)malloc(nirrep_*sizeof(int));
-    memset((void*)rstvpi_,'\0',nirrep_*sizeof(int));
-
-    // active orbitals per irrep:
-    amopi_    = (int*)malloc(nirrep_*sizeof(int));
-    memset((void*)amopi_,'\0',nirrep_*sizeof(int));
-    
-    // multiplicity:
-    multiplicity_ = Process::environment.molecule()->multiplicity();
-
-    if (options_["FROZEN_DOCC"].has_changed()) {
-
-        if (options_["FROZEN_DOCC"].size() != nirrep_) {
-            throw PsiException("The FROZEN_DOCC array has the wrong dimensions_",__FILE__,__LINE__);
-        }
-
-        for (int h = 0; h < nirrep_; h++) {
-            frzcpi_[h] = options_["FROZEN_DOCC"][h].to_double();
-        }
-    }
-
-    if (options_["RESTRICTED_DOCC"].has_changed()) {
-
-        if (options_["RESTRICTED_DOCC"].size() != nirrep_) {
-            throw PsiException("The RESTRICTED_DOCC array has the wrong dimensions_",__FILE__,__LINE__);
-        }
-
-        for (int h = 0; h < nirrep_; h++) {
-            rstcpi_[h] = options_["RESTRICTED_DOCC"][h].to_double();
-        }
-    }
-
-    if (options_["RESTRICTED_UOCC"].has_changed()) {
-
-        if (options_["RESTRICTED_UOCC"].size() != nirrep_) {
-            throw PsiException("The RESTRICTED_UOCC array has the wrong dimensions_",__FILE__,__LINE__);
-        }
-
-        for (int h = 0; h < nirrep_; h++) {
-            rstvpi_[h] = options_["RESTRICTED_UOCC"][h].to_double();
-        }
-    }
-
-    if (options_["FROZEN_UOCC"].has_changed()) {
-
-        if (options_["FROZEN_UOCC"].size() != nirrep_) {
-            throw PsiException("The FROZEN_UOCC array has the wrong dimensions_",__FILE__,__LINE__);
-        }
-
-        for (int h = 0; h < nirrep_; h++) {
-            frzvpi_[h] = options_["FROZEN_UOCC"][h].to_double();
-        }
-    }
-
-    // user could specify active space with ACTIVE array
-    if ( options_["ACTIVE"].has_changed() ) {
-        
-        if (options_["ACTIVE"].size() != nirrep_) {
-            throw PsiException("The ACTIVE array has the wrong dimensions_",__FILE__,__LINE__);
-        }
-
-        // warn user that active array takes precedence over restricted_uocc array
-        if (options_["RESTRICTED_UOCC"].has_changed()) {
-            outfile->Printf("\n");
-            outfile->Printf("    <<< WARNING!! >>>\n");
-            outfile->Printf("\n");
-            outfile->Printf("    The ACTIVE array takes precedence over the RESTRICTED_UOCC array.\n");
-            outfile->Printf("    Check below whether your active space was correctly specified.\n");
-            outfile->Printf("\n");
-        }
-
-        // overwrite rstvpi_ array using the information in the frozen_docc,
-        // restricted_docc, active, and frozen_virtual arrays.  start with nso total
-        // orbitals and let the linear dependency check below adjust the spaces as needed
-        for (int h = 0; h < nirrep_; h++) {
-            amopi_[h]  = options_["ACTIVE"][h].to_double();
-            rstvpi_[h] = nsopi_[h] - frzcpi_[h] - rstcpi_[h] - frzvpi_[h] - amopi_[h];
-        }
-    }
-
-    // were there linear dependencies in the primary basis set?
-    if ( nmo_ != nso_ ) {
-
-        // which irreps lost orbitals?
-        int * lost = (int*)malloc(nirrep_*sizeof(int));
-        memset((void*)lost,'\0',nirrep_*sizeof(int));
-
-        bool active_space_changed = false;
-
-        for (int h = 0; h < factory_->nirrep(); h++){
-
-            lost[h] = nsopi_[h] - nmopi_[h];
-
-            if ( lost[h] > 0 ) {
-                active_space_changed = true;
-            }
-
-            // eliminate frozen virtual orbitals first
-            if ( frzvpi_[h] > 0 && lost[h] > 0 ) {
-                frzvpi_[h] -= ( frzvpi_[h] < lost[h] ? frzvpi_[h] : lost[h] );
-                lost[h]    -= ( frzvpi_[h] < lost[h] ? frzvpi_[h] : lost[h] );
-            }
-
-            // if necessary, eliminate restricted virtual orbitals next
-            if ( rstvpi_[h] > 0 && lost[h] > 0 ) {
-                rstvpi_[h] -= ( rstvpi_[h] < lost[h] ? rstvpi_[h] : lost[h] );
-            }
-        }
-        if ( active_space_changed ) {
-            outfile->Printf("\n");
-            outfile->Printf("    <<< WARNING!! >>>\n");
-            outfile->Printf("\n");
-            outfile->Printf("    Your basis set may have linear dependencies.\n");
-            outfile->Printf("    The number of restricted or frozen virtual orbitals per irrep may have changed.\n");
-            outfile->Printf("\n");
-            outfile->Printf("    No. orbitals removed per irrep: [");
-            for (int h = 0; h < nirrep_; h++)
-                outfile->Printf("%4i",nsopi_[h] - nmopi_[h]);
-            outfile->Printf(" ]\n");
-            //outfile->Printf("    No. frozen virtuals per irrep:  [");
-            //for (int h = 0; h < nirrep_; h++)
-            //    outfile->Printf("%4i",frzvpi_[h]);
-            //outfile->Printf(" ]\n");
-            //outfile->Printf("\n");
-            outfile->Printf("    Check that your active space is still correct.\n");
-            outfile->Printf("\n");
-        }
-    }
-
     // SO/MO transformation matrices
     Ca_ = std::shared_ptr<Matrix>(reference_wavefunction_->Ca());
     Cb_ = std::shared_ptr<Matrix>(reference_wavefunction_->Cb());
@@ -306,55 +168,6 @@ void MCPDFTSolver::common_init() {
     epsilon_b_= std::shared_ptr<Vector>(new Vector(nirrep_, nmopi_));
     epsilon_b_->copy(reference_wavefunction_->epsilon_b().get());
 
-    amo_      = 0;
-    nfrzc_    = 0;
-    nfrzv_    = 0;
-    nrstc_    = 0;
-    nrstv_    = 0;
-
-    int ndocc = 0;
-    int nvirt = 0;
-    for (int h = 0; h < nirrep_; h++){
-        nfrzc_   += frzcpi_[h];
-        nrstc_   += rstcpi_[h];
-        nrstv_   += rstvpi_[h];
-        nfrzv_   += frzvpi_[h];
-        amo_   += nmopi_[h]-frzcpi_[h]-rstcpi_[h]-rstvpi_[h]-frzvpi_[h];
-        ndocc    += doccpi_[h];
-        amopi_[h] = nmopi_[h]-frzcpi_[h]-rstcpi_[h]-rstvpi_[h]-frzvpi_[h];
-    }
-
-    int ndoccact = ndocc - nfrzc_ - nrstc_;
-    nvirt    = amo_ - ndoccact;
-
-    // sanity check for orbital occupancies:
-    for (int h = 0; h < nirrep_; h++) {
-        int tot = doccpi_[h] + soccpi_[h] + rstvpi_[h] + frzvpi_[h];
-        if (doccpi_[h] + soccpi_[h] + rstvpi_[h] + frzvpi_[h] > nmopi_[h] ) {
-            outfile->Printf("\n");
-            outfile->Printf("    <<< WARNING >>> irrep %5i has too many orbitals:\n",h);
-            outfile->Printf("\n");
-            outfile->Printf("                    docc = %5i\n",doccpi_[h]);
-            outfile->Printf("                    socc = %5i\n",soccpi_[h]);
-            outfile->Printf("                    rstu = %5i\n",rstvpi_[h]);
-            outfile->Printf("                    frzv = %5i\n",frzvpi_[h]);
-            outfile->Printf("                    tot  = %5i\n",doccpi_[h] + soccpi_[h] + rstvpi_[h] + frzvpi_[h]);
-            outfile->Printf("\n");
-            outfile->Printf("                    total no. orbitals should be %5i\n",nmopi_[h]);
-            outfile->Printf("\n");
-            throw PsiException("at least one irrep has too many orbitals",__FILE__,__LINE__);
-        }
-        if (frzcpi_[h] + rstcpi_[h] > doccpi_[h] ) {
-            outfile->Printf("\n");
-            outfile->Printf("    <<< WARNING >>> irrep %5i has too many frozen and restricted core orbitals:\n",h);
-            outfile->Printf("                    frzc = %5i\n",frzcpi_[h]);
-            outfile->Printf("                    rstd = %5i\n",rstcpi_[h]);
-            outfile->Printf("                    docc = %5i\n",doccpi_[h]);
-            outfile->Printf("\n");
-            throw PsiException("at least one irrep has too many frozen core orbitals",__FILE__,__LINE__);
-        }
-    }
-
     // memory is from process::environment
     memory_ = Process::environment.get_memory();
 
@@ -364,6 +177,24 @@ void MCPDFTSolver::common_init() {
     // restricted orbitals, unrestricted rdms
     same_a_b_orbs_ = true;
     same_a_b_dens_ = false;
+
+    // symmetry of orbitals:
+    symmetry_ = (int*)malloc(nmo_*sizeof(int));
+    memset((void*)symmetry_,'\0',nmo_*sizeof(int));
+    int count = 0;
+    for (int h = 0; h < nirrep_; h++) {
+        for (int i = 0; i < nsopi_[h]; i++) {
+            symmetry_[count++] = h;
+        }
+    }
+
+    // pitzer offset
+    pitzer_offset_ = (int*)malloc(nirrep_*sizeof(int));
+    count = 0;
+    for (int h = 0; h < nirrep_; h++) {
+        pitzer_offset_[h] = count;
+        count += nsopi_[h];
+    }
 
     // obtain phi(r), del phi(r)
 
@@ -376,11 +207,18 @@ void MCPDFTSolver::common_init() {
     std::shared_ptr<SuperFunctional> functional = scfwfn->functional();
     std::shared_ptr<VBase> potential = scfwfn->V_potential();
 
+
     // phi matrix (real-space <- AO basis mapping)
     // since grid is stored in blocks, we need to build a full phi matrix
     // from the individual blocks:
+
+    std::shared_ptr<BasisSet> primary = reference_wavefunction_->get_basisset("ORBITAL");
+    int nao = primary->nbf();
+    std::shared_ptr<Matrix> Da_ao (new Matrix(nao,nao));
+    std::shared_ptr<Matrix> Db_ao (new Matrix(nao,nao));
+
     std::shared_ptr<PointFunctions> points_func = potential->properties()[0];
-    points_func->set_pointers(Da_,Db_);
+    points_func->set_pointers(Da_ao,Db_ao);
 
     // determine number of grid points
     int nblocks = potential->nblocks();
@@ -404,103 +242,61 @@ void MCPDFTSolver::common_init() {
     is_meta_ = functional->is_meta();
     is_unpolarized_ = functional->is_unpolarized();
 
+    std::shared_ptr<Matrix> super_phi_ao (new Matrix("SUPER PHI (AO)",phi_points_,nso_));
+
+    std::shared_ptr<Matrix> super_phi_x_ao;
+    std::shared_ptr<Matrix> super_phi_y_ao;
+    std::shared_ptr<Matrix> super_phi_z_ao;
+
+    if ( is_gga_ || is_meta_ ) {
+
+        super_phi_x_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI X (AO)",phi_points_,nso_));
+        super_phi_y_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Y (AO)",phi_points_,nso_));
+        super_phi_z_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Z (AO)",phi_points_,nso_));
+    }
+
+    grid_x_      = std::shared_ptr<Vector>(new Vector("GRID X",phi_points_));
+    grid_y_      = std::shared_ptr<Vector>(new Vector("GRID Y",phi_points_));
+    grid_z_      = std::shared_ptr<Vector>(new Vector("GRID Z",phi_points_));
+    grid_w_      = std::shared_ptr<Vector>(new Vector("GRID W",phi_points_));
+
+    // build phi matrix and derivative phi matrices (ao basis)
+    BuildPhiMatrixAO(potential, points_func, "PHI",super_phi_ao);
+
+    if ( is_gga_ || is_meta_ ) {
+
+        BuildPhiMatrixAO(potential, points_func, "PHI_X",super_phi_x_ao);
+        BuildPhiMatrixAO(potential, points_func, "PHI_Y",super_phi_y_ao);
+        BuildPhiMatrixAO(potential, points_func, "PHI_Z",super_phi_z_ao);
+
+    }
+
+    // transform the orbital label in phi matrix and derivative phi matrix to the MO basis
+
     Dimension phi_points_list = Dimension(nirrep_,"phi_points");
-    for (int h; h < nirrep_; h++) {
+    for (int h = 0; h < nirrep_; h++) {
         phi_points_list[h] = phi_points_;
     }
 
     super_phi_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI",phi_points_list,nsopi_));
 
-    //super_phi_   = std::shared_ptr<Matrix>(new Matrix("SUPER PHI",phi_points_,nso_));
+    TransformPhiMatrixAOMO(super_phi_ao,super_phi_);
 
     if ( is_gga_ || is_meta_ ) {
 
         super_phi_x_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI X",phi_points_list,nsopi_));
         super_phi_y_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Y",phi_points_list,nsopi_));
         super_phi_z_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Z",phi_points_list,nsopi_));
+
+        TransformPhiMatrixAOMO(super_phi_x_ao,super_phi_x_);
+        TransformPhiMatrixAOMO(super_phi_y_ao,super_phi_y_);
+        TransformPhiMatrixAOMO(super_phi_z_ao,super_phi_z_);
+
     }
 
-    grid_x_      = std::shared_ptr<Vector>(new Vector("GRID X",phi_points_list));
-    grid_y_      = std::shared_ptr<Vector>(new Vector("GRID Y",phi_points_list));
-    grid_z_      = std::shared_ptr<Vector>(new Vector("GRID Z",phi_points_list));
-    grid_w_      = std::shared_ptr<Vector>(new Vector("GRID W",phi_points_list));
-
-    // build phi matrix and derivative phi matrices
-    BuildPhiMatrix(potential, points_func, "PHI",super_phi_);
-
-    if ( is_gga_ || is_meta_ ) {
-
-        BuildPhiMatrix(potential, points_func, "PHI_X",super_phi_x_);
-        BuildPhiMatrix(potential, points_func, "PHI_Y",super_phi_y_);
-        BuildPhiMatrix(potential, points_func, "PHI_Z",super_phi_z_);
-    }
-
-    // // print orbitals per irrep in each space
-    // outfile->Printf("  ==> Active space details <==\n");
-    // outfile->Printf("\n");
-    // //outfile->Printf("        Freeze core orbitals?                   %5s\n",nfrzc_ > 0 ? "yes" : "no");
-    // outfile->Printf("        Number of frozen core orbitals:         %5i\n",nfrzc_);
-    // outfile->Printf("        Number of restricted occupied orbitals: %5i\n",nrstc_);
-    // outfile->Printf("        Number of active occupied orbitals:     %5i\n",ndoccact);
-    // outfile->Printf("        Number of active virtual orbitals:      %5i\n",nvirt);
-    // outfile->Printf("        Number of restricted virtual orbitals:  %5i\n",nrstv_);
-    // outfile->Printf("        Number of frozen virtual orbitals:      %5i\n",nfrzv_);
-    // outfile->Printf("\n");
-    // std::vector<std::string> labels = reference_wavefunction_->molecule()->irrep_labels();
-    // outfile->Printf("        Irrep:           ");
-    // for (int h = 0; h < nirrep_; h++) {
-    //     outfile->Printf("%4s",labels[h].c_str());
-    //     if ( h < nirrep_ - 1 ) {
-    //         outfile->Printf(",");
-    //     }
-    // }
-    // outfile->Printf(" \n");
-    // outfile->Printf(" \n");
-
-    // outfile->Printf("        frozen_docc     [");
-    // for (int h = 0; h < nirrep_; h++) {
-    //     outfile->Printf("%4i",frzcpi_[h]);
-    //     if ( h < nirrep_ - 1 ) {
-    //         outfile->Printf(",");
-    //     }
-    // }
-    // outfile->Printf(" ]\n");
-    // outfile->Printf("        restricted_docc [");
-    // for (int h = 0; h < nirrep_; h++) {
-    //     outfile->Printf("%4i",rstcpi_[h]);
-    //     if ( h < nirrep_ - 1 ) {
-    //         outfile->Printf(",");
-    //     }
-    // }
-    // outfile->Printf(" ]\n");
-    // outfile->Printf("        active          [");
-    // for (int h = 0; h < nirrep_; h++) {
-    //     outfile->Printf("%4i",amopi_[h]);
-    //     if ( h < nirrep_ - 1 ) {
-    //         outfile->Printf(",");
-    //     }
-    // }
-    // outfile->Printf(" ]\n");
-    // outfile->Printf("        restricted_uocc [");
-    // for (int h = 0; h < nirrep_; h++) {
-    //     outfile->Printf("%4i",rstvpi_[h]);
-    //     if ( h < nirrep_ - 1 ) {
-    //         outfile->Printf(",");
-    //     }
-    // }
-    // outfile->Printf(" ]\n");
-    // outfile->Printf("        frozen_uocc     [");
-    // for (int h = 0; h < nirrep_; h++) {
-    //     outfile->Printf("%4i",frzvpi_[h]);
-    //     if ( h < nirrep_ - 1 ) {
-    //         outfile->Printf(",");
-    //     }
-    // }
-    // outfile->Printf(" ]\n");
-    // outfile->Printf("\n");
 }
 
-void MCPDFTSolver::BuildPhiMatrix(std::shared_ptr<VBase> potential, std::shared_ptr<PointFunctions> points_func,
+void MCPDFTSolver::BuildPhiMatrixAO(std::shared_ptr<VBase> potential, std::shared_ptr<PointFunctions> points_func,
         std::string phi_type, std::shared_ptr<Matrix> myphi) {
 
     int nblocks = potential->nblocks();
@@ -550,57 +346,56 @@ void MCPDFTSolver::BuildPhiMatrix(std::shared_ptr<VBase> potential, std::shared_
 
         for (int p = 0; p < npoints; p++) {
 
-            grid_x_->pointer()[phi_points_list[h] + p] = x[p];
-            grid_y_->pointer()[phi_points_list[h] + p] = y[p];
-            grid_z_->pointer()[phi_points_list[h] + p] = z[p];
-            grid_w_->pointer()[phi_points_list[h] + p] = w[p];
+            grid_x_->pointer()[phi_points_ + p] = x[p];
+            grid_y_->pointer()[phi_points_ + p] = y[p];
+            grid_z_->pointer()[phi_points_ + p] = z[p];
+            grid_w_->pointer()[phi_points_ + p] = w[p];
 
             for (int nu = 0; nu < nlocal; nu++) {
                 int nug = function_map[nu];
-                myphi->pointer()[phi_points_list[h] + p][nug] = phi[p][nu];
+                myphi->pointer()[phi_points_ + p][nug] = phi[p][nu];
             }
         }
-        phi_points_list[h] += npoints;
+        phi_points_ += npoints;
     }
+
+}
+
+void MCPDFTSolver::TransformPhiMatrixAOMO(std::shared_ptr<Matrix> phi_in, std::shared_ptr<Matrix> phi_out) {
+        
+    std::shared_ptr<Matrix> phi_temp (new Matrix(phi_out));
+
     // grab AO->SO transformation matrix
-    // std::shared_ptr<Matrix> ao2so = reference_wavefunction_->aotoso();
-   
-    std::shared_ptr<BasisSet> primary = reference_wavefunction_->get_basisset("ORBITAL");
-    std::shared_ptr<IntegralFactory> integral = std::make_shared<IntegralFactory>(primary, primary, primary, primary);
-    auto pet = std::make_shared<PetiteList>(primary, integral);
-    std::shared_ptr<Matrix> AO2USO = SharedMatrix(pet->aotoso());
+    std::shared_ptr<Matrix> ao2so = reference_wavefunction_->aotoso();
 
-    // transform one index of (derivative) phi matrix (AO->SO)
-    std::shared_ptr<Matrix> temp (new Matrix(myphi));
+    // TODO: replace loops with DGEMM
 
-    F_DGEMM('n','n',nso_,phi_points_,nso_,1.0,ao2so->pointer()[0],nso_,myphi->pointer()[0],nso_,0.0,temp->pointer()[0],nso_);
+    // AO->SO transformation
+    for (int p = 0; p < phi_points_; p++) {
+        for (int h = 0; h < nirrep_; h++) {
+            for (int mu = 0; mu < nsopi_[h]; mu++) {
+                double dum = 0.0;
+                for (int nu = 0; nu < nso_; nu++) {
+                    dum += ao2so->pointer(h)[nu][mu] * phi_in->pointer()[p][nu];
+                }
+                phi_temp->pointer(h)[p][mu] = dum;
+            }
+        }
+    }
 
-    //for (int p = 0; p < phi_points_; p++) {
-    //    for (int sigma = 0; sigma < nso_; sigma++) {
-    //        double dum = 0.0;
-    //        for (int nu = 0; nu < nso_; nu++) {
-    //            //dum += myphi->pointer()[p][nu] * ao2so->pointer()[nu][sigma];
-    //            dum += ao2so->pointer()[nu][sigma] * myphi->pointer()[p][nu];
-    //        }
-    //        temp->pointer()[p][sigma] = dum;
-    //    }
-    //}
+    // SO->MO transformation
+    for (int p = 0; p < phi_points_; p++) {
+        for (int h = 0; h < nirrep_; h++) {
+            for (int mu = 0; mu < nsopi_[h]; mu++) {
+                double dum = 0.0;
+                for (int nu = 0; nu < nsopi_[h]; nu++) {
+                    dum += Ca_->pointer(h)[nu][mu] * phi_temp->pointer(h)[p][nu];
+                }
+                phi_out->pointer(h)[p][mu] = dum;
+            }
+        }
+    }
 
-    //C_DCOPY(nso_*phi_points_,temp->pointer()[0],1,myphi->pointer()[0],1);
-
-    // transform orbital index in phi matrices to MO basis
-    // NOTE: this will not work if Ca and Cb are different.  it is imperative that
-    // the v2rdm-casscf computation preceding mcpdft is run with reference = rhf/rohf
-    F_DGEMM('n','n',nso_,phi_points_,nso_,1.0,Ca_->pointer()[0],nso_,temp->pointer()[0],nso_,0.0,myphi->pointer()[0],nso_);
-    //for (int p = 0; p < phi_points_; p++) {
-    //    for (int sigma = 0; sigma < nso_; sigma++) {
-    //        double dum = 0.0;
-    //        for (int nu = 0; nu < nso_; nu++) {
-    //            dum += temp->pointer()[p][nu] * Ca_->pointer()[nu][sigma];
-    //        }
-    //        myphi->pointer()[p][sigma] = dum;
-    //    }
-    //}
 }
 
 double MCPDFTSolver::compute_energy() {
@@ -618,7 +413,10 @@ double MCPDFTSolver::compute_energy() {
         ReadCIOPDM(Da_,"opdm_a.txt");
         ReadCIOPDM(Db_,"opdm_b.txt");
 
-        // allocate memory 2-RDM
+        if ( nirrep_ > 1 ) {
+            throw PsiException("error, MCPDFT_REFERENCE = CI only works with symmetry c1",__FILE__,__LINE__);
+        }
+
         double * D2ab = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
         memset((void*)D2ab,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
 
@@ -705,19 +503,21 @@ double MCPDFTSolver::compute_energy() {
     hb->add(mints->so_kinetic());
     hb->transform(Cb_);
 
+    //double one_electron_energy = C_DDOT(nmo_*nmo_,D1a,1,ha->pointer()[0],1)
+    //                           + C_DDOT(nmo_*nmo_,D1b,1,hb->pointer()[0],1);
+
     double one_electron_energy = Da_->vector_dot(ha) 
                                + Db_->vector_dot(hb);
     
 
     // coulomb energy should be computed using J object
 
-    std::shared_ptr<Matrix> Ja = BuildJ(D1a,Ca_);
-    std::shared_ptr<Matrix> Jb = BuildJ(D1b,Cb_);
+    std::vector < std::shared_ptr<Matrix> > J = BuildJ();
 
-    double caa = C_DDOT(nmo_*nmo_,D1a,1,Ja->pointer()[0],1);
-    double cab = C_DDOT(nmo_*nmo_,D1a,1,Jb->pointer()[0],1);
-    double cba = C_DDOT(nmo_*nmo_,D1b,1,Ja->pointer()[0],1);
-    double cbb = C_DDOT(nmo_*nmo_,D1b,1,Jb->pointer()[0],1);
+    double caa = Da_->vector_dot(J[0]);
+    double cab = Da_->vector_dot(J[1]);
+    double cba = Db_->vector_dot(J[0]);
+    double cbb = Db_->vector_dot(J[1]);
 
     double coulomb_energy = 0.5 * ( caa + cab + cba + cbb );
 
@@ -854,21 +654,32 @@ void MCPDFTSolver::BuildPiFast(tpdm * D2ab, int nab) {
 
     double * pi_p = pi_->pointer();
 
-    double ** phi = super_phi_->pointer();
-
     for (int p = 0; p < phi_points_; p++) {
 
         double dum = 0.0;
 
         // pi(r) = D(mu,nu; lambda,sigma) * phi(r,mu) * phi(r,nu) * phi(r,lambda) * phi(r,sigma)
-        for (int i = 0; i < nab; i++) {
+        for (int n = 0; n < nab; n++) {
 
-            int mu     = D2ab[i].i;
-            int nu     = D2ab[i].j;
-            int lambda = D2ab[i].k;
-            int sigma  = D2ab[i].l;
+            int i = D2ab[n].i;
+            int j = D2ab[n].j;
+            int k = D2ab[n].k;
+            int l = D2ab[n].l;
 
-            dum += phi[p][mu] * phi[p][lambda] * phi[p][sigma] * phi[p][nu] * D2ab[i].val;
+            int hi = symmetry_[i];
+            int hj = symmetry_[j];
+            int hk = symmetry_[k];
+            int hl = symmetry_[l];
+
+            int ii = i - pitzer_offset_[hi];
+            int jj = j - pitzer_offset_[hj];
+            int kk = k - pitzer_offset_[hk];
+            int ll = l - pitzer_offset_[hl];
+
+            dum += super_phi_->pointer(hi)[p][ii] * 
+                   super_phi_->pointer(hj)[p][jj] * 
+                   super_phi_->pointer(hk)[p][kk] * 
+                   super_phi_->pointer(hl)[p][ll] * D2ab[n].val;
 
         }
 
@@ -877,67 +688,122 @@ void MCPDFTSolver::BuildPiFast(tpdm * D2ab, int nab) {
 
     if ( is_gga_ || is_meta_ ) {
 
-       pi_x_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-       pi_y_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-       pi_z_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-       
-       double * pi_xp = pi_x_->pointer();
-       double * pi_yp = pi_y_->pointer();
-       double * pi_zp = pi_z_->pointer();
-       
-       double ** phi_x = super_phi_x_->pointer();
-       double ** phi_y = super_phi_y_->pointer();
-       double ** phi_z = super_phi_z_->pointer();
+        pi_x_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+        pi_y_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+        pi_z_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+        
+        double * pi_xp = pi_x_->pointer();
+        double * pi_yp = pi_y_->pointer();
+        double * pi_zp = pi_z_->pointer();
+        
+        double ** phi_x = super_phi_x_->pointer();
+        double ** phi_y = super_phi_y_->pointer();
+        double ** phi_z = super_phi_z_->pointer();
 
-       for (int p = 0; p < phi_points_; p++) {
+        for (int p = 0; p < phi_points_; p++) {
 
-           double dum_x = 0.0;
-           double dum_y = 0.0;
-           double dum_z = 0.0;
+            double dum_x = 0.0;
+            double dum_y = 0.0;
+            double dum_z = 0.0;
 
-           // pi(r) = D(mu,nu; lambda,sigma) * phi(r,mu) * phi(r,nu) * phi(r,lambda) * phi(r,sigma)
-           for (int i = 0; i < nab; i++) {
+            // pi(r) = D(mu,nu; lambda,sigma) * phi(r,mu) * phi(r,nu) * phi(r,lambda) * phi(r,sigma)
+            for (int n = 0; n < nab; n++) {
 
-               int mu     = D2ab[i].i;
-               int nu     = D2ab[i].j;
-               int lambda = D2ab[i].k;
-               int sigma  = D2ab[i].l;
+                int i = D2ab[n].i;
+                int j = D2ab[n].j;
+                int k = D2ab[n].k;
+                int l = D2ab[n].l;
+                
+                int hi = symmetry_[i];
+                int hj = symmetry_[j];
+                int hk = symmetry_[k]; 
+                int hl = symmetry_[l];
+                
+                int ii = i - pitzer_offset_[hi];
+                int jj = j - pitzer_offset_[hj];
+                int kk = k - pitzer_offset_[hk];
+                int ll = l - pitzer_offset_[hl];
 
-               dum_x += ( phi_x[p][mu] * phi[p][lambda] * phi[p][sigma] * phi[p][nu] +
-                          phi[p][mu] * phi_x[p][lambda] * phi[p][sigma] * phi[p][nu] +
-                          phi[p][mu] * phi[p][lambda] * phi_x[p][sigma] * phi[p][nu] +
-                          phi[p][mu] * phi[p][lambda] * phi[p][sigma] * phi_x[p][nu] ) * D2ab[i].val;
+                dum_x += ( super_phi_x_->pointer(hi)[p][ii] *
+                           super_phi_->pointer(hj)[p][jj] *
+                           super_phi_->pointer(hk)[p][kk] * 
+                           super_phi_->pointer(hl)[p][ll] +
 
-               dum_y += ( phi_y[p][mu] * phi[p][lambda] * phi[p][sigma] * phi[p][nu] +
-                          phi[p][mu] * phi_y[p][lambda] * phi[p][sigma] * phi[p][nu] +
-                          phi[p][mu] * phi[p][lambda] * phi_y[p][sigma] * phi[p][nu] +
-                          phi[p][mu] * phi[p][lambda] * phi[p][sigma] * phi_y[p][nu] ) * D2ab[i].val;
+                           super_phi_->pointer(hi)[p][ii] *
+                           super_phi_x_->pointer(hj)[p][jj] *
+                           super_phi_->pointer(hk)[p][kk] * 
+                           super_phi_->pointer(hl)[p][ll] +
 
+                           super_phi_->pointer(hi)[p][ii] *
+                           super_phi_->pointer(hj)[p][jj] *
+                           super_phi_x_->pointer(hk)[p][kk] * 
+                           super_phi_->pointer(hl)[p][ll] +
 
-               dum_z += ( phi_z[p][mu] * phi[p][lambda] * phi[p][sigma] * phi[p][nu] +
-                          phi[p][mu] * phi_z[p][lambda] * phi[p][sigma] * phi[p][nu] +
-                          phi[p][mu] * phi[p][lambda] * phi_z[p][sigma] * phi[p][nu] +
-                          phi[p][mu] * phi[p][lambda] * phi[p][sigma] * phi_z[p][nu] ) * D2ab[i].val;
-           }
+                           super_phi_->pointer(hi)[p][ii] *
+                           super_phi_->pointer(hj)[p][jj] *
+                           super_phi_->pointer(hk)[p][kk] * 
+                           super_phi_x_->pointer(hl)[p][ll] ) * D2ab[n].val;
 
-           pi_xp[p] = dum_x;
-           pi_yp[p] = dum_y;
-           pi_zp[p] = dum_z;
+                dum_y += ( super_phi_y_->pointer(hi)[p][ii] *
+                           super_phi_->pointer(hj)[p][jj] *
+                           super_phi_->pointer(hk)[p][kk] * 
+                           super_phi_->pointer(hl)[p][ll] +
 
-           // outfile->Printf("pi_x %15.15lf\n",pi_xp[p]);
-           // outfile->Printf("pi_y %15.15lf\n",pi_yp[p]);
-           // outfile->Printf("pi_z %15.15lf\n",pi_zp[p]);
-           // outfile->Printf("\n    p");
-           // outfile->Printf("    x[p]");
-           // outfile->Printf("    y[p]");
-           // outfile->Printf("    z[p]");
-           // outfile->Printf("    pi\n\n");
+                           super_phi_->pointer(hi)[p][ii] *
+                           super_phi_y_->pointer(hj)[p][jj] *
+                           super_phi_->pointer(hk)[p][kk] * 
+                           super_phi_->pointer(hl)[p][ll] +
 
-           // for (int p = 0; p < phi_points_; p++) {
+                           super_phi_->pointer(hi)[p][ii] *
+                           super_phi_->pointer(hj)[p][jj] *
+                           super_phi_y_->pointer(hk)[p][kk] * 
+                           super_phi_->pointer(hl)[p][ll] +
 
-           //     outfile->Printf("    %d %20.5lf %20.5lf %20.5lf %20.15lf\n",p, grid_x_->pointer()[p], grid_y_->pointer()[p], grid_z_->pointer()[p], pi_p[p]);
-           // }
-       }
+                           super_phi_->pointer(hi)[p][ii] *
+                           super_phi_->pointer(hj)[p][jj] *
+                           super_phi_->pointer(hk)[p][kk] * 
+                           super_phi_y_->pointer(hl)[p][ll] ) * D2ab[n].val;
+
+                dum_z += ( super_phi_z_->pointer(hi)[p][ii] *
+                           super_phi_->pointer(hj)[p][jj] *
+                           super_phi_->pointer(hk)[p][kk] * 
+                           super_phi_->pointer(hl)[p][ll] +
+
+                           super_phi_->pointer(hi)[p][ii] *
+                           super_phi_z_->pointer(hj)[p][jj] *
+                           super_phi_->pointer(hk)[p][kk] * 
+                           super_phi_->pointer(hl)[p][ll] +
+
+                           super_phi_->pointer(hi)[p][ii] *
+                           super_phi_->pointer(hj)[p][jj] *
+                           super_phi_z_->pointer(hk)[p][kk] * 
+                           super_phi_->pointer(hl)[p][ll] +
+
+                           super_phi_->pointer(hi)[p][ii] *
+                           super_phi_->pointer(hj)[p][jj] *
+                           super_phi_->pointer(hk)[p][kk] * 
+                           super_phi_z_->pointer(hl)[p][ll] ) * D2ab[n].val;
+
+            }
+
+            pi_xp[p] = dum_x;
+            pi_yp[p] = dum_y;
+            pi_zp[p] = dum_z;
+
+            // outfile->Printf("pi_x %15.15lf\n",pi_xp[p]);
+            // outfile->Printf("pi_y %15.15lf\n",pi_yp[p]);
+            // outfile->Printf("pi_z %15.15lf\n",pi_zp[p]);
+            // outfile->Printf("\n    p");
+            // outfile->Printf("    x[p]");
+            // outfile->Printf("    y[p]");
+            // outfile->Printf("    z[p]");
+            // outfile->Printf("    pi\n\n");
+
+            // for (int p = 0; p < phi_points_; p++) {
+
+            //     outfile->Printf("    %d %20.5lf %20.5lf %20.5lf %20.15lf\n",p, grid_x_->pointer()[p], grid_y_->pointer()[p], grid_z_->pointer()[p], pi_p[p]);
+            // }
+        }
     }
 }
 
@@ -1100,20 +966,40 @@ void MCPDFTSolver::BuildRhoFast(opdm * D1a, opdm * D1b, int na, int nb) {
     for (int p = 0; p < phi_points_; p++) {
 
         // rho_a(r)
-        double duma   = 0.0;
-        for (int i = 0; i < na; i++) {
-            int sigma = D1a[i].i;
-            int nu    = D1a[i].j;
-            duma     += phi[p][sigma] * phi[p][nu] * D1a[i].val;
+        double duma = 0.0;
+        for (int n = 0; n < na; n++) {
+
+            int i = D1a[n].i;
+            int j = D1a[n].j;
+
+            int hi = symmetry_[i];
+            int hj = symmetry_[j];
+
+            int ii = i - pitzer_offset_[hi];
+            int jj = j - pitzer_offset_[hj];
+
+            duma += super_phi_->pointer(hi)[p][ii] *
+                    super_phi_->pointer(hj)[p][jj] * D1a[n].val;
+
         }
         rho_ap[p] = duma;
 
         // rho_b(r)
-        double dumb   = 0.0;
-        for (int i = 0; i < nb; i++) {
-            int sigma = D1b[i].i;
-            int nu    = D1b[i].j;
-            dumb     += phi[p][sigma] * phi[p][nu] * D1b[i].val;
+        double dumb = 0.0;
+        for (int n = 0; n < nb; n++) {
+
+            int i = D1b[n].i;
+            int j = D1b[n].j;
+
+            int hi = symmetry_[i];
+            int hj = symmetry_[j];
+
+            int ii = i - pitzer_offset_[hi];
+            int jj = j - pitzer_offset_[hj];
+
+            dumb += super_phi_->pointer(hi)[p][ii] *
+                    super_phi_->pointer(hj)[p][jj] * D1b[n].val;
+
         }
         rho_bp[p] = dumb;
 
@@ -1176,32 +1062,58 @@ void MCPDFTSolver::BuildRhoFast(opdm * D1a, opdm * D1b, int na, int nb) {
         for (int p = 0; p < phi_points_; p++) {
 
             // rho'_a(r)
+
             double duma_x = 0.0;
             double duma_y = 0.0;
             double duma_z = 0.0;
-            for (int i = 0; i < na; i++) {
 
-                int sigma = D1a[i].i;
-                int nu    = D1a[i].j;
+            for (int n = 0; n < na; n++) {
 
-                duma_x += ( phi_x[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_x[p][nu] ) * D1a[i].val;
-                duma_y += ( phi_y[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_y[p][nu] ) * D1a[i].val;
-                duma_z += ( phi_z[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_z[p][nu] ) * D1a[i].val;
+                int i = D1a[n].i;
+                int j = D1a[n].j;
+                
+                int hi = symmetry_[i];
+                int hj = symmetry_[j];
+                
+                int ii = i - pitzer_offset_[hi];
+                int jj = j - pitzer_offset_[hj];
+                
+                duma_x += super_phi_x_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
+                        + super_phi_->pointer(hi)[p][ii] * super_phi_x_->pointer(hj)[p][jj] * D1a[n].val;
+
+                duma_y += super_phi_y_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
+                        + super_phi_->pointer(hi)[p][ii] * super_phi_y_->pointer(hj)[p][jj] * D1a[n].val;
+
+                duma_z += super_phi_z_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
+                        + super_phi_->pointer(hi)[p][ii] * super_phi_z_->pointer(hj)[p][jj] * D1a[n].val;
 
             }
 
             // rho'_b(r)
+
             double dumb_x = 0.0;
             double dumb_y = 0.0;
             double dumb_z = 0.0;
-            for (int i = 0; i < nb; i++) {
 
-                int sigma = D1b[i].i;
-                int nu    = D1b[i].j;
-
-                dumb_x += ( phi_x[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_x[p][nu] ) * D1b[i].val;
-                dumb_y += ( phi_y[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_y[p][nu] ) * D1b[i].val;
-                dumb_z += ( phi_z[p][sigma] * phi[p][nu] + phi[p][sigma] * phi_z[p][nu] ) * D1b[i].val;
+            for (int n = 0; n < na; n++) {
+                
+                int i = D1a[n].i;
+                int j = D1a[n].j;
+                
+                int hi = symmetry_[i];
+                int hj = symmetry_[j];
+                
+                int ii = i - pitzer_offset_[hi];
+                int jj = j - pitzer_offset_[hj];
+                
+                dumb_x += super_phi_x_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
+                        + super_phi_->pointer(hi)[p][ii] * super_phi_x_->pointer(hj)[p][jj] * D1b[n].val;
+                
+                dumb_y += super_phi_y_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
+                        + super_phi_->pointer(hi)[p][ii] * super_phi_y_->pointer(hj)[p][jj] * D1b[n].val;
+                
+                dumb_z += super_phi_z_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
+                        + super_phi_->pointer(hi)[p][ii] * super_phi_z_->pointer(hj)[p][jj] * D1b[n].val;
 
             }
 
@@ -1225,11 +1137,12 @@ void MCPDFTSolver::BuildRhoFast(opdm * D1a, opdm * D1b, int na, int nb) {
     }
 }
 
-std::shared_ptr<Matrix> MCPDFTSolver::BuildJ(double * D, std::shared_ptr<Matrix> C) {
+std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJ() {
 
     // get primary basis:
     std::shared_ptr<BasisSet> primary = reference_wavefunction_->get_basisset("ORBITAL");
 
+    std::vector< std::shared_ptr<Matrix> > J;
 
     // JK object (note this is hard-coded to use density fitting ...)
     if (options_.get_str("MCPDFT_TYPE") == "DF") {
@@ -1259,27 +1172,39 @@ std::shared_ptr<Matrix> MCPDFTSolver::BuildJ(double * D, std::shared_ptr<Matrix>
         std::vector<SharedMatrix>& C_left  = jk->C_left();
         std::vector<SharedMatrix>& C_right = jk->C_right();
 
-        // use real and imaginary C matrices
+        // use alpha and beta C matrices
 
-        std::shared_ptr<Matrix> myC (new Matrix(C) );
-
-        myC->zero();
+        std::shared_ptr<Matrix> myC (new Matrix(Ca_) );
 
         C_left.clear();
         C_right.clear();
 
-        C_DCOPY(nmo_*nmo_,D,1,Da_->pointer()[0],1);
-        myC->gemm('t','n',1.0,Da_,C,0.0);
+        // alpha first 
+        myC->zero();
+        myC->gemm('t','n',1.0,Da_,Ca_,0.0);
         myC->transpose_this();
         C_left.push_back(myC);
-        C_right.push_back(C);
+        C_right.push_back(Ca_);
+
+        // beta second 
+        myC->zero();
+        myC->gemm('t','n',1.0,Db_,Cb_,0.0);
+        myC->transpose_this();
+        C_left.push_back(myC);
+        C_right.push_back(Cb_);
 
         // Let jk compute for the given C_left/C_right
 
         jk->compute();
 
-        std::shared_ptr<Matrix> J = jk->J()[0];
-        J->transform(C);
+        std::shared_ptr<Matrix> Ja = jk->J()[0];
+        std::shared_ptr<Matrix> Jb = jk->J()[1];
+
+        Ja->transform(Ca_);
+        Jb->transform(Cb_);
+
+        J.push_back(Ja);
+        J.push_back(Jb);
 
         return J;
 
@@ -1290,7 +1215,7 @@ std::shared_ptr<Matrix> MCPDFTSolver::BuildJ(double * D, std::shared_ptr<Matrix>
         // outfile->Printf(" <==\n");
 
         std::shared_ptr<PKJK> jk = (std::shared_ptr<PKJK>)(new PKJK(primary,options_));
-        
+
         // memory for jk (say, 50% of what is available)
         jk->set_memory(0.5 * Process::environment.get_memory());
 
@@ -1307,29 +1232,42 @@ std::shared_ptr<Matrix> MCPDFTSolver::BuildJ(double * D, std::shared_ptr<Matrix>
         std::vector<SharedMatrix>& C_left  = jk->C_left();
         std::vector<SharedMatrix>& C_right = jk->C_right();
 
-        // use real and imaginary C matrices
+        // use alpha and beta C matrices
 
-        std::shared_ptr<Matrix> myC (new Matrix(C) );
-
-        myC->zero();
+        std::shared_ptr<Matrix> myC (new Matrix(Ca_) );
 
         C_left.clear();
         C_right.clear();
 
-        C_DCOPY(nmo_*nmo_,D,1,Da_->pointer()[0],1);
-        myC->gemm('t','n',1.0,Da_,C,0.0);
+        // alpha first 
+        myC->zero();
+        myC->gemm('t','n',1.0,Da_,Ca_,0.0);
         myC->transpose_this();
         C_left.push_back(myC);
-        C_right.push_back(C);
+        C_right.push_back(Ca_);
+
+        // beta second 
+        myC->zero();
+        myC->gemm('t','n',1.0,Db_,Cb_,0.0);
+        myC->transpose_this();
+        C_left.push_back(myC);
+        C_right.push_back(Cb_);
 
         // Let jk compute for the given C_left/C_right
 
         jk->compute();
 
-        std::shared_ptr<Matrix> J = jk->J()[0];
-        J->transform(C);
-        
+        std::shared_ptr<Matrix> Ja = jk->J()[0];
+        std::shared_ptr<Matrix> Jb = jk->J()[1];
+
+        Ja->transform(Ca_);
+        Jb->transform(Cb_);
+
+        J.push_back(Ja);
+        J.push_back(Jb);
+
         return J;
+        
     }else {
         throw PsiException("invalid MCSCF_TYPE",__FILE__,__LINE__);
     }
@@ -1361,7 +1299,6 @@ void MCPDFTSolver::Translate(){
     double * tr_rho_ap = tr_rho_a_->pointer();
     double * tr_rho_bp = tr_rho_b_->pointer();
 
-    // printf("hey!\n");fflush(stdout);
     double * rho_p = rho_->pointer();
     double * pi_p = pi_->pointer();
     double * R_p = R_->pointer();

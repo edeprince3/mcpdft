@@ -30,6 +30,7 @@
 #include <psi4/libiwl/iwl.h>
 #include <psi4/libpsio/psio.hpp>
 #include <psi4/libtrans/integraltransform.h>
+#include <psi4/libmints/matrix.h>
 
 #include <fstream>
 #include <iostream>
@@ -63,6 +64,7 @@ void MCPDFTSolver::ReadOPDM() {
 
         int i = opdm_a[n].i;
         int j = opdm_a[n].j;
+        D1a[i*nmo_+j] = opdm_a[n].val;
 
         int hi = symmetry_[i];
         int hj = symmetry_[j];
@@ -93,6 +95,7 @@ void MCPDFTSolver::ReadOPDM() {
 
         int i = opdm_b[n].i;
         int j = opdm_b[n].j;
+        D1b[i*nmo_+j] = opdm_b[n].val;
 
         int hi = symmetry_[i];
         int hj = symmetry_[j];

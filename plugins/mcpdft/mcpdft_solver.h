@@ -90,35 +90,11 @@ class MCPDFTSolver: public Wavefunction{
 
   protected:
 
-    /// active-space geminals for each symmetry:
-    std::vector < std::vector < std::pair<int,int> > > gems;
+    /// list of orbital symmetries
+    int * symmetry_;
 
-    /// total number of active molecular orbitals
-    int amo_;
-
-    /// total number of frozen core orbitals
-    int nfrzc_;
-
-    /// total number of frozen virtual orbitals
-    int nfrzv_;
-
-    /// total number of restricted doubly occupied orbitals
-    int nrstc_;
-
-    /// total number of restricted unoccupied orbitals
-    int nrstv_;
-
-    /// active molecular orbitals per irrep
-    int * amopi_;
-
-    /// restricted core orbitals per irrep.  these will be optimized
-    int * rstcpi_;
-
-    /// restricted virtual orbitals per irrep.  these will be optimized
-    int * rstvpi_;
-
-    // multiplicity
-    int multiplicity_;
+    /// offset for orbitals in each irrep
+    int * pitzer_offset_;
 
     /// level of differentiation 
     int deriv_;
@@ -168,15 +144,12 @@ class MCPDFTSolver: public Wavefunction{
     /// inner product of alpha density gradient with beta density gradient (gamma_ab)
     std::shared_ptr<Vector> sigma_ab_;
 
-    /// a function to build phi/phi_x/...
-    void BuildPhiMatrix(std::shared_ptr<VBase> potential, std::shared_ptr<PointFunctions> points_func,
+    /// a function to build phi/phi_x/... note: the orbital labels are in the AO basis (no symmetry)
+    void BuildPhiMatrixAO(std::shared_ptr<VBase> potential, std::shared_ptr<PointFunctions> points_func,
             std::string phi_type, std::shared_ptr<Matrix> myphi);
 
     /// transform the orbital labels in phi/phi_x/... from the AO to the MO basis
     void TransformPhiMatrixAOMO(std::shared_ptr<Matrix> phi_in, std::shared_ptr<Matrix> phi_out);
-
-    /// print 2-RDM
-    void PrintTPDM(double* D);
 
     /// read v2RDM 2-RDM from disk
     void ReadTPDM();
@@ -184,17 +157,14 @@ class MCPDFTSolver: public Wavefunction{
     /// read v2RDM 1-RDM from disk
     void ReadOPDM();
 
-<<<<<<< HEAD
-=======
     /// read CI 2-RDM from disk
     void ReadCITPDM(double* D, const char* fileName); 
 
     /// read CI 1-RDM from disk
     void ReadCIOPDM(std::shared_ptr<Matrix> D, const char* fileName); 
 
->>>>>>> 7f3b89d9... removes old D1a and D1b containers completely, relying instead on Da_ and Db_.
     /// build coulomb matrix
-    std::shared_ptr<Matrix> BuildJ(double * D, std::shared_ptr<Matrix> C);
+    std::vector< std::shared_ptr<Matrix> > BuildJ();
 
     /// alpha-spin density
     std::shared_ptr<Vector> rho_a_;
