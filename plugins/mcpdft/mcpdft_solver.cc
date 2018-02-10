@@ -1078,14 +1078,14 @@ void MCPDFTSolver::BuildRhoFast(opdm * D1a, opdm * D1b, int na, int nb) {
                 int ii = i - pitzer_offset_[hi];
                 int jj = j - pitzer_offset_[hj];
                 
-                duma_x += super_phi_x_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
-                        + super_phi_->pointer(hi)[p][ii] * super_phi_x_->pointer(hj)[p][jj] * D1a[n].val;
+                duma_x += ( super_phi_x_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
+                        +   super_phi_->pointer(hi)[p][ii] * super_phi_x_->pointer(hj)[p][jj] ) * D1a[n].val;
 
-                duma_y += super_phi_y_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
-                        + super_phi_->pointer(hi)[p][ii] * super_phi_y_->pointer(hj)[p][jj] * D1a[n].val;
+                duma_y += ( super_phi_y_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
+                        +   super_phi_->pointer(hi)[p][ii] * super_phi_y_->pointer(hj)[p][jj] ) * D1a[n].val;
 
-                duma_z += super_phi_z_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
-                        + super_phi_->pointer(hi)[p][ii] * super_phi_z_->pointer(hj)[p][jj] * D1a[n].val;
+                duma_z += ( super_phi_z_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
+                        +   super_phi_->pointer(hi)[p][ii] * super_phi_z_->pointer(hj)[p][jj] ) * D1a[n].val;
 
             }
 
@@ -1095,10 +1095,10 @@ void MCPDFTSolver::BuildRhoFast(opdm * D1a, opdm * D1b, int na, int nb) {
             double dumb_y = 0.0;
             double dumb_z = 0.0;
 
-            for (int n = 0; n < na; n++) {
+            for (int n = 0; n < nb; n++) {
                 
-                int i = D1a[n].i;
-                int j = D1a[n].j;
+                int i = D1b[n].i;
+                int j = D1b[n].j;
                 
                 int hi = symmetry_[i];
                 int hj = symmetry_[j];
@@ -1106,14 +1106,14 @@ void MCPDFTSolver::BuildRhoFast(opdm * D1a, opdm * D1b, int na, int nb) {
                 int ii = i - pitzer_offset_[hi];
                 int jj = j - pitzer_offset_[hj];
                 
-                dumb_x += super_phi_x_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
-                        + super_phi_->pointer(hi)[p][ii] * super_phi_x_->pointer(hj)[p][jj] * D1b[n].val;
+                dumb_x += ( super_phi_x_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
+                        +   super_phi_->pointer(hi)[p][ii] * super_phi_x_->pointer(hj)[p][jj] ) * D1b[n].val;
                 
-                dumb_y += super_phi_y_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
-                        + super_phi_->pointer(hi)[p][ii] * super_phi_y_->pointer(hj)[p][jj] * D1b[n].val;
+                dumb_y += ( super_phi_y_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
+                        +   super_phi_->pointer(hi)[p][ii] * super_phi_y_->pointer(hj)[p][jj] ) * D1b[n].val;
                 
-                dumb_z += super_phi_z_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
-                        + super_phi_->pointer(hi)[p][ii] * super_phi_z_->pointer(hj)[p][jj] * D1b[n].val;
+                dumb_z += ( super_phi_z_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
+                        +   super_phi_->pointer(hi)[p][ii] * super_phi_z_->pointer(hj)[p][jj] ) * D1b[n].val;
 
             }
 
