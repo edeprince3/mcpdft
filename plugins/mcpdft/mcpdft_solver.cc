@@ -370,32 +370,39 @@ void MCPDFTSolver::TransformPhiMatrixAOMO(std::shared_ptr<Matrix> phi_in, std::s
 
     // TODO: replace loops with DGEMM
 
-    // AO->SO transformation
-    for (int p = 0; p < phi_points_; p++) {
-        for (int h = 0; h < nirrep_; h++) {
-            for (int mu = 0; mu < nsopi_[h]; mu++) {
-                double dum = 0.0;
-                for (int nu = 0; nu < nso_; nu++) {
-                    dum += ao2so->pointer(h)[nu][mu] * phi_in->pointer()[p][nu];
-                }
-                phi_temp->pointer(h)[p][mu] = dum;
-            }
-        }
-    }
+    for (int h = 0; h < nirrep_; h++)
+        F_DGEMM('n','n',nsopi_[h],phi_points_,nso_,1.0,ao2so->pointer(h)[0],nsopi_[h],phi_in->pointer()[0],nso_,0.0,phi_temp->pointer(h)[0],nsopi_[h]);
+        
+    // // AO->SO transformation
+    // for (int p = 0; p < phi_points_; p++) {
+    //     for (int h = 0; h < nirrep_; h++) {
+    //         for (int mu = 0; mu < nsopi_[h]; mu++) {
+    //             double dum = 0.0;
+    //             for (int nu = 0; nu < nso_; nu++) {
+    //                 // dum += phi_in->pointer()[p][nu] * ao2so->pointer(h)[nu][mu];
+    //                 dum += ao2so->pointer(h)[nu][mu] * phi_in->pointer()[p][nu];
+    //             }
+    //             phi_temp->pointer(h)[p][mu] = dum;
+    //         }
+    //     }
+    // }
 
-    // SO->MO transformation
-    for (int p = 0; p < phi_points_; p++) {
-        for (int h = 0; h < nirrep_; h++) {
-            for (int mu = 0; mu < nsopi_[h]; mu++) {
-                double dum = 0.0;
-                for (int nu = 0; nu < nsopi_[h]; nu++) {
-                    dum += Ca_->pointer(h)[nu][mu] * phi_temp->pointer(h)[p][nu];
-                }
-                phi_out->pointer(h)[p][mu] = dum;
-            }
-        }
-    }
+    for (int h = 0; h < nirrep_; h++)
+        F_DGEMM('n','n',nsopi_[h],phi_points_,nso_,1.0,Ca_->pointer(h)[0],nsopi_[h],phi_temp->pointer(h)[0],nso_,0.0,phi_out->pointer(h)[0],nsopi_[h]);
 
+    // // SO->MO transformation
+    // for (int p = 0; p < phi_points_; p++) {
+    //     for (int h = 0; h < nirrep_; h++) {
+    //         for (int mu = 0; mu < nsopi_[h]; mu++) {
+    //             double dum = 0.0;
+    //             for (int nu = 0; nu < nsopi_[h]; nu++) {
+    //                 // dum += phi_temp->pointer(h)[p][nu] * Ca_->pointer(h)[nu][mu];
+    //                 dum += Ca_->pointer(h)[nu][mu] * phi_temp->pointer(h)[p][nu];
+    //             }
+    //             phi_out->pointer(h)[p][mu] = dum;
+    //         }
+    //     }
+    // }
 }
 
 double MCPDFTSolver::compute_energy() {

@@ -67,13 +67,13 @@ SharedWavefunction mcpdft(SharedWavefunction ref_wfn, Options& options)
 {
 
     outfile->Printf("\n\n");
-    outfile->Printf( "        *************************************************************\n");
-    outfile->Printf( "        *                                                           *\n");
-    outfile->Printf( "        *    MCPDFT                                                 *\n");
-    outfile->Printf( "        *                                                           *\n");
-    outfile->Printf( "        *    Multiconfigurational pair density functional theory    *\n");
-    outfile->Printf( "        *                                                           *\n");
-    outfile->Printf( "        *************************************************************\n");
+    outfile->Printf( "        ********************************************************************\n");
+    outfile->Printf( "        *                                                                  *\n");
+    outfile->Printf( "        *    MCPDFT: Multiconfigurational Pair Density Functional Theory   *\n");
+    outfile->Printf( "        *                                                                  *\n");
+    outfile->Printf( "        *    Mohammad Mostafanejad and A. Eugene DePrince III              *\n");
+    outfile->Printf( "        *                                                                  *\n");
+    outfile->Printf( "        ********************************************************************\n");
     outfile->Printf("\n\n");
 
     std::shared_ptr<MCPDFTSolver> dft (new MCPDFTSolver(ref_wfn,options));
