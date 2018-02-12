@@ -123,6 +123,39 @@ class MCPDFTSolver: public Wavefunction{
     /// d phi / dz matrix
     std::shared_ptr<Matrix> super_phi_z_;
 
+    /// d2 phi / dx2 matrix
+    std::shared_ptr<Matrix> super_phi_xx_;
+
+    /// d phi / dxdy matrix
+    std::shared_ptr<Matrix> super_phi_xy_;
+
+    /// d2 phi / dxdz matrix
+    std::shared_ptr<Matrix> super_phi_xz_;
+
+    /// d2 phi / dy2 matrix
+    std::shared_ptr<Matrix> super_phi_yy_;
+
+    /// d2 phi / dydz matrix
+    std::shared_ptr<Matrix> super_phi_yz_;
+
+    /// d2 phi / dz2 matrix
+    std::shared_ptr<Matrix> super_phi_zz_;
+
+    /// gamma_aa matrix
+    std::shared_ptr<Matrix> super_gamma_aa_; 
+
+    /// gamma_ab matrix
+    std::shared_ptr<Matrix> super_gamma_ab_;   
+
+    /// gamma_bb matrix
+    std::shared_ptr<Matrix> super_gamma_bb_;   
+
+    /// tau_a matrix
+    std::shared_ptr<Matrix> super_tau_a_;
+
+    /// tau_b matrix
+    std::shared_ptr<Matrix> super_tau_b_;   
+
     /// grid x values
     std::shared_ptr<Vector> grid_x_;
 

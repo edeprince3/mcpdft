@@ -248,11 +248,38 @@ void MCPDFTSolver::common_init() {
     std::shared_ptr<Matrix> super_phi_y_ao;
     std::shared_ptr<Matrix> super_phi_z_ao;
 
+    // std::shared_ptr<Matrix> super_phi_xx_ao;
+    // std::shared_ptr<Matrix> super_phi_xy_ao;
+    // std::shared_ptr<Matrix> super_phi_xz_ao;
+    // std::shared_ptr<Matrix> super_phi_yy_ao;
+    // std::shared_ptr<Matrix> super_phi_yz_ao;
+    // std::shared_ptr<Matrix> super_phi_zz_ao;
+
+    // std::shared_ptr<Matrix> super_gamma_aa_ao;
+    // std::shared_ptr<Matrix> super_gamma_ab_ao;
+    // std::shared_ptr<Matrix> super_gamma_bb_ao;
+
+    // std::shared_ptr<Matrix> super_tau_a_ao;
+    // std::shared_ptr<Matrix> super_tau_b_ao;
+
     if ( is_gga_ || is_meta_ ) {
 
         super_phi_x_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI X (AO)",phi_points_,nso_));
         super_phi_y_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Y (AO)",phi_points_,nso_));
         super_phi_z_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Z (AO)",phi_points_,nso_));
+        
+        // super_phi_xx_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI XX (AO)",phi_points_,nso_));
+        // super_phi_xy_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI XY (AO)",phi_points_,nso_));
+        // super_phi_xz_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI XZ (AO)",phi_points_,nso_));
+        // super_phi_yy_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI YY (AO)",phi_points_,nso_));
+        // super_phi_yz_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI YZ (AO)",phi_points_,nso_));
+        // super_phi_zz_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI ZZ (AO)",phi_points_,nso_));
+        // super_gamma_aa_ao = std::shared_ptr<Matrix>(new Matrix("SUPER GAMMA AA (AO)",phi_points_,nso_));
+        // super_gamma_ab_ao = std::shared_ptr<Matrix>(new Matrix("SUPER GAMMA AB (AO)",phi_points_,nso_));
+        // super_gamma_bb_ao = std::shared_ptr<Matrix>(new Matrix("SUPER GAMMA BB (AO)",phi_points_,nso_));
+
+        // super_tau_a_ao = std::shared_ptr<Matrix>(new Matrix("SUPER TAU A (AO)",phi_points_,nso_));
+        // super_tau_b_ao = std::shared_ptr<Matrix>(new Matrix("SUPER TAU B (AO)",phi_points_,nso_));
     }
 
     grid_x_      = std::shared_ptr<Vector>(new Vector("GRID X",phi_points_));
@@ -268,6 +295,20 @@ void MCPDFTSolver::common_init() {
         BuildPhiMatrixAO(potential, points_func, "PHI_X",super_phi_x_ao);
         BuildPhiMatrixAO(potential, points_func, "PHI_Y",super_phi_y_ao);
         BuildPhiMatrixAO(potential, points_func, "PHI_Z",super_phi_z_ao);
+
+        // BuildPhiMatrixAO(potential, points_func, "PHI_XX",super_phi_xx_ao);
+        // BuildPhiMatrixAO(potential, points_func, "PHI_XY",super_phi_xy_ao);
+        // BuildPhiMatrixAO(potential, points_func, "PHI_XZ",super_phi_xz_ao);
+        // BuildPhiMatrixAO(potential, points_func, "PHI_YY",super_phi_yy_ao);
+        // BuildPhiMatrixAO(potential, points_func, "PHI_YZ",super_phi_yz_ao);
+        // BuildPhiMatrixAO(potential, points_func, "PHI_ZZ",super_phi_zz_ao);
+
+        // BuildPhiMatrixAO(potential, points_func, "GAMMA_AA",super_gamma_aa_ao);
+        // BuildPhiMatrixAO(potential, points_func, "GAMMA_AB",super_gamma_ab_ao);
+        // BuildPhiMatrixAO(potential, points_func, "GAMMA_BB",super_gamma_bb_ao);
+
+        // BuildPhiMatrixAO(potential, points_func, "TAU_A",super_tau_a_ao);
+        // BuildPhiMatrixAO(potential, points_func, "TAU_B",super_tau_b_ao);
 
     }
 
@@ -288,12 +329,38 @@ void MCPDFTSolver::common_init() {
         super_phi_y_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Y",phi_points_list,nsopi_));
         super_phi_z_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Z",phi_points_list,nsopi_));
 
+        // super_phi_xx_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI XX",phi_points_list,nsopi_));
+        // super_phi_xy_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI XY",phi_points_list,nsopi_));
+        // super_phi_xz_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI XZ",phi_points_list,nsopi_));
+        // super_phi_yy_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI YY",phi_points_list,nsopi_));
+        // super_phi_yz_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI YZ",phi_points_list,nsopi_));
+        // super_phi_zz_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI ZZ",phi_points_list,nsopi_));
+
+        // super_gamma_aa_ = std::shared_ptr<Matrix>(new Matrix("SUPER GAMMA AA",phi_points_list,nsopi_));
+        // super_gamma_ab_ = std::shared_ptr<Matrix>(new Matrix("SUPER GAMMA AB",phi_points_list,nsopi_));
+        // super_gamma_bb_ = std::shared_ptr<Matrix>(new Matrix("SUPER GAMMA BB",phi_points_list,nsopi_));\
+
+        // super_tau_a_ = std::shared_ptr<Matrix>(new Matrix("SUPER TAU A",phi_points_list,nsopi_));
+        // super_tau_b_ = std::shared_ptr<Matrix>(new Matrix("SUPER TAU B",phi_points_list,nsopi_));
+
         TransformPhiMatrixAOMO(super_phi_x_ao,super_phi_x_);
         TransformPhiMatrixAOMO(super_phi_y_ao,super_phi_y_);
         TransformPhiMatrixAOMO(super_phi_z_ao,super_phi_z_);
 
-    }
+        // TransformPhiMatrixAOMO(super_phi_xx_ao,super_phi_xx_);
+        // TransformPhiMatrixAOMO(super_phi_xy_ao,super_phi_xy_);
+        // TransformPhiMatrixAOMO(super_phi_xz_ao,super_phi_xz_);
+        // TransformPhiMatrixAOMO(super_phi_yy_ao,super_phi_yy_);
+        // TransformPhiMatrixAOMO(super_phi_yz_ao,super_phi_yz_);
+        // TransformPhiMatrixAOMO(super_phi_zz_ao,super_phi_zz_);
 
+        // TransformPhiMatrixAOMO(super_gamma_aa_ao,super_gamma_aa_);
+        // TransformPhiMatrixAOMO(super_gamma_ab_ao,super_gamma_ab_);
+        // TransformPhiMatrixAOMO(super_gamma_bb_ao,super_gamma_bb_);
+
+        // TransformPhiMatrixAOMO(super_tau_a_ao,super_tau_a_);
+        // TransformPhiMatrixAOMO(super_tau_b_ao,super_tau_b_);
+    }
 }
 
 void MCPDFTSolver::BuildPhiMatrixAO(std::shared_ptr<VBase> potential, std::shared_ptr<PointFunctions> points_func,
@@ -370,39 +437,39 @@ void MCPDFTSolver::TransformPhiMatrixAOMO(std::shared_ptr<Matrix> phi_in, std::s
 
     // TODO: replace loops with DGEMM
 
-    for (int h = 0; h < nirrep_; h++)
-        F_DGEMM('n','n',nsopi_[h],phi_points_,nso_,1.0,ao2so->pointer(h)[0],nsopi_[h],phi_in->pointer()[0],nso_,0.0,phi_temp->pointer(h)[0],nsopi_[h]);
+    // for (int h = 0; h < nirrep_; h++)
+    //     F_DGEMM('n','n',nsopi_[h],phi_points_,nso_,1.0,ao2so->pointer(h)[0],nsopi_[h],phi_in->pointer()[0],nso_,0.0,phi_temp->pointer(h)[0],nsopi_[h]);
         
-    // // AO->SO transformation
-    // for (int p = 0; p < phi_points_; p++) {
-    //     for (int h = 0; h < nirrep_; h++) {
-    //         for (int mu = 0; mu < nsopi_[h]; mu++) {
-    //             double dum = 0.0;
-    //             for (int nu = 0; nu < nso_; nu++) {
-    //                 // dum += phi_in->pointer()[p][nu] * ao2so->pointer(h)[nu][mu];
-    //                 dum += ao2so->pointer(h)[nu][mu] * phi_in->pointer()[p][nu];
-    //             }
-    //             phi_temp->pointer(h)[p][mu] = dum;
-    //         }
-    //     }
-    // }
+    // AO->SO transformation
+    for (int p = 0; p < phi_points_; p++) {
+        for (int h = 0; h < nirrep_; h++) {
+            for (int mu = 0; mu < nsopi_[h]; mu++) {
+                double dum = 0.0;
+                for (int nu = 0; nu < nso_; nu++) {
+                    // dum += phi_in->pointer()[p][nu] * ao2so->pointer(h)[nu][mu];
+                    dum += ao2so->pointer(h)[nu][mu] * phi_in->pointer()[p][nu];
+                }
+                phi_temp->pointer(h)[p][mu] = dum;
+            }
+        }
+    }
 
-    for (int h = 0; h < nirrep_; h++)
-        F_DGEMM('n','n',nsopi_[h],phi_points_,nso_,1.0,Ca_->pointer(h)[0],nsopi_[h],phi_temp->pointer(h)[0],nso_,0.0,phi_out->pointer(h)[0],nsopi_[h]);
+    // for (int h = 0; h < nirrep_; h++)
+    //     F_DGEMM('n','n',nsopi_[h],phi_points_,nso_,1.0,Ca_->pointer(h)[0],nsopi_[h],phi_temp->pointer(h)[0],nso_,0.0,phi_out->pointer(h)[0],nsopi_[h]);
 
-    // // SO->MO transformation
-    // for (int p = 0; p < phi_points_; p++) {
-    //     for (int h = 0; h < nirrep_; h++) {
-    //         for (int mu = 0; mu < nsopi_[h]; mu++) {
-    //             double dum = 0.0;
-    //             for (int nu = 0; nu < nsopi_[h]; nu++) {
-    //                 // dum += phi_temp->pointer(h)[p][nu] * Ca_->pointer(h)[nu][mu];
-    //                 dum += Ca_->pointer(h)[nu][mu] * phi_temp->pointer(h)[p][nu];
-    //             }
-    //             phi_out->pointer(h)[p][mu] = dum;
-    //         }
-    //     }
-    // }
+    // SO->MO transformation
+    for (int p = 0; p < phi_points_; p++) {
+        for (int h = 0; h < nirrep_; h++) {
+            for (int mu = 0; mu < nsopi_[h]; mu++) {
+                double dum = 0.0;
+                for (int nu = 0; nu < nsopi_[h]; nu++) {
+                    // dum += phi_temp->pointer(h)[p][nu] * Ca_->pointer(h)[nu][mu];
+                    dum += Ca_->pointer(h)[nu][mu] * phi_temp->pointer(h)[p][nu];
+                }
+                phi_out->pointer(h)[p][mu] = dum;
+            }
+        }
+    }
 }
 
 double MCPDFTSolver::compute_energy() {
@@ -893,7 +960,7 @@ void MCPDFTSolver::BuildRho() {
         double * sigma_aap = sigma_aa_->pointer();
         double * sigma_bbp = sigma_bb_->pointer();
         double * sigma_abp = sigma_ab_->pointer();
-
+        
         double * rho_a_xp = rho_a_x_->pointer();
         double * rho_b_xp = rho_b_x_->pointer();
 
