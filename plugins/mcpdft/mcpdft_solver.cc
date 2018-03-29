@@ -556,7 +556,25 @@ double MCPDFTSolver::compute_energy() {
 
     double one_electron_energy = Da_->vector_dot(ha) 
                                + Db_->vector_dot(hb);
+    // kinetic-energy 
+    SharedMatrix Ka (new Matrix(mints->so_kinetic()));
+    Ka->transform(Ca_);
     
+    SharedMatrix Kb (new Matrix(mints->so_kinetic()));
+    Kb->transform(Cb_);
+    
+    double kinetic_energy = Da_->vector_dot(Ka) 
+                          + Db_->vector_dot(Kb);
+
+    // nuclear-attraction potential energy
+    SharedMatrix Va (new Matrix(mints->so_potential()));
+    Va->transform(Ca_);
+    
+    SharedMatrix Vb (new Matrix(mints->so_potential()));
+    Vb->transform(Cb_);
+    
+    double nuclear_attraction_energy = Da_->vector_dot(Va) 
+                                     + Db_->vector_dot(Vb);
 
     // coulomb energy should be computed using J object
 
@@ -578,6 +596,8 @@ double MCPDFTSolver::compute_energy() {
 
     // outfile->Printf("        nuclear repulsion energy =    %20.12lf\n",molecule_->nuclear_repulsion_energy());
     outfile->Printf("        nuclear repulsion energy =          %20.12lf\n",nuclear_repulsion_energy);
+    outfile->Printf("        nuclear attraction energy =         %20.12lf\n",nuclear_attraction_energy);
+    outfile->Printf("        kinetic energy           =          %20.12lf\n",kinetic_energy);
     outfile->Printf("        one-electron energy =               %20.12lf\n",one_electron_energy);
     outfile->Printf("        coulomb energy =                    %20.12lf\n",coulomb_energy);
 
@@ -1222,23 +1242,24 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJ() {
 
         // use alpha and beta C matrices
 
-        std::shared_ptr<Matrix> myC (new Matrix(Ca_) );
+        std::shared_ptr<Matrix> myCa (new Matrix(Ca_) );
+        std::shared_ptr<Matrix> myCb (new Matrix(Cb_) );
 
         C_left.clear();
         C_right.clear();
 
         // alpha first 
-        myC->zero();
-        myC->gemm('t','n',1.0,Da_,Ca_,0.0);
-        myC->transpose_this();
-        C_left.push_back(myC);
+        myCa->zero();
+        myCa->gemm('t','n',1.0,Da_,Ca_,0.0);
+        myCa->transpose_this();
+        C_left.push_back(myCa);
         C_right.push_back(Ca_);
 
         // beta second 
-        myC->zero();
-        myC->gemm('t','n',1.0,Db_,Cb_,0.0);
-        myC->transpose_this();
-        C_left.push_back(myC);
+        myCb->zero();
+        myCb->gemm('t','n',1.0,Db_,Cb_,0.0);
+        myCb->transpose_this();
+        C_left.push_back(myCb);
         C_right.push_back(Cb_);
 
         // Let jk compute for the given C_left/C_right
@@ -1282,23 +1303,24 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJ() {
 
         // use alpha and beta C matrices
 
-        std::shared_ptr<Matrix> myC (new Matrix(Ca_) );
+        std::shared_ptr<Matrix> myCa (new Matrix(Ca_) );
+        std::shared_ptr<Matrix> myCb (new Matrix(Cb_) );
 
         C_left.clear();
         C_right.clear();
 
         // alpha first 
-        myC->zero();
-        myC->gemm('t','n',1.0,Da_,Ca_,0.0);
-        myC->transpose_this();
-        C_left.push_back(myC);
+        myCa->zero();
+        myCa->gemm('t','n',1.0,Da_,Ca_,0.0);
+        myCa->transpose_this();
+        C_left.push_back(myCa);
         C_right.push_back(Ca_);
 
         // beta second 
-        myC->zero();
-        myC->gemm('t','n',1.0,Db_,Cb_,0.0);
-        myC->transpose_this();
-        C_left.push_back(myC);
+        myCb->zero();
+        myCb->gemm('t','n',1.0,Db_,Cb_,0.0);
+        myCb->transpose_this();
+        C_left.push_back(myCb);
         C_right.push_back(Cb_);
 
         // Let jk compute for the given C_left/C_right
