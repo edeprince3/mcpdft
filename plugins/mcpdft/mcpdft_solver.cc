@@ -602,7 +602,7 @@ double MCPDFTSolver::compute_energy() {
     double kaa = Da_->vector_dot(JK[2]);
     double kbb = Db_->vector_dot(JK[3]);
  
-    double hartree_ex_energy = 0.5 * (kaa + kbb);
+    double hartree_ex_energy = -0.5 * (kaa + kbb);
     
     // classical nuclear repulsion energy
 
@@ -636,7 +636,7 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("        On-top energy =                     %20.12lf\n",mcpdft_xc_energy);
     outfile->Printf("\n");
 
-    double total_energy = nuclear_repulsion_energy + one_electron_energy + coulomb_energy - lmbd * hartree_ex_energy + mcpdft_xc_energy;
+    double total_energy = nuclear_repulsion_energy + one_electron_energy + coulomb_energy + lmbd * hartree_ex_energy + mcpdft_xc_energy;
     outfile->Printf("    * MCPDFT total energy =      %20.12lf\n",total_energy);
     outfile->Printf("\n");
 
