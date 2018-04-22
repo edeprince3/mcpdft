@@ -207,7 +207,6 @@ void MCPDFTSolver::common_init() {
     std::shared_ptr<SuperFunctional> functional = scfwfn->functional();
     std::shared_ptr<VBase> potential = scfwfn->V_potential();
 
-
     // phi matrix (real-space <- AO basis mapping)
     // since grid is stored in blocks, we need to build a full phi matrix
     // from the individual blocks:
@@ -514,25 +513,36 @@ double MCPDFTSolver::compute_energy() {
 
     double mcpdft_xc_energy = 0.0;
 
+    double lmbd = 0.0;
+
+    if ( options_.get_bool("ONE_PARAM_HYBRID_MCPDFT") ) {
+       
+       lmbd = options_.get_double("LAMBDA");
+
+    }
+    
+    outfile->Printf("    ==> Coupling parameter for hybrid MCPDFT (lambda) = %5.2lf ", lmbd);
+    outfile->Printf("<==\n");
+
     if ( options_.get_str("MCPDFT_FUNCTIONAL") == "SVWN" ) {
 
-        mcpdft_xc_energy = EX_LSDA(tr_rho_a_, tr_rho_b_) 
-                         + EC_VWN3_RPA_III(tr_rho_a_, tr_rho_b_);
+        mcpdft_xc_energy = (1.0 - lmbd) * EX_LSDA(tr_rho_a_, tr_rho_b_) 
+                         + (1.0 - lmbd * lmbd) * EC_VWN3_RPA_III(tr_rho_a_, tr_rho_b_);
 
     }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "BLYP" ) {
-          
-        mcpdft_xc_energy = EX_B88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_)
-                         + EC_LYP_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
+       
+             mcpdft_xc_energy = (1.0 - lmbd) * EX_B88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_)
+                              + (1.0 - lmbd * lmbd) * EC_LYP_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
     
     }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "PBE" ) {
  
-        mcpdft_xc_energy = EX_PBE_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_) 
-                         + EC_PBE_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
+             mcpdft_xc_energy = (1.0 - lmbd) * EX_PBE_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_) 
+                              + (1.0 - lmbd * lmbd) * EC_PBE_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
 
     }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "BOP" ) {
-          
-        mcpdft_xc_energy = EX_B88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_)
-                         + EC_B88_OP(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
+       
+             mcpdft_xc_energy = (1.0 - lmbd) * EX_B88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_)
+                              + (1.0 - lmbd * lmbd) * EC_B88_OP(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
     }
     
     // evaluate the kinetic, potential, and coulomb energies
@@ -557,14 +567,14 @@ double MCPDFTSolver::compute_energy() {
     double one_electron_energy = Da_->vector_dot(ha) 
                                + Db_->vector_dot(hb);
     // kinetic-energy 
-    SharedMatrix Ka (new Matrix(mints->so_kinetic()));
-    Ka->transform(Ca_);
+    SharedMatrix Ta (new Matrix(mints->so_kinetic()));
+    Ta->transform(Ca_);
     
-    SharedMatrix Kb (new Matrix(mints->so_kinetic()));
-    Kb->transform(Cb_);
+    SharedMatrix Tb (new Matrix(mints->so_kinetic()));
+    Tb->transform(Cb_);
     
-    double kinetic_energy = Da_->vector_dot(Ka) 
-                          + Db_->vector_dot(Kb);
+    double kinetic_energy = Da_->vector_dot(Ta) 
+                          + Db_->vector_dot(Tb);
 
     // nuclear-attraction potential energy
     SharedMatrix Va (new Matrix(mints->so_potential()));
@@ -578,14 +588,23 @@ double MCPDFTSolver::compute_energy() {
 
     // coulomb energy should be computed using J object
 
-    std::vector < std::shared_ptr<Matrix> > J = BuildJ();
+    std::vector < std::shared_ptr<Matrix> > JK = BuildJK();
 
-    double caa = Da_->vector_dot(J[0]);
-    double cab = Da_->vector_dot(J[1]);
-    double cba = Db_->vector_dot(J[0]);
-    double cbb = Db_->vector_dot(J[1]);
+    double caa = Da_->vector_dot(JK[0]);
+    double cab = Da_->vector_dot(JK[1]);
+    double cba = Db_->vector_dot(JK[0]);
+    double cbb = Db_->vector_dot(JK[1]);
 
     double coulomb_energy = 0.5 * ( caa + cab + cba + cbb );
+
+    // Hartree exchange energy should be computed using K object
+
+    double kaa = Da_->vector_dot(JK[2]);
+    double kbb = Db_->vector_dot(JK[3]);
+ 
+    double hartree_ex_energy = 0.5 * (kaa + kbb);
+    
+    // classical nuclear repulsion energy
 
     double nuclear_repulsion_energy = molecule_->nuclear_repulsion_energy({0.0,0.0,0.0});
 
@@ -595,11 +614,12 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("\n");
 
     // outfile->Printf("        nuclear repulsion energy =    %20.12lf\n",molecule_->nuclear_repulsion_energy());
-    outfile->Printf("        nuclear repulsion energy =          %20.12lf\n",nuclear_repulsion_energy);
+    outfile->Printf("        nuclear repulsion energy  =         %20.12lf\n",nuclear_repulsion_energy);
     outfile->Printf("        nuclear attraction energy =         %20.12lf\n",nuclear_attraction_energy);
-    outfile->Printf("        kinetic energy           =          %20.12lf\n",kinetic_energy);
-    outfile->Printf("        one-electron energy =               %20.12lf\n",one_electron_energy);
-    outfile->Printf("        coulomb energy =                    %20.12lf\n",coulomb_energy);
+    outfile->Printf("        kinetic energy            =         %20.12lf\n",kinetic_energy);
+    outfile->Printf("        one-electron energy       =         %20.12lf\n",one_electron_energy);
+    outfile->Printf("        coulomb energy            =         %20.12lf\n",coulomb_energy);
+    outfile->Printf("        Hartree exchange energy   =         %20.12lf\n",hartree_ex_energy);
 
     if ( options_.get_str("MCPDFT_REFERENCE_TPDM") == "V2RDM") {
 
@@ -616,7 +636,7 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("        On-top energy =                     %20.12lf\n",mcpdft_xc_energy);
     outfile->Printf("\n");
 
-    double total_energy = nuclear_repulsion_energy + one_electron_energy + coulomb_energy + mcpdft_xc_energy;
+    double total_energy = nuclear_repulsion_energy + one_electron_energy + coulomb_energy - lmbd * hartree_ex_energy + mcpdft_xc_energy;
     outfile->Printf("    * MCPDFT total energy =      %20.12lf\n",total_energy);
     outfile->Printf("\n");
 
@@ -1205,12 +1225,12 @@ void MCPDFTSolver::BuildRhoFast(opdm * D1a, opdm * D1b, int na, int nb) {
     }
 }
 
-std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJ() {
+std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
 
     // get primary basis:
     std::shared_ptr<BasisSet> primary = reference_wavefunction_->get_basisset("ORBITAL");
 
-    std::vector< std::shared_ptr<Matrix> > J;
+    std::vector< std::shared_ptr<Matrix> > JK;
 
     // JK object (note this is hard-coded to use density fitting ...)
     if (options_.get_str("MCPDFT_TYPE") == "DF") {
@@ -1231,7 +1251,16 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJ() {
         jk->set_cutoff(options_.get_double("INTS_TOLERANCE"));
 
         jk->set_do_J(true);
-        jk->set_do_K(false);
+
+        if ( options_.get_bool("ONE_PARAM_HYBRID_MCPDFT") ) {
+
+           jk->set_do_K(true);
+
+        }else{
+
+             jk->set_do_K(false);
+        }
+
         jk->set_do_wK(false);
         jk->set_omega(false);
 
@@ -1272,10 +1301,22 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJ() {
         Ja->transform(Ca_);
         Jb->transform(Cb_);
 
-        J.push_back(Ja);
-        J.push_back(Jb);
+        JK.push_back(Ja);
+        JK.push_back(Jb);
 
-        return J;
+        if ( options_.get_bool("ONE_PARAM_HYBRID_MCPDFT") ) {
+
+           std::shared_ptr<Matrix> Ka = jk->K()[0];
+           std::shared_ptr<Matrix> Kb = jk->K()[1];
+           
+           Ka->transform(Ca_);
+           Kb->transform(Cb_);
+           
+           JK.push_back(Ka);
+           JK.push_back(Kb);
+        }
+
+        return JK;
 
     }else if (options_.get_str("MCPDFT_TYPE") == "PK") {
 
@@ -1292,7 +1333,16 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJ() {
         jk->set_cutoff(options_.get_double("INTS_TOLERANCE"));
 
         jk->set_do_J(true);
-        jk->set_do_K(false);
+
+        if ( options_.get_bool("ONE_PARAM_HYBRID_MCPDFT") ) {
+
+           jk->set_do_K(true);
+
+        }else{
+
+             jk->set_do_K(false);
+        }
+
         jk->set_do_wK(false);
         jk->set_omega(false);
 
@@ -1333,10 +1383,22 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJ() {
         Ja->transform(Ca_);
         Jb->transform(Cb_);
 
-        J.push_back(Ja);
-        J.push_back(Jb);
+        JK.push_back(Ja);
+        JK.push_back(Jb);
 
-        return J;
+        if ( options_.get_bool("ONE_PARAM_HYBRID_MCPDFT") ) {
+
+           std::shared_ptr<Matrix> Ka = jk->K()[0];
+           std::shared_ptr<Matrix> Kb = jk->K()[1];
+           
+           Ka->transform(Ca_);
+           Kb->transform(Cb_);
+           
+           JK.push_back(Ka);
+           JK.push_back(Kb);
+        }
+
+        return JK;
         
     }else {
         throw PsiException("invalid MCSCF_TYPE",__FILE__,__LINE__);

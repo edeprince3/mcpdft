@@ -196,8 +196,8 @@ class MCPDFTSolver: public Wavefunction{
     /// read CI 1-RDM from disk
     void ReadCIOPDM(std::shared_ptr<Matrix> D, const char* fileName); 
 
-    /// build coulomb matrix
-    std::vector< std::shared_ptr<Matrix> > BuildJ();
+    /// build coulomb/exchange matrix
+    std::vector< std::shared_ptr<Matrix> > BuildJK();
 
     /// alpha-spin density
     std::shared_ptr<Vector> rho_a_;
