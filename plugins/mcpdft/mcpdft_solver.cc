@@ -520,31 +520,49 @@ double MCPDFTSolver::compute_energy() {
     if ( options_.get_bool("ONE_PARAM_HYBRID_MCPDFT") ) {
        
        lmbd = options_.get_double("LAMBDA");
-
-    }
+      
+       outfile->Printf("    ==> Coupling parameter for hybrid MCPDFT (lambda) = %5.2lf ", lmbd);
+       outfile->Printf("<==\n");
     
-    outfile->Printf("    ==> Coupling parameter for hybrid MCPDFT (lambda) = %5.2lf ", lmbd);
-    outfile->Printf("<==\n");
+       if ( options_.get_str("MCPDFT_FUNCTIONAL") == "SVWN" ) {
 
-    if ( options_.get_str("MCPDFT_FUNCTIONAL") == "SVWN" ) {
+           mcpdft_xc_energy = (1.0 - lmbd * lmbd) * EC_VWN3_RPA_III(tr_rho_a_, tr_rho_b_);
 
-        mcpdft_xc_energy = (1.0 - lmbd) * EX_LSDA(tr_rho_a_, tr_rho_b_) 
-                         + (1.0 - lmbd * lmbd) * EC_VWN3_RPA_III(tr_rho_a_, tr_rho_b_);
-
-    }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "BLYP" ) {
+       }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "BLYP" ) {
+          
+                mcpdft_xc_energy = (1.0 - lmbd * lmbd) * EC_LYP_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
        
-             mcpdft_xc_energy = (1.0 - lmbd) * EX_B88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_)
-                              + (1.0 - lmbd * lmbd) * EC_LYP_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
-    
-    }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "PBE" ) {
+       }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "PBE" ) {
  
-             mcpdft_xc_energy = (1.0 - lmbd) * EX_PBE_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_) 
-                              + (1.0 - lmbd * lmbd) * EC_PBE_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
+                mcpdft_xc_energy = (1.0 - lmbd * lmbd) * EC_PBE_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
+                
+       }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "BOP" ) {
+          
+                mcpdft_xc_energy = (1.0 - lmbd * lmbd) * EC_B88_OP(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
+       }
 
-    }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "BOP" ) {
-       
-             mcpdft_xc_energy = (1.0 - lmbd) * EX_B88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_)
-                              + (1.0 - lmbd * lmbd) * EC_B88_OP(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
+    }else{
+
+         if ( options_.get_str("MCPDFT_FUNCTIONAL") == "SVWN" ) {
+
+            mcpdft_xc_energy = (1.0 - lmbd) * EX_LSDA(tr_rho_a_, tr_rho_b_) 
+                             + (1.0 - lmbd * lmbd) * EC_VWN3_RPA_III(tr_rho_a_, tr_rho_b_);
+
+         }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "BLYP" ) {
+            
+                  mcpdft_xc_energy = (1.0 - lmbd) * EX_B88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_)
+                                   + (1.0 - lmbd * lmbd) * EC_LYP_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
+         
+         }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "PBE" ) {
+ 
+                  mcpdft_xc_energy = (1.0 - lmbd) * EX_PBE_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_) 
+                                   + (1.0 - lmbd * lmbd) * EC_PBE_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
+
+         }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "BOP" ) {
+            
+                  mcpdft_xc_energy = (1.0 - lmbd) * EX_B88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_)
+                                   + (1.0 - lmbd * lmbd) * EC_B88_OP(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
+         }
     }
     
     // evaluate the kinetic, potential, and coulomb energies
@@ -599,17 +617,27 @@ double MCPDFTSolver::compute_energy() {
 
     double coulomb_energy = 0.5 * ( caa + cab + cba + cbb );
 
-    // Hartree exchange energy should be computed using K object
-
-    double kaa = Da_->vector_dot(JK[2]);
-    double kbb = Db_->vector_dot(JK[3]);
- 
-    double hartree_ex_energy = -0.5 * (kaa + kbb);
-    
     // classical nuclear repulsion energy
 
     double nuclear_repulsion_energy = molecule_->nuclear_repulsion_energy({0.0,0.0,0.0});
 
+    double hartree_ex_energy   = 0.0;
+    double two_electron_energy = 0.0;
+
+    if ( options_.get_bool("ONE_PARAM_HYBRID_MCPDFT") ) {
+
+       // Hartree exchange energy should be computed using K object
+
+       double kaa = Da_->vector_dot(JK[2]);
+       double kbb = Db_->vector_dot(JK[3]);
+ 
+       hartree_ex_energy = -0.5 * (kaa + kbb);
+       
+       // two-electron energy < Psi|  r12^-1 | Psi >
+
+       two_electron_energy = reference_energy_ - nuclear_repulsion_energy - one_electron_energy;
+    }
+ 
     // print total energy and its components
 
     outfile->Printf("    ==> Energetics <==\n");
@@ -620,26 +648,35 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("        nuclear attraction energy =         %20.12lf\n",nuclear_attraction_energy);
     outfile->Printf("        kinetic energy            =         %20.12lf\n",kinetic_energy);
     outfile->Printf("        one-electron energy       =         %20.12lf\n",one_electron_energy);
-    outfile->Printf("        coulomb energy            =         %20.12lf\n",coulomb_energy);
-    outfile->Printf("        Hartree exchange energy   =         %20.12lf\n",hartree_ex_energy);
+    if ( options_.get_bool("ONE_PARAM_HYBRID_MCPDFT") ) {
+       outfile->Printf("        two-electron energy       =         %20.12lf\n",two_electron_energy);
+       outfile->Printf("        HF-exchange energy        =         %20.12lf\n",hartree_ex_energy);
+    }
+    outfile->Printf("        classical coulomb energy  =         %20.12lf\n",coulomb_energy);
 
     if ( options_.get_str("MCPDFT_REFERENCE_TPDM") == "V2RDM") {
 
-        outfile->Printf("        v2RDM-CASSCF energy contribution =  %20.12lf\n",
-            nuclear_repulsion_energy + one_electron_energy + coulomb_energy);
-  
-    }else {
+       outfile->Printf("        v2RDM-CASSCF energy contribution =  %20.12lf\n",
+                      nuclear_repulsion_energy + one_electron_energy + coulomb_energy);
+    }else{
 
-        outfile->Printf("        CASSCF energy contribution =        %20.12lf\n",
-            nuclear_repulsion_energy + one_electron_energy + coulomb_energy);
-
+         outfile->Printf("        CASSCF energy contribution =        %20.12lf\n",
+                        nuclear_repulsion_energy + one_electron_energy + coulomb_energy);
     }
 
     outfile->Printf("        On-top energy =                     %20.12lf\n",mcpdft_xc_energy);
     outfile->Printf("\n");
 
-    double total_energy = nuclear_repulsion_energy + one_electron_energy + coulomb_energy + lmbd * hartree_ex_energy + mcpdft_xc_energy;
-    outfile->Printf("    * MCPDFT total energy =      %20.12lf\n",total_energy);
+    double total_energy = nuclear_repulsion_energy + one_electron_energy + lmbd * two_electron_energy + (1.0 - lmbd) * (coulomb_energy + hartree_ex_energy) + mcpdft_xc_energy;
+
+    if ( options_.get_bool("ONE_PARAM_HYBRID_MCPDFT") ) {
+
+       outfile->Printf("    * 1H-MCPDFT total energy =      %20.12lf\n",total_energy);
+
+    }else{
+
+         outfile->Printf("    * MCPDFT total energy =      %20.12lf\n",total_energy);
+    }
     outfile->Printf("\n");
 
     return total_energy;
