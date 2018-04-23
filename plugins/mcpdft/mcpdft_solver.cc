@@ -98,6 +98,8 @@ MCPDFTSolver::~MCPDFTSolver() {
 // initialize members of the MCPDFTSolver class
 void MCPDFTSolver::common_init() {
 
+    reference_energy_ = Process::environment.globals["V2RDM TOTAL ENERGY"];
+
     shallow_copy(reference_wavefunction_);
 
     // number of alpha electrons

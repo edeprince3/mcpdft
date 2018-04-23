@@ -90,6 +90,9 @@ class MCPDFTSolver: public Wavefunction{
 
   protected:
 
+    /// reference energy
+    double reference_energy_;
+
     /// list of orbital symmetries
     int * symmetry_;
 

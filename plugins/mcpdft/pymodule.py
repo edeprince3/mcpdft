@@ -49,6 +49,8 @@ def run_mcpdft(name, **kwargs):
     if v2rdm_wfn is None:
         raise ValidationError("""Error: %s requires a reference wave function (v2rdm-casscf).""" % name)
 
+    psi4.core.set_variable("V2RDM TOTAL ENERGY",v2rdm_wfn.energy())
+
     func = psi4.core.get_option('MCPDFT','MCPDFT_FUNCTIONAL')
     ref_molecule = kwargs.get('molecule', psi4.core.get_active_molecule())
     base_wfn = psi4.core.Wavefunction.build(ref_molecule, psi4.core.get_global_option('BASIS'))
