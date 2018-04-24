@@ -93,6 +93,9 @@ class MCPDFTSolver: public Wavefunction{
     /// reference energy
     double reference_energy_;
 
+    /// mp2 correlation energy for double-hybrids
+    double mp2_corr_energy_;
+
     /// list of orbital symmetries
     int * symmetry_;
 

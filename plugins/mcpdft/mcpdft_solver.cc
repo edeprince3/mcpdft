@@ -99,7 +99,13 @@ MCPDFTSolver::~MCPDFTSolver() {
 void MCPDFTSolver::common_init() {
 
     reference_energy_ = Process::environment.globals["V2RDM TOTAL ENERGY"];
-
+    
+    if ( options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") {
+       
+       // calculating mp2 energy for double-hybrids
+       mp2_corr_energy_ = Process::environment.globals["MP2 CORRELATION ENERGY"];
+    }
+    
     shallow_copy(reference_wavefunction_);
 
     // number of alpha electrons
@@ -517,7 +523,7 @@ double MCPDFTSolver::compute_energy() {
 
     double lmbd = 0.0;
 
-    if ( options_.get_bool("ONE_PARAM_HYBRID_MCPDFT") ) {
+    if ( (options_.get_str("MCPDFT_METHOD") == "1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") ) {
        
        lmbd = options_.get_double("LAMBDA");
       
@@ -624,7 +630,7 @@ double MCPDFTSolver::compute_energy() {
     double hartree_ex_energy   = 0.0;
     double two_electron_energy = 0.0;
 
-    if ( options_.get_bool("ONE_PARAM_HYBRID_MCPDFT") ) {
+    if ( (options_.get_str("MCPDFT_METHOD") == "1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") ) {
 
        // Hartree exchange energy should be computed using K object
 
@@ -648,9 +654,12 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("        nuclear attraction energy =         %20.12lf\n",nuclear_attraction_energy);
     outfile->Printf("        kinetic energy            =         %20.12lf\n",kinetic_energy);
     outfile->Printf("        one-electron energy       =         %20.12lf\n",one_electron_energy);
-    if ( options_.get_bool("ONE_PARAM_HYBRID_MCPDFT") ) {
+    if ( (options_.get_str("MCPDFT_METHOD") == "1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") ) {
        outfile->Printf("        two-electron energy       =         %20.12lf\n",two_electron_energy);
        outfile->Printf("        HF-exchange energy        =         %20.12lf\n",hartree_ex_energy);
+       if ( options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") {
+          outfile->Printf("        MP2-correlation energy    =         %20.12lf\n",mp2_corr_energy_);
+       }
     }
     outfile->Printf("        classical coulomb energy  =         %20.12lf\n",coulomb_energy);
 
@@ -668,12 +677,16 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("\n");
 
     double total_energy = nuclear_repulsion_energy + one_electron_energy + lmbd * two_electron_energy + (1.0 - lmbd) * (coulomb_energy + hartree_ex_energy) + mcpdft_xc_energy;
+    
+    if ( options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") {
 
-    if ( options_.get_bool("ONE_PARAM_HYBRID_MCPDFT") ) {
+       outfile->Printf("    * 1DH-MCPDFT total energy =      %20.12lf\n",total_energy + lmbd * lmbd * mp2_corr_energy_);
 
-       outfile->Printf("    * 1H-MCPDFT total energy =      %20.12lf\n",total_energy);
+    }else if( options_.get_str("MCPDFT_METHOD") == "1H_MCPDFT") {
 
-    }else{
+            outfile->Printf("    * 1H-MCPDFT total energy =      %20.12lf\n",total_energy);
+
+    }else if( options_.get_str("MCPDFT_METHOD") == "MCPDFT") {
 
          outfile->Printf("    * MCPDFT total energy =      %20.12lf\n",total_energy);
     }
@@ -1291,7 +1304,7 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
 
         jk->set_do_J(true);
 
-        if ( options_.get_bool("ONE_PARAM_HYBRID_MCPDFT") ) {
+        if ( (options_.get_str("MCPDFT_METHOD") == "1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") ) {
 
            jk->set_do_K(true);
 
@@ -1343,7 +1356,7 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
         JK.push_back(Ja);
         JK.push_back(Jb);
 
-        if ( options_.get_bool("ONE_PARAM_HYBRID_MCPDFT") ) {
+        if ( (options_.get_str("MCPDFT_METHOD") == "1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") ) {
 
            std::shared_ptr<Matrix> Ka = jk->K()[0];
            std::shared_ptr<Matrix> Kb = jk->K()[1];
@@ -1373,7 +1386,7 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
 
         jk->set_do_J(true);
 
-        if ( options_.get_bool("ONE_PARAM_HYBRID_MCPDFT") ) {
+        if ( (options_.get_str("MCPDFT_METHOD") == "1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") ) {
 
            jk->set_do_K(true);
 
@@ -1425,7 +1438,7 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
         JK.push_back(Ja);
         JK.push_back(Jb);
 
-        if ( options_.get_bool("ONE_PARAM_HYBRID_MCPDFT") ) {
+        if ( (options_.get_str("MCPDFT_METHOD") == "1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") ) {
 
            std::shared_ptr<Matrix> Ka = jk->K()[0];
            std::shared_ptr<Matrix> Kb = jk->K()[1];

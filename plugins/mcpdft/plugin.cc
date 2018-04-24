@@ -43,10 +43,8 @@ extern "C"
 int read_options(std::string name, Options& options)
 {
     if (name == "MCPDFT"|| options.read_globals()) {
-        /*- Using 1-parameter hybrid MCPDFT functionals? -*/
-        options.add_bool("ONE_PARAM_HYBRID_MCPDFT", "false");
-        /*- Using density-scaled hybrid MCPDFT functionals? -*/
-        options.add_bool("DENSITY_SCALED_HYBRID_MCPDFT", "false");
+        /*- MCPDFT type -*/
+        options.add_str("MCPDFT_METHOD", "MCPDFT", "MCPDFT 1H_MCPDFT 1DH_MCPDFT");
         /*- Coupling parameter Lambda for hybrid MCPDFT functionals -*/
         options.add_double("LAMBDA", 0.00);
         /*- Reference must be UKS -*/
