@@ -622,7 +622,6 @@ double MCPDFTSolver::compute_energy() {
                                      + Db_->vector_dot(Vb);
 
     // coulomb energy should be computed using J object
-
     std::vector < std::shared_ptr<Matrix> > JK = BuildJK();
 
     double caa = Da_->vector_dot(JK[0]);
@@ -633,16 +632,16 @@ double MCPDFTSolver::compute_energy() {
     double coulomb_energy = 0.5 * ( caa + cab + cba + cbb );
 
     // classical nuclear repulsion energy
-
     double nuclear_repulsion_energy = molecule_->nuclear_repulsion_energy({0.0,0.0,0.0});
 
+    // two-electron energy < Psi|  r12^-1 | Psi >
+    double two_electron_energy = reference_energy_ - nuclear_repulsion_energy - one_electron_energy;
+
     double hartree_ex_energy   = 0.0;
-    double two_electron_energy = 0.0;
 
     if ( (options_.get_str("MCPDFT_METHOD") == "1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") ) {
 
-       // Hartree exchange energy should be computed using K object
-
+       // HF exchange energy should be computed using K object
        double kaa = Da_->vector_dot(JK[2]);
        double kbb = Db_->vector_dot(JK[3]);
  
@@ -652,13 +651,15 @@ double MCPDFTSolver::compute_energy() {
     // long range corrected (LRC) exchange energy 
     double lrc_ex_energy = 0.0;
 
-    if ( (options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") ) {
+    if ( (options_.get_str("MCPDFT_METHOD") == "LRC_1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "LRC_1DH_MCPDFT") ) {
 
-       two_electron_energy = reference_energy_ - nuclear_repulsion_energy - one_electron_energy;
-    }
+       double wkaa = Da_->vector_dot(JK[4]);
+       double wkbb = Db_->vector_dot(JK[5]);
  
-    // print total energy and its components
+       lrc_ex_energy = -0.5 * (wkaa + wkbb);
+    }
 
+    // print total energy and its components
     outfile->Printf("    ==> Energetics <==\n");
     outfile->Printf("\n");
 
@@ -673,11 +674,11 @@ double MCPDFTSolver::compute_energy() {
        if ( options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") {
           outfile->Printf("        MP2-correlation energy    =         %20.12lf\n",mp2_corr_energy_);
        }
-    }else if( (options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") ) {
+    }else if( (options_.get_str("MCPDFT_METHOD") == "LRC_1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "LRC_1DH_MCPDFT") ) {
        outfile->Printf("        two-electron energy       =         %20.12lf\n",two_electron_energy);
        outfile->Printf("        HF-exchange energy        =         %20.12lf\n",hartree_ex_energy);
-       outfile->Printf("        LR-exchange enrgy        =         %20.12lf\n",lrc_ex_energy);
-       if ( options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") {
+       outfile->Printf("        LRC-exchange enrgy        =         %20.12lf\n",lrc_ex_energy);
+       if ( options_.get_str("MCPDFT_METHOD") == "LRC_1DH_MCPDFT") {
           outfile->Printf("        MP2-correlation energy    =         %20.12lf\n",mp2_corr_energy_);
        }
     }
@@ -696,12 +697,13 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("        On-top energy =                     %20.12lf\n",mcpdft_xc_energy);
     outfile->Printf("\n");
 
-    double total_energy = nuclear_repulsion_energy + one_electron_energy + lmbd * two_electron_energy + (1.0 - lmbd) * (coulomb_energy + hartree_ex_energy) + mcpdft_xc_energy;
+    double total_energy = nuclear_repulsion_energy + one_electron_energy + lmbd * two_electron_energy + (1.0 - lmbd) * (coulomb_energy + hartree_ex_energy + lrc_ex_energy) + mcpdft_xc_energy;
     
-    if ( options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") {
 
-       outfile->Printf("    * 1DH-MCPDFT total energy =      %20.12lf\n",total_energy + lmbd * lmbd * mp2_corr_energy_);
+    if( options_.get_str("MCPDFT_METHOD") == "MCPDFT") {
 
+         outfile->Printf("    * MCPDFT total energy =      %20.12lf\n",total_energy);
+    
     }else if( options_.get_str("MCPDFT_METHOD") == "1H_MCPDFT") {
 
             outfile->Printf("    * 1H-MCPDFT total energy =      %20.12lf\n",total_energy);
@@ -710,13 +712,13 @@ double MCPDFTSolver::compute_energy() {
 
        outfile->Printf("    * 1DH-MCPDFT total energy =      %20.12lf\n",total_energy + lmbd * lmbd * mp2_corr_energy_);
 
-    }else if( options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") {
+    }else if( options_.get_str("MCPDFT_METHOD") == "LRC_1H_MCPDFT") {
 
-            outfile->Printf("    * RS1H-MCPDFT total energy =      %20.12lf\n",total_energy);
+            outfile->Printf("    * LRC_1H-MCPDFT total energy =      %20.12lf\n",total_energy);
 
-    }else if( options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") {
+    }else if( options_.get_str("MCPDFT_METHOD") == "LRC_1DH_MCPDFT") {
 
-       outfile->Printf("    * RS1DH-MCPDFT total energy =      %20.12lf\n",total_energy + lmbd * lmbd * mp2_corr_energy_);
+       outfile->Printf("    * LRC_1DH-MCPDFT total energy =      %20.12lf\n",total_energy + lmbd * lmbd * mp2_corr_energy_);
     } 
     outfile->Printf("\n");
 
@@ -1331,21 +1333,24 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
         jk->set_cutoff(options_.get_double("INTS_TOLERANCE"));
 
         jk->set_do_J(true);
+        jk->set_do_K(false);
+        jk->set_do_wK(false);
+        jk->set_omega(false);
 
         if ( (options_.get_str("MCPDFT_METHOD") == "1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") ) {
 
            jk->set_do_K(true);
 
-        }else if ( (options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") ) {
+        }else if ( (options_.get_str("MCPDFT_METHOD") == "LRC_1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "LRC_1DH_MCPDFT") ) {
 
            scf::HF* scfwfn = (scf::HF*)reference_wavefunction_.get();
            std::shared_ptr<SuperFunctional> functional = scfwfn->functional();
 
-             jk->set_do_K(false);
+           jk->set_do_K(true);
+           jk->set_do_wK(true);
+           // jk->set_omega(options_.get_double("OMEGA_K"));
+           jk->set_omega(functional->x_omega());
         }
-
-        jk->set_do_wK(false);
-        jk->set_omega(false);
 
         jk->initialize();
 
@@ -1399,7 +1404,7 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
            JK.push_back(Kb);
         }
 
-        if ( (options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") ) {
+        if ( (options_.get_str("MCPDFT_METHOD") == "LRC_1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "LRC_1DH_MCPDFT") ) {
 
            std::shared_ptr<Matrix> wKa = jk->wK()[0];
            std::shared_ptr<Matrix> wKb = jk->wK()[1];
@@ -1428,21 +1433,24 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
         jk->set_cutoff(options_.get_double("INTS_TOLERANCE"));
 
         jk->set_do_J(true);
+        jk->set_do_K(false);
+        jk->set_do_wK(false);
+        jk->set_omega(false);
 
         if ( (options_.get_str("MCPDFT_METHOD") == "1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") ) {
 
            jk->set_do_K(true);
 
-        }else if ( (options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") ) {
+        }else if ( (options_.get_str("MCPDFT_METHOD") == "LRC_1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "LRC_1DH_MCPDFT") ) {
 
            scf::HF* scfwfn = (scf::HF*)reference_wavefunction_.get();
            std::shared_ptr<SuperFunctional> functional = scfwfn->functional();
 
-             jk->set_do_K(false);
+           jk->set_do_K(true);
+           jk->set_do_wK(true);
+           // jk->set_omega(options_.get_double("OMEGA_K"));
+           jk->set_omega(functional->x_omega());
         }
-
-        jk->set_do_wK(false);
-        jk->set_omega(false);
 
         jk->initialize();
 
@@ -1496,7 +1504,7 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
            JK.push_back(Kb);
         }
 
-        if ( (options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") ) {
+        if ( (options_.get_str("MCPDFT_METHOD") == "LRC_1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "LRC_1DH_MCPDFT") ) {
 
            std::shared_ptr<Matrix> wKa = jk->wK()[0];
            std::shared_ptr<Matrix> wKb = jk->wK()[1];
