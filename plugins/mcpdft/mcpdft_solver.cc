@@ -454,6 +454,11 @@ void MCPDFTSolver::TransformPhiMatrixAOMO(std::shared_ptr<Matrix> phi_in, std::s
 }
 
 double MCPDFTSolver::compute_energy() {
+    
+    /* ======================================================================================
+       Calculation of the range-separated double-hybrid (RSDH) total energy formula based on:
+       C. Kalai and J, Toulouse J. Chem. Phys. 148, 164105 (2018)
+       ====================================================================================== */
 
     // read 1- and 2-RDM from disk and build rho(r), rho'(r), pi(r), and pi'(r)
 
@@ -518,6 +523,10 @@ double MCPDFTSolver::compute_energy() {
 
     outfile->Printf("    ==> Evaluate the on-top energy contribution <==\n");
     outfile->Printf("\n");
+
+
+    // E = min(Psi->rho) { <Psi| T + Wee_LR(w) + lambda * Wee_SR(w) + Vne |Psi> + E_HXC_(w,lambda)[rho,pi] }
+    // calculate the complement short-range MCPDFT XC functional energy
 
     double mcpdft_xc_energy = 0.0;
 
@@ -638,8 +647,12 @@ double MCPDFTSolver::compute_energy() {
        double kbb = Db_->vector_dot(JK[3]);
  
        hartree_ex_energy = -0.5 * (kaa + kbb);
-       
-       // two-electron energy < Psi|  r12^-1 | Psi >
+    }
+    
+    // long range corrected (LRC) exchange energy 
+    double lrc_ex_energy = 0.0;
+
+    if ( (options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") ) {
 
        two_electron_energy = reference_energy_ - nuclear_repulsion_energy - one_electron_energy;
     }
@@ -658,6 +671,13 @@ double MCPDFTSolver::compute_energy() {
        outfile->Printf("        two-electron energy       =         %20.12lf\n",two_electron_energy);
        outfile->Printf("        HF-exchange energy        =         %20.12lf\n",hartree_ex_energy);
        if ( options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") {
+          outfile->Printf("        MP2-correlation energy    =         %20.12lf\n",mp2_corr_energy_);
+       }
+    }else if( (options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") ) {
+       outfile->Printf("        two-electron energy       =         %20.12lf\n",two_electron_energy);
+       outfile->Printf("        HF-exchange energy        =         %20.12lf\n",hartree_ex_energy);
+       outfile->Printf("        LR-exchange enrgy        =         %20.12lf\n",lrc_ex_energy);
+       if ( options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") {
           outfile->Printf("        MP2-correlation energy    =         %20.12lf\n",mp2_corr_energy_);
        }
     }
@@ -686,10 +706,18 @@ double MCPDFTSolver::compute_energy() {
 
             outfile->Printf("    * 1H-MCPDFT total energy =      %20.12lf\n",total_energy);
 
-    }else if( options_.get_str("MCPDFT_METHOD") == "MCPDFT") {
+    }else if( options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") {
 
-         outfile->Printf("    * MCPDFT total energy =      %20.12lf\n",total_energy);
-    }
+       outfile->Printf("    * 1DH-MCPDFT total energy =      %20.12lf\n",total_energy + lmbd * lmbd * mp2_corr_energy_);
+
+    }else if( options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") {
+
+            outfile->Printf("    * RS1H-MCPDFT total energy =      %20.12lf\n",total_energy);
+
+    }else if( options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") {
+
+       outfile->Printf("    * RS1DH-MCPDFT total energy =      %20.12lf\n",total_energy + lmbd * lmbd * mp2_corr_energy_);
+    } 
     outfile->Printf("\n");
 
     return total_energy;
@@ -1294,7 +1322,7 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
         // outfile->Printf("    ==> The JK type for the MCPDFT calculation is: %s", options_.get_str("MCPDFT_TYPE"));
         // outfile->Printf(" <==\n");
 
-        std::shared_ptr<DFJK> jk = (std::shared_ptr<DFJK>)(new DFJK(primary,auxiliary));
+        std::shared_ptr<DiskDFJK> jk = (std::shared_ptr<DiskDFJK>)(new DiskDFJK(primary,auxiliary));
         
         // memory for jk (say, 50% of what is available)
         jk->set_memory(0.5 * Process::environment.get_memory());
@@ -1308,7 +1336,10 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
 
            jk->set_do_K(true);
 
-        }else{
+        }else if ( (options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") ) {
+
+           scf::HF* scfwfn = (scf::HF*)reference_wavefunction_.get();
+           std::shared_ptr<SuperFunctional> functional = scfwfn->functional();
 
              jk->set_do_K(false);
         }
@@ -1366,6 +1397,18 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
            
            JK.push_back(Ka);
            JK.push_back(Kb);
+        }
+
+        if ( (options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") ) {
+
+           std::shared_ptr<Matrix> wKa = jk->wK()[0];
+           std::shared_ptr<Matrix> wKb = jk->wK()[1];
+           
+           wKa->transform(Ca_);
+           wKb->transform(Cb_);
+           
+           JK.push_back(wKa);
+           JK.push_back(wKb);
         }
 
         return JK;
@@ -1390,7 +1433,10 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
 
            jk->set_do_K(true);
 
-        }else{
+        }else if ( (options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") ) {
+
+           scf::HF* scfwfn = (scf::HF*)reference_wavefunction_.get();
+           std::shared_ptr<SuperFunctional> functional = scfwfn->functional();
 
              jk->set_do_K(false);
         }
@@ -1448,6 +1494,18 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
            
            JK.push_back(Ka);
            JK.push_back(Kb);
+        }
+
+        if ( (options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") ) {
+
+           std::shared_ptr<Matrix> wKa = jk->wK()[0];
+           std::shared_ptr<Matrix> wKb = jk->wK()[1];
+           
+           wKa->transform(Ca_);
+           wKb->transform(Cb_);
+           
+           JK.push_back(wKa);
+           JK.push_back(wKb);
         }
 
         return JK;
