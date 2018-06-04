@@ -1,7 +1,7 @@
 
 # first, import vrdm_casscf_private library
 sys.path.insert(0, '/Users/deprince/software/')
-import v2rdm_casscf_private
+import v2rdm_casscf
 # second, import mcpdft library
 sys.path.insert(0, './..')
 import mcpdft
@@ -23,7 +23,7 @@ set {
   reference rhf
 }
 
-set v2rdm_casscf_private {
+set v2rdm_casscf {
 
   positivity dqg
   opdm_write_full true
@@ -46,6 +46,9 @@ set v2rdm_casscf_private {
 # it is important that the reference is set to uks for mcpdft
 set mcpdft {
   reference uks
+  mcpdft_reference v2rdm
+  mcpdft_type df
+  mcpdft_method mcpdft
 }
 
 # run v2rdm-casscf
