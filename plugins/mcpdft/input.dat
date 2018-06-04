@@ -26,7 +26,7 @@ set {
 set v2rdm_casscf_private {
 
   positivity dqg
-
+  opdm_write_full true
   tpdm_write_full true
   constrain_spin true
 
