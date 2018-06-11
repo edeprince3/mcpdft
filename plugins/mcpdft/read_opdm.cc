@@ -31,6 +31,7 @@
 #include <psi4/libpsio/psio.hpp>
 #include <psi4/libtrans/integraltransform.h>
 #include <psi4/libmints/matrix.h>
+#include <psi4/libpsi4util/PsiOutStream.h>
 
 #include <fstream>
 #include <iostream>
@@ -110,8 +111,10 @@ void MCPDFTSolver::ReadOPDM() {
         Db_->pointer(hi)[ii][jj] = opdm_b[n].val;
 
     }
-
+    outfile->Printf("\n");
+    outfile->Printf("    ==> Build Rho's ...\n");
     BuildRhoFast(opdm_a,opdm_b,na,nb);
+    outfile->Printf("    ... Done. <==\n\n");
 
     free(opdm_a);
     free(opdm_b);

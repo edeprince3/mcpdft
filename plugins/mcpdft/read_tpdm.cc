@@ -77,9 +77,9 @@ void MCPDFTSolver::ReadTPDM() {
 
     // build on-top pair density (already built of REFERENCE_TPDM = V2RDM)
     outfile->Printf("\n");
-    outfile->Printf("    ==> Build Pi <==\n");
-
+    outfile->Printf("    ==> Build Pi ...");
     BuildPiFast(d2,nab);
+    outfile->Printf(" Done. <==\n");
 
     free(d2);
 

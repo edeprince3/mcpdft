@@ -262,17 +262,25 @@ void MCPDFTSolver::common_init() {
     // memory is from process::environment
     memory_ = Process::environment.get_memory();
 
-    int available_mem = 0;
-    int n_mem         = 0;
-    int n_phiAO       = 0;
-    int n_grids       = 0;
-    int n_transf      = 0;
-    int n_rdms        = 0;
-    int n_rho         = 0;
-    int n_pi          = 0;
-    int n_R           = 0;
-    int n_transl      = 0;
-    long int n_df     = 0;
+    long int available_mem = 0;
+    long int n_init        = 0;
+    long int n_mem         = 0;
+    long int n_phiAO       = 0;
+    long int n_grids       = 0;
+    long int n_transf      = 0;
+    long int n_rdms        = 0;
+    long int n_rho         = 0;
+    long int n_pi          = 0;
+    long int n_R           = 0;
+    long int n_transl      = 0;
+    long int n_df          = 0;
+
+    // default basic vectors and matrices initialized using common_init()
+    n_init  = nso_ * nso_;                             // S_ matrix
+    n_init += 2 * nso_ * nso_;                         // Ca_ and Cb_ matrices
+    n_init += 2 * nso_ * nso_;                         // Fa_ and Fb_ matrices
+    n_init += 2 * nmo_;                                // epsilon_a_ and epsilon_b_ vectors
+    n_mem += n_init;
 
     // phiAO, phiAO_x, phiAO_y, phiAO_z 
     n_phiAO = phi_points_ * nso_;
@@ -364,6 +372,7 @@ void MCPDFTSolver::common_init() {
     outfile->Printf("    =========================================================\n");
     outfile->Printf("    memory specified by the user:                %7.2lf MB\n",(double)memory_ / 1024.0 / 1024.0);
     outfile->Printf("    ---------------------------------------------------------\n");
+    outfile->Printf("    initialization:                              %7.2lf MB\n",n_init  * sizeof(double)   / 1024.0 / 1024.0);
     outfile->Printf("    phi & phi' (AO):                             %7.2lf MB\n",n_phiAO * sizeof(double)   / 1024.0 / 1024.0);
     outfile->Printf("    grid-points and weights:                     %7.2lf MB\n",n_grids * sizeof(int)      / 1024.0 / 1024.0);
     outfile->Printf("    AO->SO transformation:                       %7.2lf MB\n",n_transf* sizeof(double)   / 1024.0 / 1024.0);
@@ -519,7 +528,7 @@ void MCPDFTSolver::common_init() {
         // TransformPhiMatrixAOMO(super_tau_a_ao,super_tau_a_);
         // TransformPhiMatrixAOMO(super_tau_b_ao,super_tau_b_);
     }
-    outfile->Printf("Done. <==\n");
+    outfile->Printf(" Done. <==\n");
 
 }
 
@@ -654,20 +663,22 @@ double MCPDFTSolver::compute_energy() {
     }
 
     // build R(r) = 4 * Pi(r) / rho(r)
-    outfile->Printf("    ==> Build the on-top ratio R <==\n ");
-    outfile->Printf("\n");
+    outfile->Printf("    ==> Build the on-top ratio R ...");
     Build_R();
+    outfile->Printf(" Done. <==\n\n");
 
     // translate the alpha and beta densities and their corresponding gradients
     if ( options_.get_str("MCPDFT_TRANSLATION_TYPE") == "REGULAR") {
 
-        outfile->Printf("    ==> Regular translation of densities and/or density gradients <==\n ");
+        outfile->Printf("    ==> Regular translation of densities and/or density gradients ...\n");
         Translate();    
+        outfile->Printf("    ... Done. <==\n\n");
 
     }else {
 
-        outfile->Printf("    ==> Full translation of densities and/or density gradients <==\n ");
+        outfile->Printf("    ==> Full translation of densities and/or density gradients ...\n");
         Fully_Translate();    
+        outfile->Printf("    ... Done. <==\n\n");
 
     }
 
