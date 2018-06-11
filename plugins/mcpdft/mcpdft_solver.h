@@ -45,6 +45,10 @@
 #include "psi4/libfock/points.h"
 #include "psi4/libfock/cubature.h"
 
+#define PSIF_SO_TEI           33
+#define PSIF_SO_ERF_TEI       36
+#define PSIF_SO_ERFC_TEI      37
+#define PSIF_MO_TEI           72
 #define PSIF_DCC_QMO          268
 #define PSIF_V2RDM_CHECKPOINT 269
 #define PSIF_V2RDM_D2AA       270
@@ -108,14 +112,23 @@ class MCPDFTSolver: public Wavefunction{
     /// is gga?
     bool is_gga_;
 
+    /// is df?
+    bool is_df_;
+
     /// is meta?
     bool is_meta_;
+
+    /// available memory
+    long int available_memory_;
 
     /// is unpolarized (restricted)?
     bool is_unpolarized_;
 
     /// number of grid points_
     long int phi_points_;
+
+    /// number of auxilliary basis functions
+    int nQ_;
 
     /// phi matrix
     std::shared_ptr<Matrix> super_phi_;
@@ -204,6 +217,9 @@ class MCPDFTSolver: public Wavefunction{
 
     /// build coulomb/exchange matrix
     std::vector< std::shared_ptr<Matrix> > BuildJK();
+
+    /// build coulomb/exchange super matrix
+    double BuildErfCoulombEnergy();
 
     /// alpha-spin density
     std::shared_ptr<Vector> rho_a_;

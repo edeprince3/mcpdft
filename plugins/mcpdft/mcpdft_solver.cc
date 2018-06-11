@@ -78,6 +78,15 @@
 #include "blas.h"
 #include "blas_mangle.h"
 
+// for reading 2RDM
+#include "psi4/psi4-dec.h"
+#include <psi4/psifiles.h>
+#include <psi4/libiwl/iwl.h>
+#include <psi4/libpsio/psio.hpp>
+#include <psi4/libtrans/integraltransform.h>
+
+#include <psi4/libpsi4util/PsiOutStream.h>
+
 using namespace psi;
 using namespace fnocc;
 
@@ -176,9 +185,6 @@ void MCPDFTSolver::common_init() {
     epsilon_b_= std::shared_ptr<Vector>(new Vector(nirrep_, nmopi_));
     epsilon_b_->copy(reference_wavefunction_->epsilon_b().get());
 
-    // memory is from process::environment
-    memory_ = Process::environment.get_memory();
-
     // set the wavefunction name
     name_ = "DFT";
 
@@ -204,12 +210,7 @@ void MCPDFTSolver::common_init() {
         count += nsopi_[h];
     }
 
-    // obtain phi(r), del phi(r)
-
     // evaluate basis function values on a grid:
-
-    outfile->Printf("\n");
-    outfile->Printf("    ==> Build Phi and Phi' matrices <==\n");
 
     scf::HF* scfwfn = (scf::HF*)reference_wavefunction_.get();
     std::shared_ptr<SuperFunctional> functional = scfwfn->functional();
@@ -248,6 +249,156 @@ void MCPDFTSolver::common_init() {
     is_gga_  = functional->is_gga();
     is_meta_ = functional->is_meta();
     is_unpolarized_ = functional->is_unpolarized();
+
+    /* ==============================================
+       estimating the memory requirement for MCPDFT
+       ============================================== */
+
+    // evaluating the memory requirement for building rho(r), rho'(r), pi(r,r) and pi'(r,r)
+    outfile->Printf("\n");
+    outfile->Printf("    ==> Memory requirements <==\n");
+    outfile->Printf("\n");
+    
+    // memory is from process::environment
+    memory_ = Process::environment.get_memory();
+
+    int available_mem = 0;
+    int n_mem         = 0;
+    int n_phiAO       = 0;
+    int n_grids       = 0;
+    int n_transf      = 0;
+    int n_rdms        = 0;
+    int n_rho         = 0;
+    int n_pi          = 0;
+    int n_R           = 0;
+    int n_transl      = 0;
+    long int n_df     = 0;
+
+    // phiAO, phiAO_x, phiAO_y, phiAO_z 
+    n_phiAO = phi_points_ * nso_;
+    n_mem  =+ n_phiAO;
+    if ( is_gga_ || is_meta_ ) { 
+       n_phiAO   += 3 * phi_points_ * nso_;
+       n_mem += n_phiAO;
+    }
+
+    // required memory for grids x, y, and z and weights w vectors
+    n_grids = 4 * phi_points_;
+    n_mem += n_grids;
+
+    // memory needed for AO->MO transformation
+    n_transf = nirrep_ * phi_points_;                 // phi_points_list vector
+    n_transf += nirrep_ * phi_points_ * nso_;         // super_phi_ matrix
+    n_transf += nso_ * nso_;                          // AO2SO matrix in TransformPhiMatrixAOMO()
+    n_transf += phi_points_ * nso_;                   // temporary matrix called three times in TransformPhiMatrixAOMO()
+    n_mem += n_transf;
+    if ( is_gga_ || is_meta_ ) { 
+    n_transf += 3 * (nirrep_ * phi_points_ * nso_);   // for super_phi_x, _y and _z gradient matrices
+    n_mem += n_transf;
+    }
+
+    // required memory for 1RDM and 2RDM storage
+
+    // std::shared_ptr<PSIO> psio (new PSIO());
+    // psio->open(PSIF_V2RDM_D1A,PSIO_OPEN_OLD);
+    // long int na;
+    // psio->read_entry(PSIF_V2RDM_D1A,"length",(char*)&na,sizeof(long int));
+    // psio->close(PSIF_V2RDM_D1A,1);
+    
+    n_rdms  = 2 * nso_ * nso_;                        // Da_ and Db_ matrices
+    n_rdms += 3 * nso_ * nso_ * nso_ * nso_;          // Daa, Dab, Dbb matrices
+    n_mem  += n_rdms;
+
+    // memory needed for storing rho and rho' matrices
+    n_rho  = 3 * phi_points_;                         // rho_a, rho_b and rho vectors
+    n_mem += n_rho;
+    if ( is_gga_ || is_meta_ ) { 
+    n_rho += 3 * phi_points_;                         // rho_a_x, rho_a_y and rho_a_z gradient vectors
+    n_rho += 3 * phi_points_;                         // rho_b_x, rho_b_y and rho_b_z gradient vectors
+    n_rho += 3 * phi_points_;                         // sigma_aa, sigma_ab and sigma_bb vectors
+    n_mem += n_rho;
+    }
+
+    // memory needed for storing pi vector
+    n_pi   = phi_points_;
+    n_mem += n_pi;
+    if ( is_gga_ || is_meta_ ) { 
+    n_pi  += 3 * phi_points_;                         // pi_x, pi_y and pi_z gradient vectors
+    n_mem += n_pi;
+    }
+ 
+    // memory needed for storing on-top ratio vector
+    n_R    = phi_points_;
+    n_mem += n_R;
+    
+    // memory needed for (full-) translation step
+    n_transl  = 2 * phi_points_;                      // (f)tr_rho_a, (f)tr_rho_b vectors
+    n_mem += n_transl;
+    if ( is_gga_ || is_meta_ ) { 
+    n_transl += 3 * phi_points_;                      // (f)tr_rho_a_x, (f)tr_rho_a_y and (f)tr_rho_a_z gradient vectors
+    n_transl += 3 * phi_points_;                      // (f)tr_rho_b_x, (f)tr_rho_b_y and (f)tr_rho_b_z gradient vectors
+    n_transl += 3 * phi_points_;                      // (f)tr_sigma_aa, (f)tr_sigma_ab and (f)tr_sigma_bb vectors
+    n_mem += n_transl;
+    }
+
+    // memory requirement for density fitting procedure
+    is_df_ = false;
+    if ( options_.get_str("SCF_TYPE") == "DF" || options_.get_str("SCF_TYPE") == "CD" ) {
+        is_df_ = true;
+    }
+
+    if ( is_df_ ) {
+       // storage requirements for df integrals
+       nQ_ = Process::environment.globals["NAUX (SCF)"];
+       if ( options_.get_str("SCF_TYPE") == "DF" ) {
+           
+           std::shared_ptr<BasisSet> primary = reference_wavefunction_->basisset();
+           std::shared_ptr<BasisSet> auxiliary = reference_wavefunction_->get_basisset("DF_BASIS_SCF");
+           nQ_ = auxiliary->nbf();
+           Process::environment.globals["NAUX (SCF)"] = nQ_;
+       }
+       n_df   = (long int)nQ_*(long int)nmo_*((long int)nmo_+1)/2;
+       n_mem += n_df; 
+    }
+    
+    outfile->Printf("    =========================================================\n");
+    outfile->Printf("    memory specified by the user:                %7.2lf MB\n",(double)memory_ / 1024.0 / 1024.0);
+    outfile->Printf("    ---------------------------------------------------------\n");
+    outfile->Printf("    phi & phi' (AO):                             %7.2lf MB\n",n_phiAO * sizeof(double)   / 1024.0 / 1024.0);
+    outfile->Printf("    grid-points and weights:                     %7.2lf MB\n",n_grids * sizeof(int)      / 1024.0 / 1024.0);
+    outfile->Printf("    AO->SO transformation:                       %7.2lf MB\n",n_transf* sizeof(double)   / 1024.0 / 1024.0);
+    outfile->Printf("    1- and 2-RDMs:                               %7.2lf MB\n",n_rdms  * sizeof(double)   / 1024.0 / 1024.0);
+    outfile->Printf("    rho and rho':                                %7.2lf MB\n",n_rho *   sizeof(double)   / 1024.0 / 1024.0);
+    outfile->Printf("    on-top pair density:                         %7.2lf MB\n",n_pi  *   sizeof(double)   / 1024.0 / 1024.0);
+    outfile->Printf("    on-top ratio:                                %7.2lf MB\n",n_R   *   sizeof(double)   / 1024.0 / 1024.0);
+    outfile->Printf("    translation step:                            %7.2lf MB\n",n_transl* sizeof(double)   / 1024.0 / 1024.0);
+    outfile->Printf("    density fitting integrals:                   %7.2lf MB\n",n_df  *   sizeof(long int) / 1024.0 / 1024.0);
+    outfile->Printf("    ---------------------------------------------------------\n");
+    outfile->Printf("    total memory for MCPDFT:                     %7.2lf MB\n",n_mem *   sizeof(double)   / 1024.0 / 1024.0);
+    outfile->Printf("    =========================================================\n");
+    // memory available after allocating all we need for MCPDFT
+    available_memory_ = memory_ - n_mem * 8L;
+    outfile->Printf("    available memeory for building JK object:    %7.2lf MB\n",(double)available_memory_ / 1024.0 / 1024.0);
+
+    outfile->Printf("\n");
+
+    if ( n_mem * 8.0 > (double)memory_ ) {
+        outfile->Printf("\n");
+        outfile->Printf("        Not enough memory!\n");
+        outfile->Printf("\n");
+        if ( !is_df_ ) {
+            outfile->Printf("        Either increase the available memory by %7.2lf mb\n",(8.0 * n_mem - memory_)/1024.0/1024.0);
+            outfile->Printf("        or try scf_type = df or scf_type = cd\n");
+
+        }else {
+            outfile->Printf("        Increase the available memory by %7.2lf mb.\n",(8.0 * n_mem - memory_)/1024.0/1024.0);
+        }
+        outfile->Printf("\n");
+        throw PsiException("Not enough memory",__FILE__,__LINE__);
+    }
+
+    outfile->Printf("\n");
+    outfile->Printf("    ==> Build Phi and Phi' matrices ...");
 
     std::shared_ptr<Matrix> super_phi_ao (new Matrix("SUPER PHI (AO)",phi_points_,nso_));
 
@@ -345,7 +496,7 @@ void MCPDFTSolver::common_init() {
 
         // super_gamma_aa_ = std::shared_ptr<Matrix>(new Matrix("SUPER GAMMA AA",phi_points_list,nsopi_));
         // super_gamma_ab_ = std::shared_ptr<Matrix>(new Matrix("SUPER GAMMA AB",phi_points_list,nsopi_));
-        // super_gamma_bb_ = std::shared_ptr<Matrix>(new Matrix("SUPER GAMMA BB",phi_points_list,nsopi_));\
+        // super_gamma_bb_ = std::shared_ptr<Matrix>(new Matrix("SUPER GAMMA BB",phi_points_list,nsopi_));
 
         // super_tau_a_ = std::shared_ptr<Matrix>(new Matrix("SUPER TAU A",phi_points_list,nsopi_));
         // super_tau_b_ = std::shared_ptr<Matrix>(new Matrix("SUPER TAU B",phi_points_list,nsopi_));
@@ -368,6 +519,8 @@ void MCPDFTSolver::common_init() {
         // TransformPhiMatrixAOMO(super_tau_a_ao,super_tau_a_);
         // TransformPhiMatrixAOMO(super_tau_b_ao,super_tau_b_);
     }
+    outfile->Printf("Done. <==\n");
+
 }
 
 void MCPDFTSolver::BuildPhiMatrixAO(std::shared_ptr<VBase> potential, std::shared_ptr<PointFunctions> points_func,
@@ -432,7 +585,6 @@ void MCPDFTSolver::BuildPhiMatrixAO(std::shared_ptr<VBase> potential, std::share
         }
         phi_points_ += npoints;
     }
-
 }
 
 void MCPDFTSolver::TransformPhiMatrixAOMO(std::shared_ptr<Matrix> phi_in, std::shared_ptr<Matrix> phi_out) {
@@ -620,6 +772,18 @@ double MCPDFTSolver::compute_energy() {
     
     double nuclear_attraction_energy = Da_->vector_dot(Va) 
                                      + Db_->vector_dot(Vb);
+
+    // Erf ERIs
+    // SharedMatrix erf_eri_aa (new Matrix(mints->mo_erf_eri(options_.get_double("MCPDFT_OMEGA"),Ca_,Ca_,Ca_,Ca_)));
+    // SharedMatrix erf_eri_bb (new Matrix(mints->mo_erf_eri(options_.get_double("MCPDFT_OMEGA"),Cb_,Cb_,Cb_,Cb_)));
+    // SharedMatrix erf_eri_ab (new Matrix(mints->mo_erf_eri(options_.get_double("MCPDFT_OMEGA"),Ca_,Cb_,Ca_,Cb_)));
+   
+    // erf_eri_aa->print();
+    // erf_eri_bb->print();
+    // erf_eri_aa->print();
+     
+    // try to calculate the Erf TEIs and write them into PSIO file #36
+    // mints->integrals_erf(options_.get_double("MCPDFT_OMEGA")); 
 
     // coulomb energy should be computed using J object
     std::vector < std::shared_ptr<Matrix> > JK = BuildJK();
@@ -1307,6 +1471,103 @@ void MCPDFTSolver::BuildRhoFast(opdm * D1a, opdm * D1b, int na, int nb) {
     }
 }
 
+double MCPDFTSolver::BuildErfCoulombEnergy() {
+
+    std::shared_ptr<PSIO> psio (new PSIO());
+
+    if ( !psio->exists(PSIF_V2RDM_D2AB) ) throw PsiException("No D2ab on disk",__FILE__,__LINE__);
+    if ( !psio->exists(PSIF_V2RDM_D2BB) ) throw PsiException("No D2ab on disk",__FILE__,__LINE__);
+    if ( !psio->exists(PSIF_V2RDM_D2AA) ) throw PsiException("No D2aa on disk",__FILE__,__LINE__);
+
+    //Ca_->print();
+
+    double * D2aa = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
+    double * D2bb = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
+    double * D2ab = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
+
+    memset((void*)D2aa,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
+    memset((void*)D2bb,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
+    memset((void*)D2ab,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
+
+    psio_address addr_aa = PSIO_ZERO;
+    psio_address addr_bb = PSIO_ZERO;
+    psio_address addr_ab = PSIO_ZERO;
+
+    // ab
+    psio->open(PSIF_V2RDM_D2AB,PSIO_OPEN_OLD);
+
+    long int nab;
+    psio->read_entry(PSIF_V2RDM_D2AB,"length",(char*)&nab,sizeof(long int));
+
+    for (int n = 0; n < nab; n++) {
+        tpdm d2;
+        psio->read(PSIF_V2RDM_D2AB,"D2ab",(char*)&d2,sizeof(tpdm),addr_ab,&addr_ab);
+        int i = d2.i;
+        int j = d2.j;
+        int k = d2.k;
+        int l = d2.l;
+        long int id = i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l;
+        D2ab[id] = d2.val;
+    }
+    psio->close(PSIF_V2RDM_D2AB,1);
+
+    // aa
+    psio->open(PSIF_V2RDM_D2AA,PSIO_OPEN_OLD);
+
+    long int naa;
+    psio->read_entry(PSIF_V2RDM_D2AA,"length",(char*)&naa,sizeof(long int));
+
+    for (int n = 0; n < naa; n++) {
+        tpdm d2;
+        psio->read(PSIF_V2RDM_D2AA,"D2aa",(char*)&d2,sizeof(tpdm),addr_aa,&addr_aa);
+        int i = d2.i;
+        int j = d2.j;
+        int k = d2.k;
+        int l = d2.l;
+        long int id = i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l;
+        D2aa[id] = d2.val;
+    }
+    psio->close(PSIF_V2RDM_D2AA,1);
+
+    // bb
+    psio->open(PSIF_V2RDM_D2BB,PSIO_OPEN_OLD);
+
+    long int nbb;
+    psio->read_entry(PSIF_V2RDM_D2BB,"length",(char*)&nbb,sizeof(long int));
+
+    for (int n = 0; n < nbb; n++) {
+        tpdm d2;
+        psio->read(PSIF_V2RDM_D2BB,"D2bb",(char*)&d2,sizeof(tpdm),addr_bb,&addr_bb);
+        int i = d2.i;
+        int j = d2.j;
+        int k = d2.k;
+        int l = d2.l;
+        long int id = i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l;
+        D2bb[id] = d2.val;
+    }
+    psio->close(PSIF_V2RDM_D2BB,1);
+
+    // check traces:
+    double traa = 0.0;
+    double trbb = 0.0;
+    double trab = 0.0;
+    for (int i = 0; i < nmo_; i++) {
+        for (int j = 0; j < nmo_; j++) {
+            traa += D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
+            trbb += D2bb[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
+            trab += D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
+        }
+    }
+    printf("  tr(d2aa) = %20.12lf\n",traa); fflush(stdout);
+    printf("  tr(d2bb) = %20.12lf\n",trbb); fflush(stdout);
+    printf("  tr(d2ab) = %20.12lf\n",trab); fflush(stdout);
+
+    // Grab the Two-body AO ints object
+    // std::shared_ptr<TwoBodyAOInt> tb(integral->eri());
+
+    // Build two-body SO ints object
+}
+
 std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
 
     // get primary basis:
@@ -1326,8 +1587,9 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
 
         std::shared_ptr<DiskDFJK> jk = (std::shared_ptr<DiskDFJK>)(new DiskDFJK(primary,auxiliary));
         
-        // memory for jk (say, 50% of what is available)
-        jk->set_memory(0.5 * Process::environment.get_memory());
+        // memory for jk (say, 85% of what is available)
+        // jk->set_memory(0.85 * Process::environment.get_memory());
+        jk->set_memory(0.85 * available_memory_);
 
         // integral cutoff
         jk->set_cutoff(options_.get_double("INTS_TOLERANCE"));
@@ -1426,8 +1688,9 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
 
         std::shared_ptr<PKJK> jk = (std::shared_ptr<PKJK>)(new PKJK(primary,options_));
 
-        // memory for jk (say, 50% of what is available)
-        jk->set_memory(0.5 * Process::environment.get_memory());
+        // memory for jk (say, 85% of what is available)
+        //jk->set_memory(0.85 * Process::environment.get_memory());
+        jk->set_memory(0.85 * available_memory_);
 
         // integral cutoff
         jk->set_cutoff(options_.get_double("INTS_TOLERANCE"));
