@@ -374,14 +374,14 @@ void MCPDFTSolver::common_init() {
     outfile->Printf("    ---------------------------------------------------------\n");
     outfile->Printf("    initialization:                              %7.2lf MB\n",n_init  * sizeof(double)   / 1024.0 / 1024.0);
     outfile->Printf("    phi & phi' (AO):                             %7.2lf MB\n",n_phiAO * sizeof(double)   / 1024.0 / 1024.0);
-    outfile->Printf("    grid-points and weights:                     %7.2lf MB\n",n_grids * sizeof(int)      / 1024.0 / 1024.0);
+    outfile->Printf("    grid-points and weights:                     %7.2lf MB\n",n_grids * sizeof(double)   / 1024.0 / 1024.0);
     outfile->Printf("    AO->SO transformation:                       %7.2lf MB\n",n_transf* sizeof(double)   / 1024.0 / 1024.0);
     outfile->Printf("    1- and 2-RDMs:                               %7.2lf MB\n",n_rdms  * sizeof(double)   / 1024.0 / 1024.0);
     outfile->Printf("    rho and rho':                                %7.2lf MB\n",n_rho *   sizeof(double)   / 1024.0 / 1024.0);
     outfile->Printf("    on-top pair density:                         %7.2lf MB\n",n_pi  *   sizeof(double)   / 1024.0 / 1024.0);
     outfile->Printf("    on-top ratio:                                %7.2lf MB\n",n_R   *   sizeof(double)   / 1024.0 / 1024.0);
     outfile->Printf("    translation step:                            %7.2lf MB\n",n_transl* sizeof(double)   / 1024.0 / 1024.0);
-    outfile->Printf("    density fitting integrals:                   %7.2lf MB\n",n_df  *   sizeof(long int) / 1024.0 / 1024.0);
+    outfile->Printf("    density fitting integrals:                   %7.2lf MB\n",n_df  *   sizeof(double)   / 1024.0 / 1024.0);
     outfile->Printf("    ---------------------------------------------------------\n");
     outfile->Printf("    total memory for MCPDFT:                     %7.2lf MB\n",n_mem *   sizeof(double)   / 1024.0 / 1024.0);
     outfile->Printf("    =========================================================\n");
