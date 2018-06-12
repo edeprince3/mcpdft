@@ -97,6 +97,9 @@ class MCPDFTSolver: public Wavefunction{
     /// reference energy
     double reference_energy_;
 
+    /// two-electron part of the reference energy
+    double two_electron_energy_;
+
     /// mp2 correlation energy for double-hybrids
     double mp2_corr_energy_;
 

@@ -284,7 +284,7 @@ void MCPDFTSolver::common_init() {
 
     // phiAO, phiAO_x, phiAO_y, phiAO_z 
     n_phiAO = phi_points_ * nso_;
-    n_mem  =+ n_phiAO;
+    n_mem  += n_phiAO;
     if ( is_gga_ || is_meta_ ) { 
        n_phiAO   += 3 * phi_points_ * nso_;
        n_mem += n_phiAO;
@@ -788,6 +788,8 @@ double MCPDFTSolver::compute_energy() {
     // SharedMatrix erf_eri_aa (new Matrix(mints->mo_erf_eri(options_.get_double("MCPDFT_OMEGA"),Ca_,Ca_,Ca_,Ca_)));
     // SharedMatrix erf_eri_bb (new Matrix(mints->mo_erf_eri(options_.get_double("MCPDFT_OMEGA"),Cb_,Cb_,Cb_,Cb_)));
     // SharedMatrix erf_eri_ab (new Matrix(mints->mo_erf_eri(options_.get_double("MCPDFT_OMEGA"),Ca_,Cb_,Ca_,Cb_)));
+
+    //SharedMatrix erf_eri (new Matrix(mints->mo_erf_eri(options_.get_double("MCPDFT_OMEGA"),Ca_,Cb_,Ca_,Cb_)));
    
     // erf_eri_aa->print();
     // erf_eri_bb->print();
@@ -810,7 +812,7 @@ double MCPDFTSolver::compute_energy() {
     double nuclear_repulsion_energy = molecule_->nuclear_repulsion_energy({0.0,0.0,0.0});
 
     // two-electron energy < Psi|  r12^-1 | Psi >
-    double two_electron_energy = reference_energy_ - nuclear_repulsion_energy - one_electron_energy;
+    two_electron_energy_ = reference_energy_ - nuclear_repulsion_energy - one_electron_energy;
 
     double hartree_ex_energy   = 0.0;
 
@@ -844,13 +846,13 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("        kinetic energy            =         %20.12lf\n",kinetic_energy);
     outfile->Printf("        one-electron energy       =         %20.12lf\n",one_electron_energy);
     if ( (options_.get_str("MCPDFT_METHOD") == "1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") ) {
-       outfile->Printf("        two-electron energy       =         %20.12lf\n",two_electron_energy);
+       outfile->Printf("        two-electron energy       =         %20.12lf\n",two_electron_energy_);
        outfile->Printf("        HF-exchange energy        =         %20.12lf\n",hartree_ex_energy);
        if ( options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") {
           outfile->Printf("        MP2-correlation energy    =         %20.12lf\n",mp2_corr_energy_);
        }
-    }else if( (options_.get_str("MCPDFT_METHOD") == "LRC_1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "LRC_1DH_MCPDFT") ) {
-       outfile->Printf("        two-electron energy       =         %20.12lf\n",two_electron_energy);
+    }else if( (options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") ) {
+       outfile->Printf("        two-electron energy       =         %20.12lf\n",two_electron_energy_);
        outfile->Printf("        HF-exchange energy        =         %20.12lf\n",hartree_ex_energy);
        outfile->Printf("        LRC-exchange enrgy        =         %20.12lf\n",lrc_ex_energy);
        if ( options_.get_str("MCPDFT_METHOD") == "LRC_1DH_MCPDFT") {
@@ -872,7 +874,9 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("        On-top energy =                     %20.12lf\n",mcpdft_xc_energy);
     outfile->Printf("\n");
 
-    double total_energy = nuclear_repulsion_energy + one_electron_energy + lmbd * two_electron_energy + (1.0 - lmbd) * (coulomb_energy + hartree_ex_energy + lrc_ex_energy) + mcpdft_xc_energy;
+    double total_energy = nuclear_repulsion_energy + one_electron_energy + lmbd * two_electron_energy_ + (1.0 - lmbd) * (coulomb_energy + hartree_ex_energy + lrc_ex_energy) + mcpdft_xc_energy;
+
+    double erf_coulomb_energy = BuildErfCoulombEnergy();
     
 
     if( options_.get_str("MCPDFT_METHOD") == "MCPDFT") {
@@ -1484,6 +1488,8 @@ void MCPDFTSolver::BuildRhoFast(opdm * D1a, opdm * D1b, int na, int nb) {
 
 double MCPDFTSolver::BuildErfCoulombEnergy() {
 
+    double erf_coulomb_energy = 0.0;
+
     std::shared_ptr<PSIO> psio (new PSIO());
 
     if ( !psio->exists(PSIF_V2RDM_D2AB) ) throw PsiException("No D2ab on disk",__FILE__,__LINE__);
@@ -1577,6 +1583,29 @@ double MCPDFTSolver::BuildErfCoulombEnergy() {
     // std::shared_ptr<TwoBodyAOInt> tb(integral->eri());
 
     // Build two-body SO ints object
+
+    std::shared_ptr<MintsHelper> mints(new MintsHelper(reference_wavefunction_));
+    SharedMatrix eri (new Matrix(mints->mo_erfc_eri(options_.get_double("MCPDFT_OMEGA"),Ca_,Cb_,Ca_,Cb_)));
+    double ** eri_p = eri->pointer();
+    double e2 = 0.0;
+    for (int i = 0; i < nmo_; i++) {
+        for (int j = 0; j < nmo_; j++) {
+            int ij = i*nmo_+j;
+            for (int k = 0; k < nmo_; k++) {
+                for (int l = 0; l < nmo_; l++) {
+                    int kl = k*nmo_+l;
+                    e2 += 0.5 * eri_p[ij][kl] * D2aa[i*nmo_*nmo_*nmo_+k*nmo_*nmo_+j*nmo_+l];
+                    e2 += 0.5 * eri_p[ij][kl] * D2bb[i*nmo_*nmo_*nmo_+k*nmo_*nmo_+j*nmo_+l];
+                    e2 += eri_p[ij][kl] * D2ab[i*nmo_*nmo_*nmo_+k*nmo_*nmo_+j*nmo_+l];
+                }
+            }
+        }
+    }
+    printf("%20.12lf %20.12lf\n",e2,two_electron_energy_);
+    // (11|22)
+    // (ij|kl) = erf_eri->pointer()[i*nmo_+j][k*nmo_+l]
+
+    return erf_coulomb_energy;
 }
 
 std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
