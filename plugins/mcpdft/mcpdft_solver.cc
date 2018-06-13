@@ -44,6 +44,7 @@
 #include <fstream>
 #include <iostream>
 #include <iomanip>
+#include <string>
 
 #include "psi4/libpsi4util/libpsi4util.h"
 
@@ -889,9 +890,7 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("\n");
 
     double total_energy = nuclear_repulsion_energy + one_electron_energy + lmbd * two_electron_energy_ + (1.0 - lmbd) * (coulomb_energy + hartree_ex_energy + lrc_ex_energy) + mcpdft_xc_energy;
-
-    // double erf_coulomb_energy = BuildErfCoulombEnergy();
-    
+    double range_separated_2e_energy = RangeSeparatedTEI("LR");
 
     if( options_.get_str("MCPDFT_METHOD") == "MCPDFT") {
 
@@ -1500,7 +1499,7 @@ void MCPDFTSolver::BuildRhoFast(opdm * D1a, opdm * D1b, int na, int nb) {
     }
 }
 
-double MCPDFTSolver::BuildErfCoulombEnergy() {
+double MCPDFTSolver::RangeSeparatedTEI(std::string range_separation_type) {
 
     std::shared_ptr<PSIO> psio (new PSIO());
 
@@ -1576,22 +1575,6 @@ double MCPDFTSolver::BuildErfCoulombEnergy() {
     }
     psio->close(PSIF_V2RDM_D2BB,1);
 
-    // check traces:
-    double traa = 0.0;
-    double trbb = 0.0;
-    double trab = 0.0;
-    for (int i = 0; i < nmo_; i++) {
-        for (int j = 0; j < nmo_; j++) {
-            traa += D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
-            trbb += D2bb[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
-            trab += D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
-        }
-    }
-    printf("  tr(d2aa) = %20.12lf\n",traa); fflush(stdout);
-    printf("  tr(d2bb) = %20.12lf\n",trbb); fflush(stdout);
-    printf("  tr(d2ab) = %20.12lf\n",trab); fflush(stdout);
-
-    std::shared_ptr<MintsHelper> mints(new MintsHelper(reference_wavefunction_));
 /*
     // Build two-body SO ints object
     SharedMatrix eri (new Matrix(mints->mo_erfc_eri(options_.get_double("MCPDFT_OMEGA"),Ca_,Cb_,Ca_,Cb_)));
@@ -1615,15 +1598,22 @@ double MCPDFTSolver::BuildErfCoulombEnergy() {
     }
     printf("%20.12lf %20.12lf\n",e2,two_electron_energy_);
 */
+    std::shared_ptr<MintsHelper> mints(new MintsHelper(reference_wavefunction_));
+    if (range_separation_type == "LR") {
+       outfile->Printf("    ==> Transform ERF integrals <==\n");
+       outfile->Printf("\n");
+       // write erf integrals to disk
+       mints->integrals_erf(options_.get_double("MCPDFT_OMEGA"));
+    }else if (range_separation_type == "SR") {
+             outfile->Printf("    ==> Transform ERFC integrals <==\n");
+             outfile->Printf("\n");
+             // write erfc integrals to disk
+             mints->integrals_erfc(options_.get_double("MCPDFT_OMEGA"));
+    }else{
+         throw PsiException("The argument of RangeSeparatedTEI() function should either be \"SR\" or \"LR\"",__FILE__,__LINE__);
+    } 
 
-    // write erfc integrals to disk
-    mints->integrals_erfc(options_.get_double("MCPDFT_OMEGA"));
-    //mints->integrals();
-
-    // transform erfc integrals
-    outfile->Printf("    ==> Transform ERFC integrals <==\n");
-    outfile->Printf("\n");
-    
+    // transform range_separated (erf/erfc) integrals
     double start = omp_get_wtime();
 
     std::vector<std::shared_ptr<MOSpace> > spaces;
@@ -1636,7 +1626,13 @@ double MCPDFTSolver::BuildErfCoulombEnergy() {
     ints->set_dpd_id(0);
     ints->set_keep_iwl_so_ints(true);
     ints->set_keep_dpd_so_ints(true);
-    ints->set_so_tei_file(PSIF_SO_ERFC_TEI);
+    if (range_separation_type == "LR") {
+       ints->set_so_tei_file(PSIF_SO_ERF_TEI);
+    }else if (range_separation_type == "SR") {
+             ints->set_so_tei_file(PSIF_SO_ERFC_TEI);
+    }else{
+         throw PsiException("The argument of RangeSeparatedTEI() function should either be \"SR\" or \"LR\"",__FILE__,__LINE__);
+    } 
 
     ints->initialize();
 
@@ -1649,9 +1645,9 @@ double MCPDFTSolver::BuildErfCoulombEnergy() {
     outfile->Printf("\n");
 
     // read erfc integrals from disk
-    ReadERFCIntegrals();
+    ReadRangeSeparatedIntegrals();
 
-    double erfc_coulomb_energy = 0.0;
+    double range_separated_2e_energy = 0.0;
     for (int i = 0; i < nmo_; i++) {
 
         int hi = symmetry_[i];
@@ -1681,15 +1677,20 @@ double MCPDFTSolver::BuildErfCoulombEnergy() {
                     }
                     double val = erfc_tei_[offset + INDEX(ij,kl)];
 
-                    erfc_coulomb_energy += 0.5 * val * D2aa[i*nmo_*nmo_*nmo_+k*nmo_*nmo_+j*nmo_+l];
-                    erfc_coulomb_energy += 0.5 * val * D2bb[i*nmo_*nmo_*nmo_+k*nmo_*nmo_+j*nmo_+l];
-                    erfc_coulomb_energy +=       val * D2ab[i*nmo_*nmo_*nmo_+k*nmo_*nmo_+j*nmo_+l];
+                    range_separated_2e_energy += 0.5 * val * D2aa[i*nmo_*nmo_*nmo_+k*nmo_*nmo_+j*nmo_+l];
+                    range_separated_2e_energy += 0.5 * val * D2bb[i*nmo_*nmo_*nmo_+k*nmo_*nmo_+j*nmo_+l];
+                    range_separated_2e_energy +=       val * D2ab[i*nmo_*nmo_*nmo_+k*nmo_*nmo_+j*nmo_+l];
                 }
             }
         }
     }
-    printf("  erfc coulomb energy: %20.12lf\n",erfc_coulomb_energy);
-    return erfc_coulomb_energy;
+    // printf("  erfc coulomb energy: %20.12lf %20.12lf\n",erfc_coulomb_energy, two_electron_energy_);
+
+    free(D2aa);
+    free(D2ab);
+    free(D2bb);
+ 
+    return range_separated_2e_energy;
 }
 
 std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {

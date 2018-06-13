@@ -34,6 +34,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<math.h>
+#include<string>
 
 #include "psi4/libmints/wavefunction.h"
 
@@ -48,10 +49,6 @@
 #include "psi4/libfock/points.h"
 #include "psi4/libfock/cubature.h"
 
-#define PSIF_SO_TEI           33
-#define PSIF_SO_ERF_TEI       36
-#define PSIF_SO_ERFC_TEI      37
-#define PSIF_MO_TEI           72
 #define PSIF_DCC_QMO          268
 #define PSIF_V2RDM_CHECKPOINT 269
 #define PSIF_V2RDM_D2AA       270
@@ -112,7 +109,7 @@ class MCPDFTSolver: public Wavefunction{
     void ReadAllIntegrals(iwlbuf *Buf);
 
     /// wrapper to ReadAllIntegrals()
-    void ReadERFCIntegrals();
+    void ReadRangeSeparatedIntegrals();
 
     /// erfc integrals
     double * erfc_tei_;
@@ -241,8 +238,9 @@ class MCPDFTSolver: public Wavefunction{
     /// build coulomb/exchange matrix
     std::vector< std::shared_ptr<Matrix> > BuildJK();
 
-    /// build coulomb/exchange super matrix
-    double BuildErfCoulombEnergy();
+    /// build range-separated matrix
+    /// @ ranage_separation_type can be : SR or LR
+    double RangeSeparatedTEI(std::string range_separation_type);
 
     /// alpha-spin density
     std::shared_ptr<Vector> rho_a_;
