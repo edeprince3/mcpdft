@@ -27,6 +27,13 @@
  * @END LICENSE
  */
 
+#ifdef _OPENMP
+    #include<omp.h>
+#else
+    #define omp_get_wtime() ( (double)clock() / CLOCKS_PER_SEC )
+    #define omp_get_max_threads() 1
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -1570,24 +1577,23 @@ double MCPDFTSolver::BuildErfCoulombEnergy() {
     psio->close(PSIF_V2RDM_D2BB,1);
 
     // check traces:
-    // double traa = 0.0;
-    // double trbb = 0.0;
-    // double trab = 0.0;
-    // for (int i = 0; i < nmo_; i++) {
-    //     for (int j = 0; j < nmo_; j++) {
-    //         traa += D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
-    //         trbb += D2bb[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
-    //         trab += D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
-    //     }
-    // }
-    // printf("  tr(d2aa) = %20.12lf\n",traa); fflush(stdout);
-    // printf("  tr(d2bb) = %20.12lf\n",trbb); fflush(stdout);
-    // printf("  tr(d2ab) = %20.12lf\n",trab); fflush(stdout);
-
-    // Build two-body SO ints object
+    double traa = 0.0;
+    double trbb = 0.0;
+    double trab = 0.0;
+    for (int i = 0; i < nmo_; i++) {
+        for (int j = 0; j < nmo_; j++) {
+            traa += D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
+            trbb += D2bb[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
+            trab += D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
+        }
+    }
+    printf("  tr(d2aa) = %20.12lf\n",traa); fflush(stdout);
+    printf("  tr(d2bb) = %20.12lf\n",trbb); fflush(stdout);
+    printf("  tr(d2ab) = %20.12lf\n",trab); fflush(stdout);
 
     std::shared_ptr<MintsHelper> mints(new MintsHelper(reference_wavefunction_));
-
+/*
+    // Build two-body SO ints object
     SharedMatrix eri (new Matrix(mints->mo_erfc_eri(options_.get_double("MCPDFT_OMEGA"),Ca_,Cb_,Ca_,Cb_)));
     double ** eri_p = eri->pointer();
 
@@ -1607,13 +1613,83 @@ double MCPDFTSolver::BuildErfCoulombEnergy() {
             }
         }
     }
-    printf("two electron integrals %20.12lf %20.12lf\n",e2,two_electron_energy_);
+    printf("%20.12lf %20.12lf\n",e2,two_electron_energy_);
+*/
 
-    free(D2aa);
-    free(D2ab);
-    free(D2bb);
- 
-    return e2;
+    // write erfc integrals to disk
+    mints->integrals_erfc(options_.get_double("MCPDFT_OMEGA"));
+    //mints->integrals();
+
+    // transform erfc integrals
+    outfile->Printf("    ==> Transform ERFC integrals <==\n");
+    outfile->Printf("\n");
+    
+    double start = omp_get_wtime();
+
+    std::vector<std::shared_ptr<MOSpace> > spaces;
+    spaces.push_back(MOSpace::all);
+
+    std::shared_ptr<IntegralTransform> ints(new IntegralTransform(reference_wavefunction_, spaces,
+        IntegralTransform::TransformationType::Restricted, IntegralTransform::OutputType::IWLOnly, 
+        IntegralTransform::MOOrdering::PitzerOrder, IntegralTransform::FrozenOrbitals::None, false));
+
+    ints->set_dpd_id(0);
+    ints->set_keep_iwl_so_ints(true);
+    ints->set_keep_dpd_so_ints(true);
+    ints->set_so_tei_file(PSIF_SO_ERFC_TEI);
+
+    ints->initialize();
+
+    ints->transform_tei(MOSpace::all, MOSpace::all, MOSpace::all, MOSpace::all);
+
+    double end = omp_get_wtime();
+
+    outfile->Printf("\n");
+    outfile->Printf("        Time for integral transformation:  %7.2lf s\n",end-start);
+    outfile->Printf("\n");
+
+    // read erfc integrals from disk
+    ReadERFCIntegrals();
+
+    double erfc_coulomb_energy = 0.0;
+    for (int i = 0; i < nmo_; i++) {
+
+        int hi = symmetry_[i];
+
+        for (int j = 0; j < nmo_; j++) {
+
+            int hj  = symmetry_[j];
+            int hij = hi ^ hj;
+            int ij  = ibas_[hij][i][j];
+
+            for (int k = 0; k < nmo_; k++) {
+
+                int hk = symmetry_[k];
+
+                for (int l = 0; l < nmo_; l++) {
+
+                    int hl  = symmetry_[l];
+                    int hkl = hk ^ hl;
+
+                    if ( hij != hkl ) continue;
+
+                    int kl = ibas_[hkl][k][l];
+
+                    long int offset = 0;
+                    for (int myh = 0; myh < hij; myh++) {
+                        offset += (long int)gems_[myh].size() * ( (long int)gems_[myh].size() + 1 ) / 2;
+                    }
+                    double val = erfc_tei_[offset + INDEX(ij,kl)];
+
+                    erfc_coulomb_energy += 0.5 * val * D2aa[i*nmo_*nmo_*nmo_+k*nmo_*nmo_+j*nmo_+l];
+                    erfc_coulomb_energy += 0.5 * val * D2bb[i*nmo_*nmo_*nmo_+k*nmo_*nmo_+j*nmo_+l];
+                    erfc_coulomb_energy +=       val * D2ab[i*nmo_*nmo_*nmo_+k*nmo_*nmo_+j*nmo_+l];
+                }
+            }
+        }
+    }
+    printf("  erfc coulomb energy: %20.12lf\n",erfc_coulomb_energy);
+    return erfc_coulomb_energy;
 }
 
 std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {

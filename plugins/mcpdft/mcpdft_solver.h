@@ -37,6 +37,9 @@
 
 #include "psi4/libmints/wavefunction.h"
 
+// for reading integrals from disk
+#include <psi4/libiwl/iwl.h>
+
 // for dft
 #include "psi4/libfock/v.h"
 #include "psi4/libfunctional/superfunctional.h"
@@ -94,6 +97,26 @@ class MCPDFTSolver: public Wavefunction{
 
   protected:
 
+    /// orbital symmetry
+    int * symmetry_;
+
+    /// geminals, by symmetry
+    std::vector < std::vector < std::pair<int,int> > > gems_;
+
+    // geminal / orbital maps
+
+    int *** bas_;
+    int *** ibas_;
+
+    // read erfc integrals from disk
+    void ReadAllIntegrals(iwlbuf *Buf);
+
+    /// wrapper to ReadAllIntegrals()
+    void ReadERFCIntegrals();
+
+    /// erfc integrals
+    double * erfc_tei_;
+
     /// reference energy
     double reference_energy_;
 
@@ -102,9 +125,6 @@ class MCPDFTSolver: public Wavefunction{
 
     /// mp2 correlation energy for double-hybrids
     double mp2_corr_energy_;
-
-    /// list of orbital symmetries
-    int * symmetry_;
 
     /// offset for orbitals in each irrep
     int * pitzer_offset_;
