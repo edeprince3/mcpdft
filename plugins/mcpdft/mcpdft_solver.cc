@@ -254,7 +254,6 @@ void MCPDFTSolver::common_init() {
        estimating the memory requirement for MCPDFT
        ============================================== */
 
-    // evaluating the memory requirement for building rho(r), rho'(r), pi(r,r) and pi'(r,r)
     outfile->Printf("\n");
     outfile->Printf("    ==> Memory requirements <==\n");
     outfile->Printf("\n");
@@ -282,7 +281,7 @@ void MCPDFTSolver::common_init() {
     n_init += 2 * nmo_;                                // epsilon_a_ and epsilon_b_ vectors
     n_mem += n_init;
 
-    // phiAO, phiAO_x, phiAO_y, phiAO_z 
+    // phiAO, phiAO_x, phiAO_y, phiAO_z
     n_phiAO = phi_points_ * nso_;
     n_mem  += n_phiAO;
     if ( is_gga_ || is_meta_ ) { 
@@ -301,7 +300,7 @@ void MCPDFTSolver::common_init() {
     n_transf += phi_points_ * nso_;                   // temporary matrix called three times in TransformPhiMatrixAOMO()
     n_mem += n_transf;
     if ( is_gga_ || is_meta_ ) { 
-    n_transf += 3 * (nirrep_ * phi_points_ * nso_);   // for super_phi_x, _y and _z gradient matrices
+    n_transf += 3 * (nirrep_ * phi_points_ * nso_);   // for super_phi_x_, _y_ and _z_ gradient matrices
     n_mem += n_transf;
     }
 
@@ -314,24 +313,24 @@ void MCPDFTSolver::common_init() {
     // psio->close(PSIF_V2RDM_D1A,1);
     
     n_rdms  = 2 * nso_ * nso_;                        // Da_ and Db_ matrices
-    n_rdms += 3 * nso_ * nso_ * nso_ * nso_;          // Daa, Dab, Dbb matrices
+    n_rdms += 3 * nso_ * nso_ * nso_ * nso_;          // Daa, Dab, Dbb matrices (read from disk)
     n_mem  += n_rdms;
 
     // memory needed for storing rho and rho' matrices
-    n_rho  = 3 * phi_points_;                         // rho_a, rho_b and rho vectors
+    n_rho  = 3 * phi_points_;                         // rho_a_, rho_b_ and rho_ vectors
     n_mem += n_rho;
     if ( is_gga_ || is_meta_ ) { 
-    n_rho += 3 * phi_points_;                         // rho_a_x, rho_a_y and rho_a_z gradient vectors
-    n_rho += 3 * phi_points_;                         // rho_b_x, rho_b_y and rho_b_z gradient vectors
-    n_rho += 3 * phi_points_;                         // sigma_aa, sigma_ab and sigma_bb vectors
+    n_rho += 3 * phi_points_;                         // rho_a_x_, rho_a_y_ and rho_a_z_ gradient vectors
+    n_rho += 3 * phi_points_;                         // rho_b_x_, rho_b_y_ and rho_b_z_ gradient vectors
+    n_rho += 3 * phi_points_;                         // sigma_aa_, sigma_ab_ and sigma_bb_ vectors
     n_mem += n_rho;
     }
 
     // memory needed for storing pi vector
-    n_pi   = phi_points_;
+    n_pi   = phi_points_;                             // pi_ vector
     n_mem += n_pi;
     if ( is_gga_ || is_meta_ ) { 
-    n_pi  += 3 * phi_points_;                         // pi_x, pi_y and pi_z gradient vectors
+    n_pi  += 3 * phi_points_;                         // pi_x_, pi_y_ and pi_z_ gradient vectors
     n_mem += n_pi;
     }
  
@@ -340,12 +339,12 @@ void MCPDFTSolver::common_init() {
     n_mem += n_R;
     
     // memory needed for (full-) translation step
-    n_transl  = 2 * phi_points_;                      // (f)tr_rho_a, (f)tr_rho_b vectors
+    n_transl  = 2 * phi_points_;                      // (f)tr_rho_a_, (f)tr_rho_b_ vectors
     n_mem += n_transl;
     if ( is_gga_ || is_meta_ ) { 
-    n_transl += 3 * phi_points_;                      // (f)tr_rho_a_x, (f)tr_rho_a_y and (f)tr_rho_a_z gradient vectors
-    n_transl += 3 * phi_points_;                      // (f)tr_rho_b_x, (f)tr_rho_b_y and (f)tr_rho_b_z gradient vectors
-    n_transl += 3 * phi_points_;                      // (f)tr_sigma_aa, (f)tr_sigma_ab and (f)tr_sigma_bb vectors
+    n_transl += 3 * phi_points_;                      // (f)tr_rho_a_x_, (f)tr_rho_a_y_ and (f)tr_rho_a_z_ gradient vectors
+    n_transl += 3 * phi_points_;                      // (f)tr_rho_b_x_, (f)tr_rho_b_y_ and (f)tr_rho_b_z_ gradient vectors
+    n_transl += 3 * phi_points_;                      // (f)tr_sigma_aa_, (f)tr_sigma_ab_ and (f)tr_sigma_bb_ vectors
     n_mem += n_transl;
     }
 
@@ -385,7 +384,15 @@ void MCPDFTSolver::common_init() {
     outfile->Printf("    ---------------------------------------------------------\n");
     outfile->Printf("    total memory for MCPDFT:                     %7.2lf MB\n",n_mem *   sizeof(double)   / 1024.0 / 1024.0);
     outfile->Printf("    =========================================================\n");
-    // memory available after allocating all we need for MCPDFT
+    // memory available after allocating all we need for MCPDFT (deleting the temporary matrices and vectors)
+    n_mem -= phi_points_ * nso_;                   // phi_ao matrix
+    if ( is_gga_ || is_meta_ ) { 
+       n_mem   -= 3 * phi_points_ * nso_;          // phi_ao_x, _y and _z matrices
+    }
+    n_mem -= nirrep_ * phi_points_;                // phi_points_list vector
+    n_mem -= nso_ * nso_;                          // AO2SO matrix in TransformPhiMatrixAOMO()
+    n_mem -= phi_points_ * nso_;                   // temporary matrix called three times in TransformPhiMatrixAOMO()
+    n_mem -= 3 * nso_ * nso_ * nso_ * nso_;          // Daa, Dab, Dbb matrices (read from disk)
     available_memory_ = memory_ - n_mem * 8L;
     outfile->Printf("    available memeory for building JK object:    %7.2lf MB\n",(double)available_memory_ / 1024.0 / 1024.0);
 
@@ -876,7 +883,7 @@ double MCPDFTSolver::compute_energy() {
 
     double total_energy = nuclear_repulsion_energy + one_electron_energy + lmbd * two_electron_energy_ + (1.0 - lmbd) * (coulomb_energy + hartree_ex_energy + lrc_ex_energy) + mcpdft_xc_energy;
 
-    double erf_coulomb_energy = BuildErfCoulombEnergy();
+    // double erf_coulomb_energy = BuildErfCoulombEnergy();
     
 
     if( options_.get_str("MCPDFT_METHOD") == "MCPDFT") {
@@ -1488,8 +1495,6 @@ void MCPDFTSolver::BuildRhoFast(opdm * D1a, opdm * D1b, int na, int nb) {
 
 double MCPDFTSolver::BuildErfCoulombEnergy() {
 
-    double erf_coulomb_energy = 0.0;
-
     std::shared_ptr<PSIO> psio (new PSIO());
 
     if ( !psio->exists(PSIF_V2RDM_D2AB) ) throw PsiException("No D2ab on disk",__FILE__,__LINE__);
@@ -1565,28 +1570,29 @@ double MCPDFTSolver::BuildErfCoulombEnergy() {
     psio->close(PSIF_V2RDM_D2BB,1);
 
     // check traces:
-    double traa = 0.0;
-    double trbb = 0.0;
-    double trab = 0.0;
-    for (int i = 0; i < nmo_; i++) {
-        for (int j = 0; j < nmo_; j++) {
-            traa += D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
-            trbb += D2bb[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
-            trab += D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
-        }
-    }
-    printf("  tr(d2aa) = %20.12lf\n",traa); fflush(stdout);
-    printf("  tr(d2bb) = %20.12lf\n",trbb); fflush(stdout);
-    printf("  tr(d2ab) = %20.12lf\n",trab); fflush(stdout);
-
-    // Grab the Two-body AO ints object
-    // std::shared_ptr<TwoBodyAOInt> tb(integral->eri());
+    // double traa = 0.0;
+    // double trbb = 0.0;
+    // double trab = 0.0;
+    // for (int i = 0; i < nmo_; i++) {
+    //     for (int j = 0; j < nmo_; j++) {
+    //         traa += D2aa[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
+    //         trbb += D2bb[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
+    //         trab += D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
+    //     }
+    // }
+    // printf("  tr(d2aa) = %20.12lf\n",traa); fflush(stdout);
+    // printf("  tr(d2bb) = %20.12lf\n",trbb); fflush(stdout);
+    // printf("  tr(d2ab) = %20.12lf\n",trab); fflush(stdout);
 
     // Build two-body SO ints object
 
     std::shared_ptr<MintsHelper> mints(new MintsHelper(reference_wavefunction_));
+
     SharedMatrix eri (new Matrix(mints->mo_erfc_eri(options_.get_double("MCPDFT_OMEGA"),Ca_,Cb_,Ca_,Cb_)));
     double ** eri_p = eri->pointer();
+
+    // (11|22)
+    // (ij|kl) = erf_eri->pointer()[i*nmo_+j][k*nmo_+l]
     double e2 = 0.0;
     for (int i = 0; i < nmo_; i++) {
         for (int j = 0; j < nmo_; j++) {
@@ -1601,11 +1607,13 @@ double MCPDFTSolver::BuildErfCoulombEnergy() {
             }
         }
     }
-    printf("%20.12lf %20.12lf\n",e2,two_electron_energy_);
-    // (11|22)
-    // (ij|kl) = erf_eri->pointer()[i*nmo_+j][k*nmo_+l]
+    printf("two electron integrals %20.12lf %20.12lf\n",e2,two_electron_energy_);
 
-    return erf_coulomb_energy;
+    free(D2aa);
+    free(D2ab);
+    free(D2bb);
+ 
+    return e2;
 }
 
 std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
