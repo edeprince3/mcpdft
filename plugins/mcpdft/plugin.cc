@@ -48,7 +48,7 @@ int read_options(std::string name, Options& options)
         /*- The range-separation parameter -*/
         options.add_double("OMEGA_K", 0.40);
         /*- Coupling parameter Lambda for hybrid MCPDFT functionals -*/
-        options.add_double("LAMBDA", 0.00);
+        options.add_double("MCPDFT_LAMBDA", 0.00);
         /*- Reference must be UKS -*/
         options.add_str("REFERENCE", "UKS");
         /*- The amount of information printed to the output file -*/

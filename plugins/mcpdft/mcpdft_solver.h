@@ -120,6 +120,12 @@ class MCPDFTSolver: public Wavefunction{
     /// two-electron part of the reference energy
     double two_electron_energy_;
 
+    /// long-range part of the two-electron reference energy
+    double lr_Vee_energy_;
+
+    /// short-range part of the two-electron reference energy
+    double sr_Vee_energy_;
+
     /// mp2 correlation energy for double-hybrids
     double mp2_corr_energy_;
 
@@ -240,7 +246,7 @@ class MCPDFTSolver: public Wavefunction{
 
     /// build range-separated matrix
     /// @ ranage_separation_type can be : SR or LR
-    double RangeSeparatedTEI(std::string range_separation_type);
+    double RangeSeparatedTEE(std::string range_separation_type);
 
     /// alpha-spin density
     std::shared_ptr<Vector> rho_a_;
