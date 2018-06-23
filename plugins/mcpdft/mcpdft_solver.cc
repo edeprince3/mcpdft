@@ -170,6 +170,21 @@ void MCPDFTSolver::common_init() {
     // total number of molecular orbitals
     nmo_      = reference_wavefunction_->nmo();
 
+    // if (  options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT"
+    //    || options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT" ) {
+
+    //    int nrstdocc = 0;
+    //    int nelec = 0;
+    //    for (int h = 0; h < nirrep_; h++){
+    //        nrstdocc += doccpi_[h];
+    //        nelec += nalphapi_[h];
+    //        nelec += nbetapi_[h];
+    //        printf("docc nelec = %i %i\n",nrstdocc,nelec);
+    //    }
+    //    if (nelec != nrstdocc) throw PsiException("All electrons should be frozen for double-hybrids!\n \
+    //         The reference wave function should be single-determinant.\n",__FILE__,__LINE__);
+    // }
+
     // grab the molecule from the reference wave function
     molecule_ = reference_wavefunction_->molecule();
 
@@ -898,6 +913,8 @@ double MCPDFTSolver::compute_energy() {
          outfile->Printf("        CASSCF energy contribution =        %20.12lf\n",
                         nuclear_repulsion_energy + one_electron_energy + coulomb_energy);
     }
+    outfile->Printf("        Ex                        =         %20.12lf\n",mcpdft_ex);
+    outfile->Printf("        Ec                        =         %20.12lf\n",mcpdft_ec);
     outfile->Printf("        On-top energy =                     %20.12lf\n",mcpdft_ex + mcpdft_ec);
     outfile->Printf("\n");
 
@@ -906,28 +923,21 @@ double MCPDFTSolver::compute_energy() {
     double wf_contribution  = one_electron_energy + mcpdft_lambda * two_electron_energy_;
     double dft_contribution = (1.0 - mcpdft_lambda) * (coulomb_energy + mcpdft_ex) + (1.0 - mcpdft_lambda * mcpdft_lambda) * mcpdft_ec;
     double total_energy = wf_contribution + dft_contribution + nuclear_repulsion_energy;
+    if( options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT" || options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT" ) 
+      total_energy += (mcpdft_lambda * hf_ex_energy) + (mcpdft_lambda * mcpdft_lambda * mp2_corr_energy_);
 
     if( options_.get_str("MCPDFT_METHOD") == "MCPDFT") {
-
-         outfile->Printf("    * MCPDFT total energy =      %20.12lf\n",total_energy);
-    
+      outfile->Printf("    * MCPDFT total energy   =     ");
     }else if( options_.get_str("MCPDFT_METHOD") == "1H_MCPDFT") {
-
-            outfile->Printf("    * 1H-MCPDFT total energy =      %20.12lf\n",total_energy);
-
+            outfile->Printf("    * 1H-MCPDFT total energy      =      ");
     }else if( options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") {
-
-       outfile->Printf("    * 1DH-MCPDFT total energy =      %20.12lf\n",total_energy + mcpdft_lambda * mcpdft_lambda * mp2_corr_energy_);
-
-    }else if( options_.get_str("MCPDFT_METHOD") == "LRC_1H_MCPDFT") {
-
-            outfile->Printf("    * LRC_1H-MCPDFT total energy =      %20.12lf\n",total_energy);
-
-    }else if( options_.get_str("MCPDFT_METHOD") == "LRC_1DH_MCPDFT") {
-
-       outfile->Printf("    * RS1DH-MCPDFT total energy =      %20.12lf\n",total_energy + mcpdft_lambda * mcpdft_lambda * mp2_corr_energy_);
+            outfile->Printf("    * 1DH-MCPDFT total energy     =      ");
+    }else if( options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") {
+            outfile->Printf("    * RS1H-MCPDFT total energy    =      ");
+    }else if( options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") {
+            outfile->Printf("    * RS1DH-MCPDFT total energy   =      ");
     } 
-    outfile->Printf("\n");
+    outfile->Printf("   %20.12lf\n\n",total_energy);
 
     return total_energy;
 }
