@@ -94,6 +94,27 @@ class MCPDFTSolver: public Wavefunction{
 
   protected:
 
+    /// use low-memory algorithm?
+    bool is_low_memory_;
+
+    /// nonzero elements of alpha opdm
+    opdm * opdm_a_;
+
+    /// nonzero elements of beta opdm
+    opdm * opdm_b_;
+
+    /// dft potential object
+    std::shared_ptr<VBase> potential_;
+
+    /// points function
+    std::shared_ptr<PointFunctions> points_func_;
+
+    /// maximum number of functions in a block of the phi matrix
+    int max_functions_;
+
+    /// maximum number of grid points in a block of the phi matrix
+    int max_points_;
+
     /// orbital symmetry
     int * symmetry_;
 
@@ -222,9 +243,11 @@ class MCPDFTSolver: public Wavefunction{
     /// inner product of alpha density gradient with beta density gradient (gamma_ab)
     std::shared_ptr<Vector> sigma_ab_;
 
+    /// get grid coordinates and weights
+    void GetGridInfo();
+
     /// a function to build phi/phi_x/... note: the orbital labels are in the AO basis (no symmetry)
-    void BuildPhiMatrixAO(std::shared_ptr<VBase> potential, std::shared_ptr<PointFunctions> points_func,
-            std::string phi_type, std::shared_ptr<Matrix> myphi);
+    void BuildPhiMatrixAO(std::string phi_type, std::shared_ptr<Matrix> myphi);
 
     /// transform the orbital labels in phi/phi_x/... from the AO to the MO basis
     void TransformPhiMatrixAOMO(std::shared_ptr<Matrix> phi_in, std::shared_ptr<Matrix> phi_out);
@@ -354,13 +377,16 @@ class MCPDFTSolver: public Wavefunction{
     void BuildRho();
 
     /// build spin densities and gradients using only non-zero elements of OPDM
-    void BuildRhoFast(opdm * D1a, opdm * D1b, int na, int nb);
+    void BuildRhoFast(int na, int nb);
 
     /// build on-top pair density
     void BuildPi(double * D2ab);
  
     /// build on-top pair density using only non-zero elements of TPDM
     void BuildPiFast(tpdm * D2ab, int nab);
+
+    /// build on-top pair density using only non-zero elements of TPDM and without storing the full phi matrix
+    void BuildPiLowMemory(tpdm * D2ab, int nab);
  
     /// build gradient of the on-top pair density
     void Build_Grad_Pi();

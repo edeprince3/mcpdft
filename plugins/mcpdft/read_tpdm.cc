@@ -66,49 +66,17 @@ void MCPDFTSolver::ReadTPDM() {
 
     psio->close(PSIF_V2RDM_D2AB,1);
 
-    // check traces:
-    //double trab = 0.0;
-    //for (int i = 0; i < nmo_; i++) {
-    //    for (int j = 0; j < nmo_; j++) {
-    //        trab += D2ab[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+i*nmo_+j];
-    //    }
-    //}
-    //printf("  tr(d2ab) = %20.12lf\n",trab);
-
     // build on-top pair density (already built of REFERENCE_TPDM = V2RDM)
     outfile->Printf("\n");
     outfile->Printf("    ==> Build Pi ...");
-    BuildPiFast(d2,nab);
+    if ( !is_low_memory_ ) {
+        BuildPiFast(d2,nab);
+    }else {
+        BuildPiLowMemory(d2,nab);
+    }
     outfile->Printf(" Done. <==\n");
 
     free(d2);
-
-/*
-    memset((void*)D1a,'\0',nmo_*nmo_*sizeof(double));
-    memset((void*)D1b,'\0',nmo_*nmo_*sizeof(double));
-
-    double tra = 0.0;
-    double trb = 0.0;
-
-    for (int i = 0; i < nmo_; i++) {
-        for (int j = 0; j < nmo_; j++) {
-
-            double duma = 0.0;
-            double dumb = 0.0;
-            for (int k = 0; k < nmo_; k++) {
-                duma += D2ab[i*nmo_*nmo_*nmo_+k*nmo_*nmo_+j*nmo_+k];
-                dumb += D2ab[k*nmo_*nmo_*nmo_+i*nmo_*nmo_+k*nmo_+j];
-            }
-            D1a[i*nmo_+j] = 1.0/nbeta_  * duma;
-            D1b[i*nmo_+j] = 1.0/nalpha_ * dumb;
-
-        }
-
-        tra += D1a[i*nmo_+i];
-        trb += D1b[i*nmo_+i];
-
-    }
-*/
 
 }
 

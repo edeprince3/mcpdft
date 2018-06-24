@@ -57,15 +57,14 @@ void MCPDFTSolver::ReadOPDM() {
     long int na;
     psio->read_entry(PSIF_V2RDM_D1A,"length",(char*)&na,sizeof(long int));
 
-    opdm * opdm_a = (opdm *)malloc(na * sizeof(opdm));
-    psio->read_entry(PSIF_V2RDM_D1A,"D1a",(char*)opdm_a,na * sizeof(opdm));
+    opdm_a_ = (opdm *)malloc(na * sizeof(opdm));
+    psio->read_entry(PSIF_V2RDM_D1A,"D1a",(char*)opdm_a_,na * sizeof(opdm));
     psio->close(PSIF_V2RDM_D1A,1);
 
     for (int n = 0; n < na; n++) {
 
-        int i = opdm_a[n].i;
-        int j = opdm_a[n].j;
-        D1a[i*nmo_+j] = opdm_a[n].val;
+        int i = opdm_a_[n].i;
+        int j = opdm_a_[n].j;
 
         int hi = symmetry_[i];
         int hj = symmetry_[j];
@@ -77,7 +76,7 @@ void MCPDFTSolver::ReadOPDM() {
         int ii = i - pitzer_offset_[hi];
         int jj = j - pitzer_offset_[hi];
 
-        Da_->pointer(hi)[ii][jj] = opdm_a[n].val;
+        Da_->pointer(hi)[ii][jj] = opdm_a_[n].val;
 
     }
 
@@ -88,15 +87,14 @@ void MCPDFTSolver::ReadOPDM() {
     long int nb;
     psio->read_entry(PSIF_V2RDM_D1B,"length",(char*)&nb,sizeof(long int));
 
-    opdm * opdm_b = (opdm *)malloc(nb * sizeof(opdm));
-    psio->read_entry(PSIF_V2RDM_D1B,"D1b",(char*)opdm_b,nb * sizeof(opdm));
+    opdm_b_ = (opdm *)malloc(nb * sizeof(opdm));
+    psio->read_entry(PSIF_V2RDM_D1B,"D1b",(char*)opdm_b_,nb * sizeof(opdm));
     psio->close(PSIF_V2RDM_D1B,1);
 
    for (int n = 0; n < nb; n++) {
 
-        int i = opdm_b[n].i;
-        int j = opdm_b[n].j;
-        D1b[i*nmo_+j] = opdm_b[n].val;
+        int i = opdm_b_[n].i;
+        int j = opdm_b_[n].j;
 
         int hi = symmetry_[i];
         int hj = symmetry_[j];
@@ -108,16 +106,19 @@ void MCPDFTSolver::ReadOPDM() {
         int ii = i - pitzer_offset_[hi];
         int jj = j - pitzer_offset_[hi];
 
-        Db_->pointer(hi)[ii][jj] = opdm_b[n].val;
+        Db_->pointer(hi)[ii][jj] = opdm_b_[n].val;
 
     }
-    outfile->Printf("\n");
-    outfile->Printf("    ==> Build Rho's ...\n");
-    BuildRhoFast(opdm_a,opdm_b,na,nb);
-    outfile->Printf("    ... Done. <==\n\n");
 
-    free(opdm_a);
-    free(opdm_b);
+    if ( !is_low_memory_ ) {
+        outfile->Printf("\n");
+        outfile->Printf("    ==> Build Rho's ...\n");
+        BuildRhoFast(na,nb);
+        outfile->Printf("    ... Done. <==\n\n");
+
+        free(opdm_a_);
+        free(opdm_b_);
+    }
 
 }
 
