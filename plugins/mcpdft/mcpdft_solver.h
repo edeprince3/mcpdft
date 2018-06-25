@@ -460,6 +460,10 @@ class MCPDFTSolver: public Wavefunction{
     double EC_VWN3_RPA(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> ZETA, std::shared_ptr<Vector> RS);
     double EC_VWN3_RPA_III(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B);
     // double EC_VWN3_RPA_III(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> ZETTA);
+
+    /// build EC_PW92_I()
+    double EC_PW92_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B);
+
 };
 
 }} // end of namespaces
