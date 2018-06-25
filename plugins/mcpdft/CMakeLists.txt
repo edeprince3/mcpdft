@@ -34,5 +34,5 @@ project(mcpdft CXX)
 
 find_package(psi4 1.1 REQUIRED)
 
-add_psi4_plugin(mcpdft plugin.cc mcpdft_solver.cc read_opdm.cc read_tpdm.cc Func_HC.cc read_range_separated_integrals.cc)
+add_psi4_plugin(mcpdft plugin.cc mcpdft_solver.cc read_opdm.cc read_tpdm.cc lsda_gga_functionals.cc rs_functionals.cc read_range_separated_integrals.cc)
 

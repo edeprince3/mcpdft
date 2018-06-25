@@ -874,6 +874,8 @@ double MCPDFTSolver::compute_energy() {
             outfile->Printf("    * 1H-MCPDFT total energy      =      ");
     }else if( options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") {
             outfile->Printf("    * 1DH-MCPDFT total energy     =      ");
+    }else if( options_.get_str("MCPDFT_METHOD") == "RS_MCPDFT") {
+            outfile->Printf("    * RS-MCPDFT total energy      =      ");
     }else if( options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") {
             outfile->Printf("    * RS1H-MCPDFT total energy    =      ");
     }else if( options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") {
