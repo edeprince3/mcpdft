@@ -276,13 +276,45 @@ void MCPDFTSolver::common_init() {
     is_meta_ = functional->is_meta();
     is_unpolarized_ = functional->is_unpolarized();
 
+printf("yay!\n\n"); fflush(stdout);
+    std::vector < std::shared_ptr<Matrix> > JK = BuildJK();
+
+printf("yay!\n\n"); fflush(stdout);
+    double caa = Da_->vector_dot(JK[0]);
+    double cab = Da_->vector_dot(JK[1]);
+    double cba = Db_->vector_dot(JK[0]);
+    double cbb = Db_->vector_dot(JK[1]);
+
+    coulomb_energy_ = 0.5 * ( caa + cab + cba + cbb );
+
+    // hf_ex_energy_ = 0.0;
+    // lr_ex_energy_ = 0.0;
+    if ( (options_.get_str("MCPDFT_METHOD") != "MCPDFT") ) {
+
+       // HF exchange energy should be computed using K object
+       double kaa = Da_->vector_dot(JK[2]);
+       double kbb = Db_->vector_dot(JK[3]);
+ 
+       hf_ex_energy_ = -0.5 * (kaa + kbb);
+    
+       if (  (options_.get_str("MCPDFT_METHOD") != "1H_MCPDFT") 
+          && (options_.get_str("MCPDFT_METHOD") != "1DH_MCPDFT") ) {
+
+          // long range (LR) exchange energy calculated using JK object
+          double wkaa = Da_->vector_dot(JK[4]);
+          double wkbb = Db_->vector_dot(JK[5]);
+ 
+          lr_ex_energy_ = -0.5 * (wkaa + wkbb);
+       }
+    }
+    
     /* ==============================================
        estimating the memory requirement for MCPDFT
        ============================================== */
 
-    outfile->Printf("\n");
-    outfile->Printf("    ==> Memory requirements <==\n");
-    outfile->Printf("\n");
+    outfile->Printf("\n"); fflush(stdout);
+    outfile->Printf("    ==> Memory requirements <==\n"); fflush(stdout);
+    outfile->Printf("\n"); fflush(stdout);
     
     // memory is from process::environment
     memory_ = Process::environment.get_memory();
@@ -359,42 +391,42 @@ void MCPDFTSolver::common_init() {
     n_mem += n_transl;
 
     if ( n_mem * 8.0 > (double)memory_ ) {
-        outfile->Printf("\n");
-        outfile->Printf("      <<< Warning >>> \n");
-        outfile->Printf("\n");
-        outfile->Printf("      Not enough memory. Switching to low-memory algorithm.\n");
-        outfile->Printf("      For optimal performance, increase the available memory\n");
-        outfile->Printf("      by at least %7.2lf mb.\n",(8.0 * n_mem - memory_)/1024.0/1024.0);
+        outfile->Printf("\n"); fflush(stdout);
+        outfile->Printf("      <<< Warning >>> \n"); fflush(stdout);
+        outfile->Printf("\n"); fflush(stdout);
+        outfile->Printf("      Not enough memory. Switching to low-memory algorithm.\n"); fflush(stdout);
+        outfile->Printf("      For optimal performance, increase the available memory\n"); fflush(stdout);
+        outfile->Printf("      by at least %7.2lf mb.\n",(8.0 * n_mem - memory_)/1024.0/1024.0); fflush(stdout);
         outfile->Printf("\n");
 
         is_low_memory_ = true;
         n_mem -= n_transf;
         n_mem -= n_phiAO;
         if ( n_mem * 8.0 > (double)memory_ ) {
-            outfile->Printf("\n");
-            outfile->Printf("      Wow.  On second thought, there isn't even enough memory for the low-memory algorithm!\n");
-            outfile->Printf("\n");
-            throw PsiException("Not enough memory.",__FILE__,__LINE__);
+            outfile->Printf("\n"); fflush(stdout);
+            outfile->Printf("      Wow.  On second thought, there isn't even enough memory for the low-memory algorithm!\n"); fflush(stdout);
+            outfile->Printf("\n"); fflush(stdout);
+            throw PsiException("Not enough memory.",__FILE__,__LINE__); fflush(stdout);
         }
     }
 
-    outfile->Printf("    =========================================================\n");
-    outfile->Printf("    memory specified by the user:                %7.2lf MB\n",(double)memory_ / 1024.0 / 1024.0);
-    outfile->Printf("    ---------------------------------------------------------\n");
-    outfile->Printf("    initialization:                              %7.2lf MB\n",n_init  * sizeof(double)   / 1024.0 / 1024.0);
-    outfile->Printf("    grid-points and weights:                     %7.2lf MB\n",n_grids * sizeof(double)   / 1024.0 / 1024.0);
+    outfile->Printf("    =========================================================\n"); fflush(stdout);
+    outfile->Printf("    memory specified by the user:                %7.2lf MB\n",(double)memory_ / 1024.0 / 1024.0); fflush(stdout);
+    outfile->Printf("    ---------------------------------------------------------\n"); fflush(stdout);
+    outfile->Printf("    initialization:                              %7.2lf MB\n",n_init  * sizeof(double)   / 1024.0 / 1024.0); fflush(stdout);
+    outfile->Printf("    grid-points and weights:                     %7.2lf MB\n",n_grids * sizeof(double)   / 1024.0 / 1024.0); fflush(stdout);
     if ( !is_low_memory_ ) {
-        outfile->Printf("    phi & phi' (AO):                             %7.2lf MB\n",n_phiAO * sizeof(double)   / 1024.0 / 1024.0);
-        outfile->Printf("    AO->SO transformation:                       %7.2lf MB\n",n_transf* sizeof(double)   / 1024.0 / 1024.0);
+        outfile->Printf("    phi & phi' (AO):                             %7.2lf MB\n",n_phiAO * sizeof(double)   / 1024.0 / 1024.0); fflush(stdout);
+        outfile->Printf("    AO->SO transformation:                       %7.2lf MB\n",n_transf* sizeof(double)   / 1024.0 / 1024.0); fflush(stdout);
     }
-    outfile->Printf("    rho and rho':                                %7.2lf MB\n",n_rho *    sizeof(double)   / 1024.0 / 1024.0);
-    outfile->Printf("    on-top pair density:                         %7.2lf MB\n",n_pi  *    sizeof(double)   / 1024.0 / 1024.0);
-    outfile->Printf("    on-top ratio:                                %7.2lf MB\n",n_R   *    sizeof(double)   / 1024.0 / 1024.0);
-    outfile->Printf("    translation step:                            %7.2lf MB\n",n_transl * sizeof(double)   / 1024.0 / 1024.0);
-    outfile->Printf("    extra:                                       %7.2lf MB\n",n_extra *  sizeof(double)   / 1024.0 / 1024.0);
-    outfile->Printf("    ---------------------------------------------------------\n");
-    outfile->Printf("    total memory for MCPDFT:                     %7.2lf MB\n",n_mem *    sizeof(double)   / 1024.0 / 1024.0);
-    outfile->Printf("    =========================================================\n");
+    outfile->Printf("    rho and rho':                                %7.2lf MB\n",n_rho *    sizeof(double)   / 1024.0 / 1024.0); fflush(stdout);
+    outfile->Printf("    on-top pair density:                         %7.2lf MB\n",n_pi  *    sizeof(double)   / 1024.0 / 1024.0); fflush(stdout);
+    outfile->Printf("    on-top ratio:                                %7.2lf MB\n",n_R   *    sizeof(double)   / 1024.0 / 1024.0); fflush(stdout);
+    outfile->Printf("    translation step:                            %7.2lf MB\n",n_transl * sizeof(double)   / 1024.0 / 1024.0); fflush(stdout);
+    outfile->Printf("    extra:                                       %7.2lf MB\n",n_extra *  sizeof(double)   / 1024.0 / 1024.0); fflush(stdout);
+    outfile->Printf("    ---------------------------------------------------------\n"); fflush(stdout);
+    outfile->Printf("    total memory for MCPDFT:                     %7.2lf MB\n",n_mem *    sizeof(double)   / 1024.0 / 1024.0); fflush(stdout);
+    outfile->Printf("    =========================================================\n"); fflush(stdout);
 
     // memory available after allocating all we need for MCPDFT (deleting the temporary matrices and vectors)
     n_mem -= nirrep_ * phi_points_;                // phi_points_list vector
@@ -406,9 +438,9 @@ void MCPDFTSolver::common_init() {
 
     available_memory_ = memory_ - n_mem * 8L;
 
-    outfile->Printf("\n");
-    outfile->Printf("    available memeory for building JK object:    %7.2lf MB\n",(double)available_memory_ / 1024.0 / 1024.0);
-    outfile->Printf("\n");
+    outfile->Printf("\n"); fflush(stdout);
+    outfile->Printf("    available memeory for building JK object:    %7.2lf MB\n",(double)available_memory_ / 1024.0 / 1024.0); fflush(stdout);
+    outfile->Printf("\n"); fflush(stdout);
 
     grid_x_      = std::shared_ptr<Vector>(new Vector("GRID X",phi_points_));
     grid_y_      = std::shared_ptr<Vector>(new Vector("GRID Y",phi_points_));
@@ -420,10 +452,10 @@ void MCPDFTSolver::common_init() {
         GetGridInfo();
 
     }else {
-        outfile->Printf("\n");
-        outfile->Printf("    ==> Build Phi and Phi' matrices ...");
+        outfile->Printf("\n"); fflush(stdout);
+        outfile->Printf("    ==> Build Phi and Phi' matrices ..."); fflush(stdout);
 
-        std::shared_ptr<Matrix> super_phi_ao (new Matrix("SUPER PHI (AO)",phi_points_,nso_));
+        std::shared_ptr<Matrix> super_phi_ao (new Matrix("SUPER PHI (AO)",phi_points_,nso_)); fflush(stdout);
 
         std::shared_ptr<Matrix> super_phi_x_ao;
         std::shared_ptr<Matrix> super_phi_y_ao;
@@ -470,7 +502,7 @@ void MCPDFTSolver::common_init() {
             TransformPhiMatrixAOMO(super_phi_z_ao,super_phi_z_);
 
         }
-        outfile->Printf(" Done. <==\n");
+        outfile->Printf(" Done. <==\n"); fflush(stdout);
     }
 
 }
@@ -617,15 +649,15 @@ double MCPDFTSolver::compute_energy() {
         // read 2-RDM
         ReadCITPDM(D2ab,"tpdm_ab.txt");
 
-        // build alpha- and beta-spin densities and gradients (already built for MCPDFT_REFERENCE_TPDM = V2RDM)
-        outfile->Printf("\n");
-        outfile->Printf("    ==> Build Rho <== \n ");
+        // build alpha- and beta-spin densities and gradients (already built for MCPDFT_REFERENCE = V2RDM)
+        outfile->Printf("\n"); fflush(stdout);
+        outfile->Printf("    ==> Build Rho <== \n "); fflush(stdout);
 
         BuildRho();
 
-        // build on-top pair density (already built for MCPDFT_REFERENCE_TPDM = V2RDM)
-        outfile->Printf("\n");
-        outfile->Printf("    ==> Build Pi <==\n");
+        // build on-top pair density (already built for MCPDFT_REFERENCE = V2RDM)
+        outfile->Printf("\n"); fflush(stdout);
+        outfile->Printf("    ==> Build Pi <==\n"); fflush(stdout);
 
         BuildPi(D2ab);
         free(D2ab);
@@ -635,29 +667,29 @@ double MCPDFTSolver::compute_energy() {
     }
 
     // build R(r) = 4 * Pi(r) / rho(r)
-    outfile->Printf("    ==> Build the on-top ratio R ...");
+    outfile->Printf("    ==> Build the on-top ratio R ..."); fflush(stdout);
     Build_R();
-    outfile->Printf(" Done. <==\n\n");
+    outfile->Printf(" Done. <==\n\n"); fflush(stdout);
 
     // translate the alpha and beta densities and their corresponding gradients
     if ( options_.get_str("MCPDFT_TRANSLATION_TYPE") == "REGULAR") {
 
-        outfile->Printf("    ==> Regular translation of densities and/or density gradients ...\n");
+        outfile->Printf("    ==> Regular translation of densities and/or density gradients ...\n"); fflush(stdout);
         Translate();    
-        outfile->Printf("    ... Done. <==\n\n");
+        outfile->Printf("    ... Done. <==\n\n"); fflush(stdout);
 
     }else {
 
-        outfile->Printf("    ==> Full translation of densities and/or density gradients ...\n");
+        outfile->Printf("    ==> Full translation of densities and/or density gradients ...\n"); fflush(stdout);
         Fully_Translate();    
-        outfile->Printf("    ... Done. <==\n\n");
+        outfile->Printf("    ... Done. <==\n\n"); fflush(stdout);
 
     }
 
     // calculate the on-top energy
 
-    outfile->Printf("    ==> Evaluate the on-top energy contribution <==\n");
-    outfile->Printf("\n");
+    outfile->Printf("    ==> Evaluate the on-top energy contribution <==\n");  fflush(stdout);
+    outfile->Printf("\n"); fflush(stdout);
 
     /* ===================================================================================================
        calculate the complement short-range MCPDFT XC functional energy:
@@ -779,15 +811,21 @@ double MCPDFTSolver::compute_energy() {
     
     one_electron_energy  = nuclear_attraction_energy + kinetic_energy;
 
-    // Coulomb energy computed using J object
-    std::vector < std::shared_ptr<Matrix> > JK = BuildJK();
-
-    double caa = Da_->vector_dot(JK[0]);
-    double cab = Da_->vector_dot(JK[1]);
-    double cba = Db_->vector_dot(JK[0]);
-    double cbb = Db_->vector_dot(JK[1]);
-
-    double coulomb_energy = 0.5 * ( caa + cab + cba + cbb );
+//printf("yay!\n\n"); fflush(stdout);
+//    // Coulomb energy computed using J object
+//    // std::vector < std::shared_ptr<Matrix> > JK = BuildJK();
+//
+//printf("yay!\n\n"); fflush(stdout);
+//    double caa = Da_->vector_dot(JK[0]);
+//printf("yay!\n\n"); fflush(stdout);
+//    double cab = Da_->vector_dot(JK[1]);
+//printf("yay!\n\n"); fflush(stdout);
+//    double cba = Db_->vector_dot(JK[0]);
+//printf("yay!\n\n"); fflush(stdout);
+//    double cbb = Db_->vector_dot(JK[1]);
+//printf("yay!\n\n"); fflush(stdout);
+//
+//    double coulomb_energy = 0.5 * ( caa + cab + cba + cbb );
 
     // classical nuclear repulsion energy
     double nuclear_repulsion_energy = molecule_->nuclear_repulsion_energy({0.0,0.0,0.0});
@@ -796,26 +834,26 @@ double MCPDFTSolver::compute_energy() {
     two_electron_energy_ = reference_energy_ - nuclear_repulsion_energy - one_electron_energy;
 
 
-    double hf_ex_energy = 0.0;
-    double lr_ex_energy = 0.0;
-    if ( (options_.get_str("MCPDFT_METHOD") != "MCPDFT") ) {
-
-       // HF exchange energy should be computed using K object
-       double kaa = Da_->vector_dot(JK[2]);
-       double kbb = Db_->vector_dot(JK[3]);
- 
-       hf_ex_energy = -0.5 * (kaa + kbb);
-    
-       if (  (options_.get_str("MCPDFT_METHOD") != "1H_MCPDFT") 
-          && (options_.get_str("MCPDFT_METHOD") != "1DH_MCPDFT") ) {
-
-          // long range (LR) exchange energy calculated using JK object
-          double wkaa = Da_->vector_dot(JK[4]);
-          double wkbb = Db_->vector_dot(JK[5]);
- 
-          lr_ex_energy = -0.5 * (wkaa + wkbb);
-       }
-    }
+//     double hf_ex_energy = 0.0;
+//     double lr_ex_energy = 0.0;
+//     if ( (options_.get_str("MCPDFT_METHOD") != "MCPDFT") ) {
+// 
+//        // HF exchange energy should be computed using K object
+//        double kaa = Da_->vector_dot(JK[2]);
+//        double kbb = Db_->vector_dot(JK[3]);
+//  
+//        hf_ex_energy = -0.5 * (kaa + kbb);
+//     
+//        if (  (options_.get_str("MCPDFT_METHOD") != "1H_MCPDFT") 
+//           && (options_.get_str("MCPDFT_METHOD") != "1DH_MCPDFT") ) {
+// 
+//           // long range (LR) exchange energy calculated using JK object
+//           double wkaa = Da_->vector_dot(JK[4]);
+//           double wkbb = Db_->vector_dot(JK[5]);
+//  
+//           lr_ex_energy = -0.5 * (wkaa + wkbb);
+//        }
+//     }
     // printf("Coulomb_energy    %20.12lf \n", coulomb_energy);
     // printf("hartree_ex_energy %20.12lf \n", hf_ex_energy);
     // printf("lr_ex_energy      %20.12lf \n", lr_ex_energy);
@@ -835,25 +873,25 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("        one-electron energy       =         %20.12lf\n",one_electron_energy);
     if ( (options_.get_str("MCPDFT_METHOD") == "1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") ) {
        outfile->Printf("        two-electron energy       =         %20.12lf\n",two_electron_energy_);
-       outfile->Printf("        HF-exchange energy        =         %20.12lf\n",hf_ex_energy);
+       outfile->Printf("        HF-exchange energy        =         %20.12lf\n",hf_ex_energy_);
        if ( options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") {
           outfile->Printf("        MP2-correlation energy    =         %20.12lf\n",mp2_corr_energy_);
        }
     }else if( (options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") ) {
        outfile->Printf("        two-electron energy       =         %20.12lf\n",two_electron_energy_);
-       outfile->Printf("        HF-exchange energy        =         %20.12lf\n",hf_ex_energy);
-       outfile->Printf("        LR-exchange enrgy        =         %20.12lf\n",lr_ex_energy);
+       outfile->Printf("        HF-exchange energy        =         %20.12lf\n",hf_ex_energy_);
+       outfile->Printf("        LR-exchange enrgy        =         %20.12lf\n",lr_ex_energy_);
        if ( options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") {
           outfile->Printf("        MP2-correlation energy    =         %20.12lf\n",mp2_corr_energy_);
        }
     }
-    outfile->Printf("        classical coulomb energy  =         %20.12lf\n",coulomb_energy);
+    outfile->Printf("        classical coulomb energy  =         %20.12lf\n",coulomb_energy_);
     if ( options_.get_str("MCPDFT_REFERENCE") == "V2RDM") {
        outfile->Printf("        v2RDM-CASSCF energy contribution =  %20.12lf\n",
-                      nuclear_repulsion_energy + one_electron_energy + coulomb_energy);
+                      nuclear_repulsion_energy + one_electron_energy + coulomb_energy_);
     }else{
          outfile->Printf("        CASSCF energy contribution =        %20.12lf\n",
-                        nuclear_repulsion_energy + one_electron_energy + coulomb_energy);
+                        nuclear_repulsion_energy + one_electron_energy + coulomb_energy_);
     }
     outfile->Printf("        Ex                        =         %20.12lf\n",mcpdft_ex);
     outfile->Printf("        Ec                        =         %20.12lf\n",mcpdft_ec);
@@ -863,10 +901,10 @@ double MCPDFTSolver::compute_energy() {
     // double total_energy = nuclear_repulsion_energy + one_electron_energy + lmbd * two_electron_energy_ + (1.0 - lmbd) * (coulomb_energy + hartree_ex_energy + lrc_ex_energy) + mcpdft_xc_energy;
     // double wf_contribution  = one_electron_energy + lr_Vee_energy_ + mcpdft_lambda * sr_Vee_energy_;
     double wf_contribution  = one_electron_energy + mcpdft_lambda * two_electron_energy_;
-    double dft_contribution = (1.0 - mcpdft_lambda) * (coulomb_energy + mcpdft_ex) + (1.0 - mcpdft_lambda * mcpdft_lambda) * mcpdft_ec;
+    double dft_contribution = (1.0 - mcpdft_lambda) * (coulomb_energy_ + mcpdft_ex) + (1.0 - mcpdft_lambda * mcpdft_lambda) * mcpdft_ec;
     double total_energy = wf_contribution + dft_contribution + nuclear_repulsion_energy;
     if( options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT" || options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT" ) 
-      total_energy += (mcpdft_lambda * hf_ex_energy) + (mcpdft_lambda * mcpdft_lambda * mp2_corr_energy_);
+      total_energy += (mcpdft_lambda * hf_ex_energy_) + (mcpdft_lambda * mcpdft_lambda * mp2_corr_energy_);
 
     if( options_.get_str("MCPDFT_METHOD") == "MCPDFT") {
       outfile->Printf("    * MCPDFT total energy   =     ");
@@ -2123,8 +2161,8 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
         std::shared_ptr<DiskDFJK> jk = (std::shared_ptr<DiskDFJK>)(new DiskDFJK(primary,auxiliary));
         
         // memory for jk (say, 85% of what is available)
-        // jk->set_memory(0.85 * Process::environment.get_memory());
-        jk->set_memory(0.85 * available_memory_);
+        jk->set_memory(0.90 * Process::environment.get_memory());
+        // jk->set_memory(0.85 * available_memory_);
 
         // integral cutoff
         jk->set_cutoff(options_.get_double("INTS_TOLERANCE"));
@@ -2139,12 +2177,11 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
            if (  (options_.get_str("MCPDFT_METHOD") != "1H_MCPDFT") 
               && (options_.get_str("MCPDFT_METHOD") != "1DH_MCPDFT") ) {
 
-              scf::HF* scfwfn = (scf::HF*)reference_wavefunction_.get();
-              std::shared_ptr<SuperFunctional> functional = scfwfn->functional();
-
               jk->set_do_K(true);
               jk->set_do_wK(true);
               jk->set_omega(options_.get_double("MCPDFT_OMEGA"));
+              // scf::HF* scfwfn = (scf::HF*)reference_wavefunction_.get();
+              // std::shared_ptr<SuperFunctional> functional = scfwfn->functional();
               // jk->set_omega(functional->x_omega());
               jk->set_do_K(true);
            }
@@ -2178,18 +2215,22 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
         C_left.push_back(myCb);
         C_right.push_back(Cb_);
 
+printf("hey!\n\n"); fflush(stdout);
         // Let jk compute for the given C_left/C_right
 
         jk->compute();
 
+printf("hey!\n\n"); fflush(stdout);
         std::shared_ptr<Matrix> Ja = jk->J()[0];
         std::shared_ptr<Matrix> Jb = jk->J()[1];
+printf("hey!\n\n"); fflush(stdout);
 
         Ja->transform(Ca_);
         Jb->transform(Cb_);
 
         JK.push_back(Ja);
         JK.push_back(Jb);
+printf("hey!\n\n"); fflush(stdout);
 
         if ( (options_.get_str("MCPDFT_METHOD") != "MCPDFT") ) {
 
@@ -2215,7 +2256,7 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
                JK.push_back(wKb);
             }
         }
-
+        jk.reset();
         return JK;
 
     }else if (options_.get_str("MCPDFT_TYPE") == "PK") {
@@ -2227,8 +2268,8 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
         std::shared_ptr<PKJK> jk = (std::shared_ptr<PKJK>)(new PKJK(primary,options_));
 
         // memory for jk (say, 85% of what is available)
-        //jk->set_memory(0.85 * Process::environment.get_memory());
-        jk->set_memory(0.85 * available_memory_);
+        jk->set_memory(0.90 * Process::environment.get_memory());
+        // jk->set_memory(0.85 * available_memory_);
 
         // integral cutoff
         jk->set_cutoff(options_.get_double("INTS_TOLERANCE"));

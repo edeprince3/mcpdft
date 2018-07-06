@@ -31,6 +31,18 @@
 #ifndef MCPDFT_SOLVER_H
 #define MCPDFT_SOLVER_H
 
+#define PSIF_DCC_QMO          268
+#define PSIF_V2RDM_CHECKPOINT 269
+#define PSIF_V2RDM_D2AA       270
+#define PSIF_V2RDM_D2AB       271
+#define PSIF_V2RDM_D2BB       272
+#define PSIF_V2RDM_D3AAA      273
+#define PSIF_V2RDM_D3AAB      274
+#define PSIF_V2RDM_D3BBA      275
+#define PSIF_V2RDM_D3BBB      276
+#define PSIF_V2RDM_D1A        277
+#define PSIF_V2RDM_D1B        278
+
 #include<stdio.h>
 #include<stdlib.h>
 #include<math.h>
@@ -49,17 +61,10 @@
 #include "psi4/libfock/points.h"
 #include "psi4/libfock/cubature.h"
 
-#define PSIF_DCC_QMO          268
-#define PSIF_V2RDM_CHECKPOINT 269
-#define PSIF_V2RDM_D2AA       270
-#define PSIF_V2RDM_D2AB       271
-#define PSIF_V2RDM_D2BB       272
-#define PSIF_V2RDM_D3AAA      273
-#define PSIF_V2RDM_D3AAB      274
-#define PSIF_V2RDM_D3BBA      275
-#define PSIF_V2RDM_D3BBB      276
-#define PSIF_V2RDM_D1A        277
-#define PSIF_V2RDM_D1B        278
+#include "psi4/psi4-dec.h"
+#include <psi4/psifiles.h>
+#include <psi4/libpsio/psio.hpp>
+#include <psi4/libpsi4util/PsiOutStream.h>
 
 namespace psi{ namespace mcpdft{
 
@@ -93,6 +98,12 @@ class MCPDFTSolver: public Wavefunction{
     void PrintTPDM(double* D); 
 
   protected:
+
+///======================
+    double coulomb_energy_;
+    double hf_ex_energy_;
+    double lr_ex_energy_;
+///======================
 
     /// use low-memory algorithm?
     bool is_low_memory_;

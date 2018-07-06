@@ -47,8 +47,10 @@ void MCPDFTSolver::ReadTPDM() {
 
     std::shared_ptr<PSIO> psio (new PSIO());
 
-    if ( !psio->exists(PSIF_V2RDM_D2AB) ) throw PsiException("No D2ab on disk",__FILE__,__LINE__);
+    psio->set_pid ("18332");
 
+    if ( !psio->exists(PSIF_V2RDM_D2AB) ) throw PsiException("No D2ab on disk",__FILE__,__LINE__);
+    
     //Ca_->print();
 
     psio_address addr_ab = PSIO_ZERO;
