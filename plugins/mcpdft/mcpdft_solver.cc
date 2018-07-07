@@ -277,6 +277,77 @@ void MCPDFTSolver::common_init() {
     is_unpolarized_ = functional->is_unpolarized();
 
 printf("yay!\n\n"); fflush(stdout);
+
+    std::shared_ptr<PSIO> psio (new PSIO());
+
+    psio->set_pid("18332");
+
+    if ( !psio->exists(PSIF_V2RDM_D1A) ) throw PsiException("No D1a on disk",__FILE__,__LINE__);
+    if ( !psio->exists(PSIF_V2RDM_D1B) ) throw PsiException("No D1b on disk",__FILE__,__LINE__);
+
+    // D1a
+
+    psio->open(PSIF_V2RDM_D1A,PSIO_OPEN_OLD);
+
+    long int na;
+    psio->read_entry(PSIF_V2RDM_D1A,"length",(char*)&na,sizeof(long int));
+
+    opdm_a_ = (opdm *)malloc(na * sizeof(opdm));
+    psio->read_entry(PSIF_V2RDM_D1A,"D1a",(char*)opdm_a_,na * sizeof(opdm));
+    psio->close(PSIF_V2RDM_D1A,1);
+
+    for (int n = 0; n < na; n++) {
+
+        int i = opdm_a_[n].i;
+        int j = opdm_a_[n].j;
+
+        int hi = symmetry_[i];
+        int hj = symmetry_[j];
+
+        if ( hi != hj ) {
+            throw PsiException("error: something is wrong with the symmetry of the alpha OPDM",__FILE__,__LINE__);
+        }
+
+        int ii = i - pitzer_offset_[hi];
+        int jj = j - pitzer_offset_[hi];
+
+        Da_->pointer(hi)[ii][jj] = opdm_a_[n].val;
+
+    }
+
+    // D1b
+
+    psio->open(PSIF_V2RDM_D1B,PSIO_OPEN_OLD);
+
+    long int nb;
+    psio->read_entry(PSIF_V2RDM_D1B,"length",(char*)&nb,sizeof(long int));
+
+    opdm_b_ = (opdm *)malloc(nb * sizeof(opdm));
+    psio->read_entry(PSIF_V2RDM_D1B,"D1b",(char*)opdm_b_,nb * sizeof(opdm));
+    psio->close(PSIF_V2RDM_D1B,1);
+
+   for (int n = 0; n < nb; n++) {
+
+        int i = opdm_b_[n].i;
+        int j = opdm_b_[n].j;
+
+        int hi = symmetry_[i];
+        int hj = symmetry_[j];
+
+        if ( hi != hj ) {
+            throw PsiException("error: something is wrong with the symmetry of the beta OPDM",__FILE__,__LINE__);
+        }
+
+        int ii = i - pitzer_offset_[hi];
+        int jj = j - pitzer_offset_[hi];
+
+        Db_->pointer(hi)[ii][jj] = opdm_b_[n].val;
+
+    }
+
+    free(opdm_a_);
+    free(opdm_b_);
+
     std::vector < std::shared_ptr<Matrix> > JK = BuildJK();
 
 printf("yay!\n\n"); fflush(stdout);
