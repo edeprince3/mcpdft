@@ -46,7 +46,8 @@ namespace psi{namespace mcpdft{
 void MCPDFTSolver::ReadOPDM() {
 
     std::shared_ptr<PSIO> psio (new PSIO());
- 
+
+    // TODO: should be added back when reading-in the density PSIOH files 
     // psio->set_pid("18332");
 
     if ( !psio->exists(PSIF_V2RDM_D1A) ) throw PsiException("No D1a on disk",__FILE__,__LINE__);

@@ -161,11 +161,6 @@ void MCPDFTSolver::common_init() {
     // number of irreducible representations
     nirrep_   = reference_wavefunction_->nirrep();
 
-    // make sure we are running in c1 symmetry
-    // if ( nirrep_ > 1 ) {
-    //     throw PsiException("plugin mcpdft only works with symmetry c1",__FILE__,__LINE__);
-    // }
-
     // total number of symmetry orbitals
     nso_      = reference_wavefunction_->nso();
 
