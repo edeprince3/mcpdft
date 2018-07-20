@@ -276,81 +276,8 @@ void MCPDFTSolver::common_init() {
     is_meta_ = functional->is_meta();
     is_unpolarized_ = functional->is_unpolarized();
 
-printf("yay!\n\n"); fflush(stdout);
-
-    std::shared_ptr<PSIO> psio (new PSIO());
-
-    psio->set_pid("18332");
-
-    if ( !psio->exists(PSIF_V2RDM_D1A) ) throw PsiException("No D1a on disk",__FILE__,__LINE__);
-    if ( !psio->exists(PSIF_V2RDM_D1B) ) throw PsiException("No D1b on disk",__FILE__,__LINE__);
-
-    // D1a
-
-    psio->open(PSIF_V2RDM_D1A,PSIO_OPEN_OLD);
-
-    long int na;
-    psio->read_entry(PSIF_V2RDM_D1A,"length",(char*)&na,sizeof(long int));
-
-    opdm_a_ = (opdm *)malloc(na * sizeof(opdm));
-    psio->read_entry(PSIF_V2RDM_D1A,"D1a",(char*)opdm_a_,na * sizeof(opdm));
-    psio->close(PSIF_V2RDM_D1A,1);
-
-    for (int n = 0; n < na; n++) {
-
-        int i = opdm_a_[n].i;
-        int j = opdm_a_[n].j;
-
-        int hi = symmetry_[i];
-        int hj = symmetry_[j];
-
-        if ( hi != hj ) {
-            throw PsiException("error: something is wrong with the symmetry of the alpha OPDM",__FILE__,__LINE__);
-        }
-
-        int ii = i - pitzer_offset_[hi];
-        int jj = j - pitzer_offset_[hi];
-
-        Da_->pointer(hi)[ii][jj] = opdm_a_[n].val;
-
-    }
-
-    // D1b
-
-    psio->open(PSIF_V2RDM_D1B,PSIO_OPEN_OLD);
-
-    long int nb;
-    psio->read_entry(PSIF_V2RDM_D1B,"length",(char*)&nb,sizeof(long int));
-
-    opdm_b_ = (opdm *)malloc(nb * sizeof(opdm));
-    psio->read_entry(PSIF_V2RDM_D1B,"D1b",(char*)opdm_b_,nb * sizeof(opdm));
-    psio->close(PSIF_V2RDM_D1B,1);
-
-   for (int n = 0; n < nb; n++) {
-
-        int i = opdm_b_[n].i;
-        int j = opdm_b_[n].j;
-
-        int hi = symmetry_[i];
-        int hj = symmetry_[j];
-
-        if ( hi != hj ) {
-            throw PsiException("error: something is wrong with the symmetry of the beta OPDM",__FILE__,__LINE__);
-        }
-
-        int ii = i - pitzer_offset_[hi];
-        int jj = j - pitzer_offset_[hi];
-
-        Db_->pointer(hi)[ii][jj] = opdm_b_[n].val;
-
-    }
-
-    free(opdm_a_);
-    free(opdm_b_);
-
     std::vector < std::shared_ptr<Matrix> > JK = BuildJK();
 
-printf("yay!\n\n"); fflush(stdout);
     double caa = Da_->vector_dot(JK[0]);
     double cab = Da_->vector_dot(JK[1]);
     double cba = Db_->vector_dot(JK[0]);
@@ -728,7 +655,7 @@ double MCPDFTSolver::compute_energy() {
 
         // build on-top pair density (already built for MCPDFT_REFERENCE = V2RDM)
         outfile->Printf("\n"); fflush(stdout);
-        outfile->Printf("    ==> Build Pi <==\n"); fflush(stdout);
+        outfile->Printf("    ==> Build Pi <==\n\n"); fflush(stdout);
 
         BuildPi(D2ab);
         free(D2ab);
@@ -2214,6 +2141,76 @@ double MCPDFTSolver::RangeSeparatedTEE(std::string range_separation_type) {
 
 std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
 
+    std::shared_ptr<PSIO> psio (new PSIO());
+
+    // psio->set_pid("18332");
+
+    if ( !psio->exists(PSIF_V2RDM_D1A) ) throw PsiException("No D1a on disk",__FILE__,__LINE__);
+    if ( !psio->exists(PSIF_V2RDM_D1B) ) throw PsiException("No D1b on disk",__FILE__,__LINE__);
+
+    // D1a
+
+    psio->open(PSIF_V2RDM_D1A,PSIO_OPEN_OLD);
+
+    long int na;
+    psio->read_entry(PSIF_V2RDM_D1A,"length",(char*)&na,sizeof(long int));
+
+    opdm_a_ = (opdm *)malloc(na * sizeof(opdm));
+    psio->read_entry(PSIF_V2RDM_D1A,"D1a",(char*)opdm_a_,na * sizeof(opdm));
+    psio->close(PSIF_V2RDM_D1A,1);
+
+    for (int n = 0; n < na; n++) {
+
+        int i = opdm_a_[n].i;
+        int j = opdm_a_[n].j;
+
+        int hi = symmetry_[i];
+        int hj = symmetry_[j];
+
+        if ( hi != hj ) {
+            throw PsiException("error: something is wrong with the symmetry of the alpha OPDM",__FILE__,__LINE__);
+        }
+
+        int ii = i - pitzer_offset_[hi];
+        int jj = j - pitzer_offset_[hi];
+
+        Da_->pointer(hi)[ii][jj] = opdm_a_[n].val;
+
+    }
+
+    // D1b
+
+    psio->open(PSIF_V2RDM_D1B,PSIO_OPEN_OLD);
+
+    long int nb;
+    psio->read_entry(PSIF_V2RDM_D1B,"length",(char*)&nb,sizeof(long int));
+
+    opdm_b_ = (opdm *)malloc(nb * sizeof(opdm));
+    psio->read_entry(PSIF_V2RDM_D1B,"D1b",(char*)opdm_b_,nb * sizeof(opdm));
+    psio->close(PSIF_V2RDM_D1B,1);
+
+   for (int n = 0; n < nb; n++) {
+
+        int i = opdm_b_[n].i;
+        int j = opdm_b_[n].j;
+
+        int hi = symmetry_[i];
+        int hj = symmetry_[j];
+
+        if ( hi != hj ) {
+            throw PsiException("error: something is wrong with the symmetry of the beta OPDM",__FILE__,__LINE__);
+        }
+
+        int ii = i - pitzer_offset_[hi];
+        int jj = j - pitzer_offset_[hi];
+
+        Db_->pointer(hi)[ii][jj] = opdm_b_[n].val;
+
+    }
+
+    free(opdm_a_);
+    free(opdm_b_);
+
     // get primary basis:
     std::shared_ptr<BasisSet> primary = reference_wavefunction_->get_basisset("ORBITAL");
 
@@ -2286,22 +2283,18 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
         C_left.push_back(myCb);
         C_right.push_back(Cb_);
 
-printf("hey!\n\n"); fflush(stdout);
         // Let jk compute for the given C_left/C_right
 
         jk->compute();
 
-printf("hey!\n\n"); fflush(stdout);
         std::shared_ptr<Matrix> Ja = jk->J()[0];
         std::shared_ptr<Matrix> Jb = jk->J()[1];
-printf("hey!\n\n"); fflush(stdout);
 
         Ja->transform(Ca_);
         Jb->transform(Cb_);
 
         JK.push_back(Ja);
         JK.push_back(Jb);
-printf("hey!\n\n"); fflush(stdout);
 
         if ( (options_.get_str("MCPDFT_METHOD") != "MCPDFT") ) {
 
