@@ -2503,7 +2503,8 @@ void MCPDFTSolver::Translate(){
         double zeta = 0.0;
         double R = 0.0;
 
-	if ( !(rho < tol) && !(pi < tol) ) {
+	// if ( !(rho < tol) && !(pi < tol) ) {
+	if ( !(rho < tol) ) {
 
            R = R_p[p];
            // R = tanh(R);
@@ -2603,7 +2604,8 @@ void MCPDFTSolver::Translate(){
            double zeta = 0.0;
            double R = 0.0;
 
-           if ( !(rho < tol) && !(pi < tol) ) {
+           // if ( !(rho < tol) && !(pi < tol) ) {
+           if ( !(rho < tol)) {
 
               R = R_p[p];
               // R = tanh(R);
