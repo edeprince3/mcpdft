@@ -320,7 +320,7 @@ double MCPDFTSolver::EX_PBE_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vec
 
     const double delta = 0.06672455060314922;
     const double MU = (1.0/3.0) * delta * M_PI * M_PI;
-    const double KAPPA = 0.804;
+    const double KAPPA = ( (options_.get_str("MCPDFT_FUNCTIONAL") == "REVPBE") ? 1.245 : 0.804 );
 
     double tol = 1.0e-20;
 

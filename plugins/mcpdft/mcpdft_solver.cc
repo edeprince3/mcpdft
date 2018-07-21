@@ -746,7 +746,8 @@ double MCPDFTSolver::compute_energy() {
                       mcpdft_ex = EX_B88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
                       mcpdft_ec = EC_LYP_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
              
-             }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "PBE" ) {
+             }else if (  options_.get_str("MCPDFT_FUNCTIONAL") == "PBE" 
+                      || options_.get_str("MCPDFT_FUNCTIONAL") == "REVPBE" ) {
  
                       mcpdft_ex = EX_PBE_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
                       mcpdft_ec = EC_PBE_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);

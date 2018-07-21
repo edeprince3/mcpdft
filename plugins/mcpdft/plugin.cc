@@ -54,7 +54,7 @@ int read_options(std::string name, Options& options)
         /*- The amount of information printed to the output file -*/
         options.add_int("PRINT", 1);
         /*- MCPDFT functional -*/
-        options.add_str("MCPDFT_FUNCTIONAL", "SVWN", "SVWN PBE BOP BLYP WPBE LRC_WPBE");
+        options.add_str("MCPDFT_FUNCTIONAL", "SVWN", "SVWN PBE REVPBE BOP BLYP WPBE LRC_WPBE");
         /*- type of density and density gradient translation:
         REGULAR = The gradients of on-top density are not considered in the polarization factor zeta
         FULL = The gradients of on-top density is included in the polarization factor zeta       -*/
