@@ -2504,7 +2504,7 @@ void MCPDFTSolver::Translate(){
         double R = 0.0;
 
 	// if ( !(rho < tol) && !(pi < tol) ) {
-	if ( !(rho < tol) ) {
+	if ( !(rho < tol) && !(pi < 0.0) ) {
 
            R = R_p[p];
            // R = tanh(R);
@@ -2605,7 +2605,7 @@ void MCPDFTSolver::Translate(){
            double R = 0.0;
 
            // if ( !(rho < tol) && !(pi < tol) ) {
-           if ( !(rho < tol)) {
+	   if ( !(rho < tol) && !(pi < 0.0) ) {
 
               R = R_p[p];
               // R = tanh(R);
@@ -2688,7 +2688,8 @@ void MCPDFTSolver::Fully_Translate(){
         double zeta = 0.0;
         double R = 0.0;
 
-	if ( !(rho < tol) && !(pi < tol) ) {
+	// if ( !(rho < tol) && !(pi < tol) ) {
+	if ( !(rho < tol) && !(pi < 0.0) ) {
 
            R = R_p[p];
            // R = tanh(R);
@@ -2781,7 +2782,8 @@ void MCPDFTSolver::Fully_Translate(){
            double zeta = 0.0;
            double R = 0.0;
  
-           if ( !(rho < tol) && !(pi < tol) ) {
+           // if ( !(rho < tol) && !(pi < tol) ) {
+	   if ( !(rho < tol) && !(pi < 0.0) ) {
            
                R = R_p[p];
                // R = tanh(R);
