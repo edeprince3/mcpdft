@@ -398,6 +398,10 @@ class MCPDFTSolver: public Wavefunction{
 
     /// build on-top pair density using only non-zero elements of TPDM and without storing the full phi matrix
     void BuildPiLowMemory(tpdm * D2ab, int nab);
+
+    /// build exchange-correlation hole nxc(r,r') for some r
+    void BuildExchangeCorrelationHole(int p, tpdm * D2ab, int nab, tpdm * D2aa, int naa, tpdm * D2bb, int nbb);
+
  
     /// build gradient of the on-top pair density
     void Build_Grad_Pi();

@@ -274,9 +274,9 @@ void MCPDFTSolver::common_init() {
     std::vector < std::shared_ptr<Matrix> > JK = BuildJK();
 
     double caa = Da_->vector_dot(JK[0]);
-    double cab = Da_->vector_dot(JK[1]);
+    double cab = 0.0;//Da_->vector_dot(JK[1]);
     double cba = Db_->vector_dot(JK[0]);
-    double cbb = Db_->vector_dot(JK[1]);
+    double cbb = 0.0;//Db_->vector_dot(JK[1]);
 
     coulomb_energy_ = 0.5 * ( caa + cab + cba + cbb );
 
@@ -1456,6 +1456,102 @@ void MCPDFTSolver::BuildPiLowMemory(tpdm * D2ab, int nab) {
     free(opdm_b_);
 }
 
+void MCPDFTSolver::BuildExchangeCorrelationHole(int p, tpdm * D2ab, int nab, tpdm * D2aa, int naa, tpdm * D2bb, int nbb) {
+
+    double integral = 0.0;
+    double * rho_p = rho_->pointer();
+    double * w_p   = grid_w_->pointer();
+    for (int q = 0; q < phi_points_; q++) {
+
+        // pi(r,r') = D(mu,nu; lambda,sigma) * phi(r,mu) * phi(r',nu) * phi(r,lambda) * phi(r',sigma)
+        double pi = 0.0;
+        for (int n = 0; n < nab; n++) {
+
+            int i = D2ab[n].i;
+            int j = D2ab[n].j;
+            int k = D2ab[n].k;
+            int l = D2ab[n].l;
+
+            int hi = symmetry_[i];
+            int hj = symmetry_[j];
+            int hk = symmetry_[k];
+            int hl = symmetry_[l];
+
+            int ii = i - pitzer_offset_[hi];
+            int jj = j - pitzer_offset_[hj];
+            int kk = k - pitzer_offset_[hk];
+            int ll = l - pitzer_offset_[hl];
+
+            pi += super_phi_->pointer(hi)[p][ii] * 
+                  super_phi_->pointer(hj)[q][jj] * 
+                  super_phi_->pointer(hk)[p][kk] * 
+                  super_phi_->pointer(hl)[q][ll] * D2ab[n].val * 0.5;
+
+            pi += super_phi_->pointer(hi)[q][ii] * 
+                  super_phi_->pointer(hj)[p][jj] * 
+                  super_phi_->pointer(hk)[q][kk] * 
+                  super_phi_->pointer(hl)[p][ll] * D2ab[n].val * 0.5;
+
+        }
+        for (int n = 0; n < naa; n++) {
+
+            int i = D2aa[n].i;
+            int j = D2aa[n].j;
+            int k = D2aa[n].k;
+            int l = D2aa[n].l;
+
+            int hi = symmetry_[i];
+            int hj = symmetry_[j];
+            int hk = symmetry_[k];
+            int hl = symmetry_[l];
+
+            int ii = i - pitzer_offset_[hi];
+            int jj = j - pitzer_offset_[hj];
+            int kk = k - pitzer_offset_[hk];
+            int ll = l - pitzer_offset_[hl];
+
+            pi += super_phi_->pointer(hi)[p][ii] * 
+                  super_phi_->pointer(hj)[q][jj] * 
+                  super_phi_->pointer(hk)[p][kk] * 
+                  super_phi_->pointer(hl)[q][ll] * D2aa[n].val * 0.5;
+
+        }
+        for (int n = 0; n < nbb; n++) {
+
+            int i = D2bb[n].i;
+            int j = D2bb[n].j;
+            int k = D2bb[n].k;
+            int l = D2bb[n].l;
+
+            int hi = symmetry_[i];
+            int hj = symmetry_[j];
+            int hk = symmetry_[k];
+            int hl = symmetry_[l];
+
+            int ii = i - pitzer_offset_[hi];
+            int jj = j - pitzer_offset_[hj];
+            int kk = k - pitzer_offset_[hk];
+            int ll = l - pitzer_offset_[hl];
+
+            pi += super_phi_->pointer(hi)[p][ii] * 
+                  super_phi_->pointer(hj)[q][jj] * 
+                  super_phi_->pointer(hk)[p][kk] * 
+                  super_phi_->pointer(hl)[q][ll] * D2bb[n].val * 0.5;
+
+        }
+        double nxc = (2.0 * pi - rho_p[p] * rho_p[q]) / rho_p[p];
+        //if ( fabs(grid_x_->pointer()[q] < 1e-6 ) ) {
+        //printf("%20.12lf %20.12lf %20.12lf %20.12lf\n",grid_x_->pointer()[q],grid_y_->pointer()[q],grid_z_->pointer()[q],nxc);
+        //}
+
+        integral += nxc * w_p[q];
+
+    }
+    printf("%20.12lf\n",integral);
+    exit(0);
+
+}
+
 void MCPDFTSolver::BuildPiFast(tpdm * D2ab, int nab) {
 
     pi_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
@@ -2265,32 +2361,36 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
         C_left.clear();
         C_right.clear();
 
+std::shared_ptr<Matrix> D (new Matrix(Da_));
+D->add(Db_);
+
+
         // alpha first 
         myCa->zero();
-        myCa->gemm('t','n',1.0,Da_,Ca_,0.0);
+        myCa->gemm('t','n',1.0,D,Ca_,0.0);
         myCa->transpose_this();
         C_left.push_back(myCa);
         C_right.push_back(Ca_);
 
         // beta second 
-        myCb->zero();
-        myCb->gemm('t','n',1.0,Db_,Cb_,0.0);
-        myCb->transpose_this();
-        C_left.push_back(myCb);
-        C_right.push_back(Cb_);
+        //myCb->zero();
+        //myCb->gemm('t','n',1.0,Db_,Cb_,0.0);
+        //myCb->transpose_this();
+        //C_left.push_back(myCb);
+        //C_right.push_back(Cb_);
 
         // Let jk compute for the given C_left/C_right
 
         jk->compute();
 
         std::shared_ptr<Matrix> Ja = jk->J()[0];
-        std::shared_ptr<Matrix> Jb = jk->J()[1];
+        //std::shared_ptr<Matrix> Jb = jk->J()[1];
 
         Ja->transform(Ca_);
-        Jb->transform(Cb_);
+        //Jb->transform(Cb_);
 
         JK.push_back(Ja);
-        JK.push_back(Jb);
+        //JK.push_back(Jb);
 
         if ( (options_.get_str("MCPDFT_METHOD") != "MCPDFT") ) {
 

@@ -30,6 +30,7 @@
 #include <psi4/libiwl/iwl.h>
 #include <psi4/libpsio/psio.hpp>
 #include <psi4/libtrans/integraltransform.h>
+#include <psi4/libmints/vector.h>
 
 #include <psi4/libpsi4util/PsiOutStream.h>
 
@@ -78,6 +79,39 @@ void MCPDFTSolver::ReadTPDM() {
         BuildPiLowMemory(d2,nab);
     }
     outfile->Printf(" Done. <==\n");
+
+/*
+    // aa
+    psio->open(PSIF_V2RDM_D2AA,PSIO_OPEN_OLD);
+    long int naa;
+    psio->read_entry(PSIF_V2RDM_D2AA,"length",(char*)&naa,sizeof(long int));
+    tpdm * d2aa = (tpdm *)malloc(naa * sizeof(tpdm));
+    memset((void*)d2aa,'\0',naa * sizeof(tpdm));
+    psio->read_entry(PSIF_V2RDM_D2AA,"D2aa",(char*)d2aa,naa * sizeof(tpdm));
+    psio->close(PSIF_V2RDM_D2AA,1);
+
+    // bb
+    psio->open(PSIF_V2RDM_D2BB,PSIO_OPEN_OLD);
+    long int nbb;
+    psio->read_entry(PSIF_V2RDM_D2BB,"length",(char*)&nbb,sizeof(long int));
+    tpdm * d2bb = (tpdm *)malloc(nbb * sizeof(tpdm));
+    memset((void*)d2bb,'\0',nbb * sizeof(tpdm));
+    psio->read_entry(PSIF_V2RDM_D2BB,"D2bb",(char*)d2bb,nbb * sizeof(tpdm));
+    psio->close(PSIF_V2RDM_D2BB,1);
+
+    int myp = 0;
+    double * x_p = grid_x_->pointer();
+    double * y_p = grid_y_->pointer();
+    double * z_p = grid_z_->pointer();
+    for (int p = 0; p < phi_points_; p++) {
+        if ( fabs(x_p[p] - 0.0) > 1e-6 ) continue;
+        if ( fabs(y_p[p] - 0.0) > 1e-6 ) continue;
+        if ( fabs(z_p[p] - 0.0) > 1e-6 ) continue;
+        myp = p;
+    }
+ 
+    BuildExchangeCorrelationHole(myp,d2,nab,d2aa,naa,d2bb,nbb);
+*/
 
     free(d2);
 
