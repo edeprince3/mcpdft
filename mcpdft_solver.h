@@ -92,10 +92,6 @@ class MCPDFTSolver: public Wavefunction{
     double compute_energy();
     virtual bool same_a_b_orbs() const { return same_a_b_orbs_; }
     virtual bool same_a_b_dens() const { return same_a_b_dens_; }
-    void ReadCIOPDM(double* D, const char* fileName); 
-    void ReadCITPDM(double* D, const char* fileName); 
-    void PrintOPDM(double* D); 
-    void PrintTPDM(double* D); 
 
   protected:
 
@@ -262,6 +258,9 @@ class MCPDFTSolver: public Wavefunction{
 
     /// transform the orbital labels in phi/phi_x/... from the AO to the MO basis
     void TransformPhiMatrixAOMO(std::shared_ptr<Matrix> phi_in, std::shared_ptr<Matrix> phi_out);
+
+    /// print 2-RDM
+    void PrintTPDM(double* D);
 
     /// read v2RDM 2-RDM from disk
     void ReadTPDM();
