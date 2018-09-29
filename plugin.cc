@@ -46,7 +46,7 @@ int read_options(std::string name, Options& options)
         /*- MCPDFT type -*/
         options.add_str("MCPDFT_METHOD", "MCPDFT", "MCPDFT 1H_MCPDFT 1DH_MCPDFT RS_MCPDFT RS1H_MCPDFT RS1DH_MCPDFT");
         /*- The range-separation parameter -*/
-        options.add_double("OMEGA_K", 0.40);
+        options.add_double("MCPDFT_OMEGA", 0.0);
         /*- Coupling parameter Lambda for hybrid MCPDFT functionals -*/
         options.add_double("MCPDFT_LAMBDA", 0.00);
         /*- Reference must be UKS -*/
@@ -61,8 +61,8 @@ int read_options(std::string name, Options& options)
         options.add_str("MCPDFT_TRANSLATION_TYPE", "REGULAR", "REGULAR FULL");
         /*- JK object type can be DF or PK -*/
         options.add_str("MCPDFT_TYPE", "DF", "DF PK");
-        /*- reference TPDM -*/
-        options.add_str("MCPDFT_REFERENCE_TPDM", "V2RDM", "V2RDM CI");
+        /*- reference type -*/
+        options.add_str("MCPDFT_REFERENCE", "V2RDM", "V2RDM CI");
     }
 
     return true;
