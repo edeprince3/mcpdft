@@ -621,21 +621,22 @@ double MCPDFTSolver::compute_energy() {
 
     // read 1- and 2-RDM from disk and build rho(r), rho'(r), pi(r), and pi'(r)
 
-    if ( options_.get_str("MCPDFT_REFERENCE_TPDM") == "V2RDM" ) {
+    if ( options_.get_str("MCPDFT_REFERENCE") == "V2RDM" ) {
 
         ReadOPDM();
         ReadTPDM();
 
-    }else if ( options_.get_str("MCPDFT_REFERENCE_TPDM") == "CI" ) {
-
-        // read 1-RDM
-        ReadCIOPDM(Da_,"opdm_a.txt");
-        ReadCIOPDM(Db_,"opdm_b.txt");
+    }else if ( options_.get_str("MCPDFT_REFERENCE") == "CI" ) {
 
         if ( nirrep_ > 1 ) {
             throw PsiException("error, MCPDFT_REFERENCE = CI only works with symmetry c1",__FILE__,__LINE__);
         }
 
+        // read 1-RDM
+        ReadCIOPDM(Da_,"opdm_a.txt");
+        ReadCIOPDM(Db_,"opdm_b.txt");
+
+        // allocate memory 2-RDM
         double * D2ab = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
         memset((void*)D2ab,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
 
@@ -656,7 +657,7 @@ double MCPDFTSolver::compute_energy() {
         free(D2ab);
 
     }else {
-        throw PsiException("invalid MCPDFT_REFERENCE_TPDM type",__FILE__,__LINE__);
+        throw PsiException("invalid MCPDFT_REFERENCE type",__FILE__,__LINE__);
     }
 
     // build R(r) = 4 * Pi(r) / rho(r)
@@ -2114,7 +2115,6 @@ double MCPDFTSolver::RangeSeparatedTEE(std::string range_separation_type) {
     psio->close(PSIF_V2RDM_D2BB,1);
 
 /*
-    // Build two-body SO ints object
     SharedMatrix eri (new Matrix(mints->mo_erfc_eri(options_.get_double("MCPDFT_OMEGA"),Ca_,Cb_,Ca_,Cb_)));
     double ** eri_p = eri->pointer();
 
@@ -2134,7 +2134,6 @@ double MCPDFTSolver::RangeSeparatedTEE(std::string range_separation_type) {
             }
         }
     }
-    printf("%20.12lf %20.12lf\n",e2,two_electron_energy_);
 */
     std::shared_ptr<MintsHelper> mints(new MintsHelper(reference_wavefunction_));
     if (range_separation_type == "LR") {
@@ -2151,6 +2150,7 @@ double MCPDFTSolver::RangeSeparatedTEE(std::string range_separation_type) {
          throw PsiException("The argument of RangeSeparatedTEI() function should either be \"SR\" or \"LR\"",__FILE__,__LINE__);
     } 
 
+    
     // transform range_separated (erf/erfc) integrals
     double start = omp_get_wtime();
 
@@ -2902,9 +2902,9 @@ void MCPDFTSolver::Fully_Translate(){
                   tr_rho_a_zp[p] = (1.0 + zeta) * (rho_z/2.0) + (R * rho_z) / (2.0*zeta) - pi_zp[p] / (rho*zeta);
                   tr_rho_b_zp[p] = (1.0 - zeta) * (rho_z/2.0) - (R * rho_z) / (2.0*zeta) + pi_zp[p] / (rho*zeta);
 
-          }else if( !(R < R0) && !(R > R1) ) {
-       
-                  zeta = A * pow(DelR, 5.0) + B * pow(DelR, 4.0) + C * pow(DelR, 3.0);
+               }else if( !(R < R0) && !(R > R1) ) {
+           
+                       zeta = A * pow(DelR, 5.0) + B * pow(DelR, 4.0) + C * pow(DelR, 3.0);
 
                        tr_rho_a_xp[p] = (1.0 + zeta) * (rho_x/2.0) 
                                        + (A * pow(DelR, 4.0)) * ( (10.0 * pi_xp[p] / rho) - (5.0 * R * rho_x) )
@@ -2949,8 +2949,7 @@ void MCPDFTSolver::Fully_Translate(){
                        tr_rho_b_zp[p] = (1.0 - zeta) * (rho_z/2.0);
                }
            
-           ftr_rho_a_yp[p] = 0.0;
-           ftr_rho_b_yp[p] = 0.0;
+           }else{
            
                tr_rho_a_xp[p] = 0.0;
                tr_rho_b_xp[p] = 0.0;
@@ -2967,129 +2966,11 @@ void MCPDFTSolver::Fully_Translate(){
            tr_sigma_abp[p] = (tr_rho_a_xp[p] * tr_rho_b_xp[p]) + (tr_rho_a_yp[p] * tr_rho_b_yp[p]) + (tr_rho_a_zp[p] * tr_rho_b_zp[p]);  
            tr_sigma_bbp[p] = (tr_rho_b_xp[p] * tr_rho_b_xp[p]) + (tr_rho_b_yp[p] * tr_rho_b_yp[p]) + (tr_rho_b_zp[p] * tr_rho_b_zp[p]);  
 
-void MCPDFTSolver::ReadCITPDM(double* D, const char* fileName) {
-    
-    std::ifstream dataIn;
-    
-    dataIn.open(fileName);
-    
-    if (!dataIn)
-       std::cout << "Error opening file.\n";
-    else { 
-         for (int i = 0; i < nmo_; i++)
-             for (int j = 0; j < nmo_; j++)
-                 for (int k = 0; k < nmo_; k++)
-                     for (int l = 0; l < nmo_; l++) {
+        }
 
-                         dataIn >> D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l];
-                         if (D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] < 1e-20)
-                             D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] = 0.0;
-                     }
-    dataIn.close(); 
     }
-}
 
-void MCPDFTSolver::PrintTPDM(double* D) {
-    
-   for (int i = 0; i < nmo_; i++)
-       for (int j = 0; j < nmo_; j++)
-           for (int k = 0; k < nmo_; k++)
-               for (int l = 0; l < nmo_; l++)
-                   printf("%20.15lf\t", D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l]);
-                         
-   
-   printf("\n\n");
 }
-
-void MCPDFTSolver::ReadCIOPDM(double* D, const char* fileName) {
-    
-    std::ifstream dataIn;
-    
-    dataIn.open(fileName);
-    
-    if (!dataIn)
-       std::cout << "Error opening file.\n";
-    else { 
-         for (int i = 0; i < nmo_; i++)
-             for (int j = 0; j < nmo_; j++) {
-                 
-                 dataIn >> D[i*nmo_+j];
-                 if (D[i*nmo_+j] < 1.e-20)
-                     D[i*nmo_+j] = 0.0;
-             }        
-    dataIn.close(); 
-    }
-}
-
-// void MCPDFTSolver::ReadTPDM(double* D, const char* fileName) {
-//     
-//     double tol = 1.0e-20;
-// 
-//     std::ifstream dataIn;
-//     
-//     dataIn.open(fileName);
-//     
-//     if (!dataIn)
-//        std::cout << "Error opening file.\n";
-//     else { 
-//          for (int i = 0; i < nmo_; i++)
-//              for (int j = 0; j < nmo_; j++)
-//                  for (int k = 0; k < nmo_; k++)
-//                      for (int l = 0; l < nmo_; l++) {
-// 
-//                          dataIn >> D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l];
-//                          if (D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] < tol)
-//                              D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l] = 0.0;
-//                      }
-//     dataIn.close(); 
-//     }
-// }
-// 
-// void MCPDFTSolver::PrintTPDM(double* D) {
-//     
-//    for (int i = 0; i < nmo_; i++)
-//        for (int j = 0; j < nmo_; j++)
-//            for (int k = 0; k < nmo_; k++)
-//                for (int l = 0; l < nmo_; l++)
-//                    outfile->Printf("%20.15lf\t", D[i*nmo_*nmo_*nmo_+j*nmo_*nmo_+k*nmo_+l]);
-//                          
-//    
-//    printf("\n\n");
-// }
-// 
-// void MCPDFTSolver::ReadOPDM(double* D, const char* fileName) {
-//    
-//     double tol = 1.0e-20;
-//   
-//     std::ifstream dataIn;
-//     
-//     dataIn.open(fileName);
-//     
-//     if (!dataIn)
-//        std::cout << "Error opening file.\n";
-//     else { 
-//          for (int i = 0; i < nmo_; i++)
-//              for (int j = 0; j < nmo_; j++) {
-//                  
-//                  dataIn >> D[i*nmo_+j];
-//                  if (D[i*nmo_+j] < tol)
-//                      D[i*nmo_+j] = 0.0;
-//              }        
-//     dataIn.close(); 
-//     }
-// }
-// 
-// void MCPDFTSolver::PrintOPDM(double* D) {
-//     
-//    for (int i = 0; i < nmo_; i++)
-//        for (int j = 0; j < nmo_; j++)
-//            printf("%20.15lf\t", D[i*nmo_+j]);
-//                      
-//    
-//    printf("\n\n");
-// }
 
 }} // end of namespaces
-
-
 
