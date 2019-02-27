@@ -9,7 +9,7 @@ A plugin to Psi4
 
 ## OVERVIEW
 
-MCPDFT provides an efficient way of recovering both static and dynamical correlation effects with reasonable cost. It becomes most useful in strongly-correlated systems where the number of active electrons and orbitals in the active space is large. In principle, the multi-configurational reference 1-electron and 2-electron reduced-density matrices can be provided by any methods that is able to calculate them. Translated and fully-translated versions of Slater and Vosko-Wilk-Nusair random-phase approximation expression III (SVWN3), Perdew-Burke-Ernzerhof (PBE), revised PBE (revPBE) and Becke and Lee-Yang-Parr (BLYP) functionals are available at the moment. However, this list is rapidly expanding. The global-, double- and range-separated hybrids multi-configurational on-top pair density functionals are also available. However, this part of the project also is under the ongoing developement.
+MCPDFT provides an efficient way of recovering both static and dynamical correlation effects with reasonable cost. It becomes most useful in strongly-correlated systems where the number of active electrons and orbitals in the active space is large. In principle, the multi-configurational reference 1-electron (1-RDMs) and 2-electron (2-RDMS) reduced-density matrices can be provided by any method which is able to calculate them. Both translated and fully-translated versions of Slater and Vosko-Wilk-Nusair random-phase approximation expression III (SVWN3), Perdew-Burke-Ernzerhof (PBE), revised PBE (revPBE), Becke88 exchange and one-parameter correlation functional (BOP) and Becke and Lee-Yang-Parr (BLYP) on-top pair-density exchange-correlation functionals are available at the moment. In addition, the global-, double- and range-separated hybrids multi-configurational on-top pair density functionals such as wPBE and LRC-wPBE have also been implemented. However, this part of the project also is under the ongoing developement.
 
 
 ## INSTALLATION
@@ -31,9 +31,34 @@ To run the Psi4 plugin MCPDFT:
 * **MCPDFT_METHOD** (string):
 
     The type of the multi-configurational on-top pair-density functional theory adopted for the calculation.
-    The legitimate values include MCPDFT 1H_MCPDFT 1DH_MCPDFT RS_MCPDFT RS1H_MCPDFT RS1DH_MCPDFT. The default
+    The legitimate values include MCPDFT, 1H_MCPDFT, 1DH_MCPDFT, RS_MCPDFT, RS1H_MCPDFT, RS1DH_MCPDFT. The default
     value is MCPDFT.
 
+* **MCPDFT_REFERENCE** (string):
+
+    The type of reference 1- and 2-RDMs provided for MPCDFT calculations. The allowed values are V2RDM and CI. The
+    default is v2RDM.
+
+* **MCPDFT_TYPE** (string):
+
+    The algorithm used for the MCPDFT computation. The valid options are DF and PK. Default is DF.    
+
+* **MCPDFT_FUNCTIONAL** (string):
+
+    The on-top pair-density exchange-correlation functionals used for MCPDFT. The valid options are SVWN, PBE, REVPBE
+    BOP, BLYP, WPBE, LRC_WPBE. The default value is SVWN.
+
+* **MCPDFT_TRANSLATION** (string):
+
+    The density transformation scheme for MCPDFT. The valid options are REGULAR and FULL. The default is REGULAR.
+
+* **MCPDFT_OMEGA** (double):
+
+    The range-separation parameter. The default value is 0.0.
+
+* **MCPDFT_LAMBDA** (double):
+
+    The global-hybrid coupling parameter for hybrid functionals. The default value is 0.0.
 
 ## REFERENCES
 
