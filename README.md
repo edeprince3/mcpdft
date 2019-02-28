@@ -36,7 +36,7 @@ To run the Psi4 plugin MCPDFT:
 
 * **MCPDFT_REFERENCE** (string):
 
-    The type of reference 1- and 2-RDMs provided for MPCDFT calculations. The allowed values are V2RDM and CI. The
+    The type of reference 1- and 2-RDMs provided for MCPDFT calculations. The allowed values are V2RDM and CI. The
     default is v2RDM.
 
 * **MCPDFT_TYPE** (string):
