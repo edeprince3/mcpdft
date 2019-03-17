@@ -273,6 +273,11 @@ class MCPDFTSolver: public Wavefunction{
 
     /// read CI 1-RDM from disk
     void ReadCIOPDM(std::shared_ptr<Matrix> D, const char* fileName); 
+ 
+    /// Print function writing .wfn file for AIMPAC and its corresponding packages
+    void WriteQTAIM(std::shared_ptr<Matrix> C,
+                    std::shared_ptr<Vector> E,
+                    const char* fileName); 
 
     /// build coulomb/exchange matrix
     std::vector< std::shared_ptr<Matrix> > BuildJK();

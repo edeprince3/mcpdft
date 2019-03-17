@@ -31,15 +31,25 @@
 #include <psi4/libpsio/psio.hpp>
 #include <psi4/libtrans/integraltransform.h>
 #include <psi4/libmints/matrix.h>
+#include "psi4/libmints/vector.h"
 #include <psi4/libpsi4util/PsiOutStream.h>
+
+#include "psi4/libmints/wavefunction.h"
+#include "psi4/libmints/mintshelper.h"
+#include "psi4/libmints/basisset.h"
+#include "psi4/libmints/molecule.h"
+#include "psi4/lib3index/dftensor.h"
+#include "psi4/libqt/qt.h"
 
 #include <fstream>
 #include <iostream>
 #include <iomanip>
+#include <stdio.h>
 
 #include "mcpdft_solver.h"
 
 using namespace psi;
+using namespace std;
 
 namespace psi{namespace mcpdft{
 
@@ -143,6 +153,40 @@ void MCPDFTSolver::ReadCIOPDM(std::shared_ptr<Matrix> D, const char* fileName) {
         }
         dataIn.close();
     }
+}
+
+
+void MCPDFTSolver::WriteQTAIM(std::shared_ptr<Matrix> C,
+                              std::shared_ptr<Vector> E,
+                              const char* fileName) {
+
+    FILE * outfile;
+    outfile = fopen(fileName,"w");
+
+    /* ==============================================================
+     * Note: Coefficients of basis fxns in each MO belong to a column 
+     * of the C matrix. Each column of C matrix therefore should be 
+     * arranged in a row of five coefficients in the wfn file as 
+     * shown below. 
+     * ============================================================== */
+    int nRows = 5;
+    
+    
+    double ** Cp = C->pointer();
+    double *  Ep = E->pointer();
+    for (int i = 1; i < nmo_+1; i++) {
+        fprintf(outfile,"MO    %d                    OCC NO =     %15.8lf  ",i,Ep[i]);
+        fprintf(outfile,"ORB. ENERGY =    %15.8lf\n",0.0);
+        fflush(stdout);
+
+        for (int j = 1; j < nmo_+1; j++) {
+            fprintf(outfile,"%15.8le ",Cp[j-1][i-1]);
+
+            if(j % nRows == 0 )
+              fprintf(outfile,"\n");
+        }
+    }
+    fclose(outfile);
 }
 
 }} //end namespaces

@@ -63,6 +63,8 @@ int read_options(std::string name, Options& options)
         options.add_str("MCPDFT_TYPE", "DF", "DF PK");
         /*- reference type -*/
         options.add_str("MCPDFT_REFERENCE", "V2RDM", "V2RDM CI");
+        /*- print QTAIM .wfn file? -*/
+        options.add_bool("WRITE_QTAIM_WFN",false);
     }
 
     return true;

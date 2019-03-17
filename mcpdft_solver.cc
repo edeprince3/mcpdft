@@ -685,6 +685,9 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("    ==> Evaluate the on-top energy contribution <==\n");
     outfile->Printf("\n");
 
+    if ( options_.get_bool("WRITE_QTAIM_WFN") )
+       WriteQTAIM(Ca_,epsilon_a_,"aimpac.txt");
+       
     /* ===================================================================================================
        calculate the complement short-range MCPDFT XC functional energy:
        E = min(Psi->N) { <Psi| T + Wee_LR(w) + lambda * Wee_SR(w) + Vne |Psi> + E_HXC_(w,lambda)[rho,pi] }
