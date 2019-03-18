@@ -122,9 +122,16 @@ void MCPDFTSolver::common_init() {
     if (  options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT"
        || options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT"  
        || options_.get_str("MCPDFT_METHOD") == "LS1DH_MCPDFT" ) {
-       
+
        // calculating mp2 energy for double-hybrids
        mp2_corr_energy_ = Process::environment.globals["MP2 CORRELATION ENERGY"];
+
+       // WArning message about the reference WFN for Double-Hybrid methods
+       outfile->Printf("    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+       outfile->Printf("    ! Caution: For double-hybrid PDFT methods, the reference  !\n"); 
+       outfile->Printf("    ! wavefunction should be a single Slater determinant.     !\n"); 
+       outfile->Printf("    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+
     }
     
     shallow_copy(reference_wavefunction_);
@@ -926,7 +933,7 @@ double MCPDFTSolver::compute_energy() {
       total_energy += (mcpdft_lambda * hf_ex_energy_) + (mcpdft_lambda * mcpdft_lambda * mp2_corr_energy_);
     if( options_.get_str("MCPDFT_METHOD") == "LS1DH_MCPDFT" ) {
       total_energy  = wf_contribution + nuclear_repulsion_energy;
-      total_ebergy += (mcpdft_lambda * hf_ex_energy_) + (1.0 - mcpdft_lambda) * (coulomb_energy_ + mcpdft_ex);
+      total_energy += (mcpdft_lambda * hf_ex_energy_) + (1.0 - mcpdft_lambda) * (coulomb_energy_ + mcpdft_ex);
       total_energy += (1.0 - mcpdft_lambda * mcpdft_lambda * mcpdft_lambda) * mcpdft_ec;
       total_energy += mcpdft_lambda * mcpdft_lambda * mcpdft_lambda * mp2_corr_energy_;
     }

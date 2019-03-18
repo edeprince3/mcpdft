@@ -31,7 +31,7 @@ To run the Psi4 plugin MCPDFT:
 * **MCPDFT_METHOD** (string):
 
     The type of the multi-configurational on-top pair-density functional theory adopted for the calculation.
-    The legitimate values include MCPDFT, 1H_MCPDFT, 1DH_MCPDFT, RS_MCPDFT, RS1H_MCPDFT, RS1DH_MCPDFT. The default
+    The legitimate values include MCPDFT, 1H_MCPDFT, 1DH_MCPDFT, RS_MCPDFT, RS1H_MCPDFT, RS1DH_MCPDFT, and LS1DH_MCPDFT. The default
     value is MCPDFT.
 
 * **MCPDFT_REFERENCE** (string):
@@ -59,6 +59,10 @@ To run the Psi4 plugin MCPDFT:
 * **MCPDFT_LAMBDA** (double):
 
     The global-hybrid coupling parameter for hybrid functionals. The default value is 0.0.
+
+* **WRITE_QTAIM_WFN** (bool):
+
+    Writes the QTAIM .wfn file (AimPack and its successors). The default is false.
 
 ## REFERENCES
 
