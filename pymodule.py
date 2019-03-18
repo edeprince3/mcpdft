@@ -51,7 +51,8 @@ def run_mcpdft(name, **kwargs):
 
     psi4.core.set_variable("V2RDM TOTAL ENERGY",v2rdm_wfn.energy())
    
-    if (psi4.core.get_option('MCPDFT', 'MCPDFT_METHOD') == '1DH_MCPDFT'): 
+    if ( (psi4.core.get_option('MCPDFT', 'MCPDFT_METHOD') == '1DH_MCPDFT')
+    or (psi4.core.get_option('MCPDFT', 'MCPDFT_METHOD') == 'LS1DH_MCPDFT') ): 
         proc.run_dfmp2('mp2',**kwargs)
     
     func = psi4.core.get_option('MCPDFT','MCPDFT_FUNCTIONAL')

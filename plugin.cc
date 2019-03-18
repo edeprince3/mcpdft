@@ -44,7 +44,7 @@ int read_options(std::string name, Options& options)
 {
     if (name == "MCPDFT"|| options.read_globals()) {
         /*- MCPDFT type -*/
-        options.add_str("MCPDFT_METHOD", "MCPDFT", "MCPDFT 1H_MCPDFT 1DH_MCPDFT RS_MCPDFT RS1H_MCPDFT RS1DH_MCPDFT");
+        options.add_str("MCPDFT_METHOD", "MCPDFT", "MCPDFT 1H_MCPDFT 1DH_MCPDFT RS_MCPDFT RS1H_MCPDFT RS1DH_MCPDFT LS1DH_MCPDFT");
         /*- The range-separation parameter -*/
         options.add_double("MCPDFT_OMEGA", 0.0);
         /*- Coupling parameter Lambda for hybrid MCPDFT functionals -*/
