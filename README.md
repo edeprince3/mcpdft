@@ -62,7 +62,7 @@ To run the Psi4 plugin MCPDFT:
 
 * **WRITE_QTAIM_WFN** (bool):
 
-    Writes the QTAIM .wfn file (AimPack and its successors). The default is false.
+    Writes the QTAIM .wfn file (AIMPAC and its successors). The default is false.
 
 ## REFERENCES
 
