@@ -100,6 +100,11 @@ class MCPDFTSolver: public Wavefunction{
     double hf_ex_energy_;
     double lr_ex_energy_;
 ///======================
+    /// alpha occupation-number vector
+    std::shared_ptr<Vector> occupation_a_;
+
+    /// beta occupation-number vector
+    std::shared_ptr<Vector> occupation_b_;
 
     /// use low-memory algorithm?
     bool is_low_memory_;
@@ -275,10 +280,14 @@ class MCPDFTSolver: public Wavefunction{
     void ReadCIOPDM(std::shared_ptr<Matrix> D, const char* fileName); 
  
     /// Print function writing .wfn file for AIMPAC and its corresponding packages
-    void WriteQTAIM(std::shared_ptr<Matrix> C,
-                    std::shared_ptr<Vector> E,
-                    const char* fileName); 
-
+    void WriteQTAIM(std::shared_ptr<Matrix> Ca,
+                    std::shared_ptr<Matrix> Cb,
+                    std::shared_ptr<Vector> Ea,
+                    std::shared_ptr<Vector> Eb,
+                    std::shared_ptr<Vector> Na,
+                    std::shared_ptr<Vector> Nb,
+                    const char* fileName);
+    
     /// build coulomb/exchange matrix
     std::vector< std::shared_ptr<Matrix> > BuildJK();
 

@@ -64,6 +64,11 @@ def run_mcpdft(name, **kwargs):
         ref_wfn.Ca().nph[irrep][:,:] = v2rdm_wfn.Ca().nph[irrep][:,:]
         ref_wfn.Cb().nph[irrep][:,:] = v2rdm_wfn.Cb().nph[irrep][:,:]
 
+    # push v2rdm-casscf energies onto reference
+    for irrep in range (0,v2rdm_wfn.epsilon_a().nirrep()): 
+        ref_wfn.epsilon_a().nph[irrep][:] = v2rdm_wfn.epsilon_a().nph[irrep][:]
+        ref_wfn.epsilon_b().nph[irrep][:] = v2rdm_wfn.epsilon_b().nph[irrep][:]
+
     # Call the Psi4 plugin
     # Please note that setting the reference wavefunction in this way is ONLY for plugins
     mcpdft_wfn = psi4.core.plugin('mcpdft.so', ref_wfn)

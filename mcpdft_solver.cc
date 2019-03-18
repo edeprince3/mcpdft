@@ -206,6 +206,20 @@ void MCPDFTSolver::common_init() {
     epsilon_b_= std::shared_ptr<Vector>(new Vector(nirrep_, nmopi_));
     epsilon_b_->copy(reference_wavefunction_->epsilon_b().get());
 
+    // orbital energies
+    occupation_a_= std::shared_ptr<Vector>(new Vector(nirrep_, nmopi_));
+    occupation_b_= std::shared_ptr<Vector>(new Vector(nirrep_, nmopi_));
+
+    for (int h = 0; h < nirrep_; h++) {
+            for (int i = 0; i < nalphapi_[h]; i++) {
+                    occupation_a_->set(h, i, 1.0);
+            }
+            for (int i = 0; i < nbetapi_[h]; i++) {
+                    occupation_b_->set(h, i, 1.0);
+            }
+    }
+
+    occupation_a_->print();
     // set the wavefunction name
     name_ = "DFT";
 
@@ -686,7 +700,7 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("\n");
 
     if ( options_.get_bool("WRITE_QTAIM_WFN") )
-       WriteQTAIM(Ca_,epsilon_a_,"aimpac.txt");
+       WriteQTAIM(Ca_,Cb_,epsilon_a_,epsilon_b_,occupation_a_,occupation_b_,"aimpac.txt");
        
     /* ===================================================================================================
        calculate the complement short-range MCPDFT XC functional energy:
