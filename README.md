@@ -1,5 +1,5 @@
 <p align="center">
-<img src="logo.png" style='height: 50%; width: 60%; object-fit: contain'/> 
+<img src="logo.png" style='height: 30%; width: 50%; object-fit: contain'/> 
 <br>
 <a href="https://opensource.org/licenses/GPL-2.0"><img src="https://img.shields.io/github/license/edeprince3/v2rdm_casscf.svg" /></a>
 <!-- <img src="logo.png" alt="RDM-inoles" align="middle"> -->
