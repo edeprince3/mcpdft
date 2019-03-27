@@ -16,11 +16,11 @@ As the core part of RDM-INOLES, the multiconfigurational pair-density functional
 In summary, RDM-INOLES:
 
 * can provide an interface with any (multiconfigurational) method that is able to provide 1-electron and 2-electron RDMs.
-* hosts the variational 2-RDM driven complete active-space self-consistent field (v2RDM-CASSCF) as the reference method by default
+* hosts the variational 2-RDM driven complete active-space self-consistent field (v2RDM-CASSCF) as the reference method [2] by default
 * can generate a .wfn file for further analysis of the wavefunction based on the quantum theory of atoms in molecules (QTAIMs)
 * uses the reference total density and on-top pair-density (OTPD) functions as the input to build the so-called OTPD exchange-correlation (XC) functionals [1]
-* features a double-hybrid MCPDFT method that is based on the linearly-scaled one-parameter double-hybrid (LS1DH) of Toulouse et al. described in Ref [2] 
-* will include E. Valeev's universal perturbative explicitly correlated basis-set incompleteness correction [3]
+* features a double-hybrid MCPDFT method that is based on the linearly-scaled one-parameter double-hybrid (LS1DH) of Toulouse et al. described in Ref [3] 
+* will include E. Valeev's universal perturbative explicitly correlated basis-set incompleteness correction [4]
 * will provide and support both scaled and unscaled densities in MCPDFT
 
 ## INSTALLATION
@@ -78,5 +78,9 @@ To run the Psi4 plugin MCPDFT:
 ## REFERENCES
 
 [1] M. Mostafanejad and A. E. DePrince III, J. Chem. Theory Comput. 15, 290-302 (2019). "Combining Pair-Density Functional Theory and Variational Two-Electron Reduced-Density Matrix Methods"
-[2] M. Torheyden and E. F. Valeev J. Chem. Phys. 131, 171103 (2009). "Universal perturbative explicitly correlatedbasis set incompleteness correction"
+
+[2] J. Fosso-Tande, T.-S. Nguyen, G. Gidofalvi, and A. E. DePrince III, J. Chem. Theory Comput., 12, 2260-2271 (2016). "Large-scale variational two-electron reduced-density-matrix-driven complete active space self-consistent field methods."
+
 [3] J. Toulouse, K. Sharkas, E. Bremond and C. Adamo J. Chem. Phys. 135, 101102 (2011). "Rationale for a new class of double-hybrid approximations in density-functional theory"
+
+[4] M. Torheyden and E. F. Valeev J. Chem. Phys. 131, 171103 (2009). "Universal perturbative explicitly correlatedbasis set incompleteness correction"
