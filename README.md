@@ -4,7 +4,8 @@
 <br>
 <br>
 <br>
-<img src="logo.png" alt="RDM-inoles" align="middle"> 
+<img src="logo.png" style='height: 70%; width: 70%; object-fit: contain'/> 
+<!-- <img src="logo.png" alt="RDM-inoles" align="middle"> -->
 </p>
 
 # Multi-configurational Pair-density Functional Theory (MCPDFT)
