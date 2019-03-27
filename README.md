@@ -2,6 +2,9 @@
 <br>
 <a href="https://opensource.org/licenses/GPL-2.0"><img src="https://img.shields.io/github/license/edeprince3/v2rdm_casscf.svg" /></a>
 <br>
+<br>
+<br>
+<img src="logo.png" alt="RDM-inoles" align="middle"> 
 </p>
 
 # Multi-configurational Pair-density Functional Theory (MCPDFT)
