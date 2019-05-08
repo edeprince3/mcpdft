@@ -385,6 +385,9 @@ class MCPDFTSolver: public Wavefunction{
     /// tau kinetic energy of beta electrons
     std::shared_ptr<Vector> tau_b_;
 
+    /// Weizsacker kinetic energy 
+    std::shared_ptr<Vector> tw_;
+
     /// the on-top pair density
     std::shared_ptr<Vector> pi_;
 

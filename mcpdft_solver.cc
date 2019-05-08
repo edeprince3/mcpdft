@@ -1978,8 +1978,10 @@ void MCPDFTSolver::BuildRhoFast(int na, int nb) {
         rho_a_z_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
         rho_b_z_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
 
-        // tau_a_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-        // tau_b_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+        tau_a_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+        tau_b_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+
+        tw_      = (std::shared_ptr<Vector>)(new Vector(phi_points_));
 
         double ** phi_x = super_phi_x_->pointer();
         double ** phi_y = super_phi_y_->pointer();
@@ -1998,8 +2000,10 @@ void MCPDFTSolver::BuildRhoFast(int na, int nb) {
         double * rho_a_zp = rho_a_z_->pointer();
         double * rho_b_zp = rho_b_z_->pointer();
 
-        // double * tau_ap = tau_a_->pointer();
-        // double * tau_bp = tau_b_->pointer();
+        double * tau_ap = tau_a_->pointer();
+        double * tau_bp = tau_b_->pointer();
+
+        double * tw_p = tw_->pointer();
 
         for (int p = 0; p < phi_points_; p++) {
 
@@ -2008,6 +2012,7 @@ void MCPDFTSolver::BuildRhoFast(int na, int nb) {
             double duma_x = 0.0;
             double duma_y = 0.0;
             double duma_z = 0.0;
+            double dumta = 0.0;
 
             for (int n = 0; n < na; n++) {
 
@@ -2029,6 +2034,9 @@ void MCPDFTSolver::BuildRhoFast(int na, int nb) {
                 duma_z += ( super_phi_z_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
                         +   super_phi_->pointer(hi)[p][ii] * super_phi_z_->pointer(hj)[p][jj] ) * opdm_a_[n].val;
 
+                dumta  += ( super_phi_x_->pointer(hi)[p][ii] * super_phi_x_->pointer(hj)[p][jj] 
+		        +   super_phi_y_->pointer(hi)[p][ii] * super_phi_y_->pointer(hj)[p][jj]
+                        +   super_phi_z_->pointer(hi)[p][ii] * super_phi_z_->pointer(hj)[p][jj] ) * opdm_a_[n].val;
             }
 
             // rho'_b(r)
@@ -2036,6 +2044,7 @@ void MCPDFTSolver::BuildRhoFast(int na, int nb) {
             double dumb_x = 0.0;
             double dumb_y = 0.0;
             double dumb_z = 0.0;
+            double dumtb = 0.0;
 
             for (int n = 0; n < nb; n++) {
                 
@@ -2057,6 +2066,9 @@ void MCPDFTSolver::BuildRhoFast(int na, int nb) {
                 dumb_z += ( super_phi_z_->pointer(hi)[p][ii] * super_phi_->pointer(hj)[p][jj] 
                         +   super_phi_->pointer(hi)[p][ii] * super_phi_z_->pointer(hj)[p][jj] ) * opdm_b_[n].val;
 
+                dumtb  += ( super_phi_x_->pointer(hi)[p][ii] * super_phi_x_->pointer(hj)[p][jj] 
+		        +   super_phi_y_->pointer(hi)[p][ii] * super_phi_y_->pointer(hj)[p][jj]
+                        +   super_phi_z_->pointer(hi)[p][ii] * super_phi_z_->pointer(hj)[p][jj] ) * opdm_b_[n].val;
             }
 
             rho_a_xp[p] = duma_x;
@@ -2072,8 +2084,10 @@ void MCPDFTSolver::BuildRhoFast(int na, int nb) {
             sigma_bbp[p] = ( rho_b_xp[p] * rho_b_xp[p] ) +  ( rho_b_yp[p] * rho_b_yp[p] ) + ( rho_b_zp[p] * rho_b_zp[p] );
             sigma_abp[p] = ( rho_a_xp[p] * rho_b_xp[p] ) +  ( rho_a_yp[p] * rho_b_yp[p] ) + ( rho_a_zp[p] * rho_b_zp[p] );
 
-            // tau_ap[p] = dumta;
-            // tau_bp[p] = dumtb;
+            tau_ap[p] = dumta;
+            tau_bp[p] = dumtb;
+
+	    tw_p[p] = ( sigma_aap[p] + 2.0 * sigma_abp[p] + sigma_bbp[p] ) / (8.0 * rho_p[p]);
 
         }
     }
