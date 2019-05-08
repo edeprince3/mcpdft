@@ -201,6 +201,25 @@ void MCPDFTSolver::common_init() {
     // overlap integrals
     S_  = std::shared_ptr<Matrix>(reference_wavefunction_->S());
 
+    if ( (options_.get_str("MCPDFT_METHOD") != "Lh_MCPDFT") ) {
+
+
+       // allocate memory for eigenvectors and eigenvalues of the overlap matrix
+       std::shared_ptr<Matrix> Sevec ( new Matrix(nso_,nso_) );
+       std::shared_ptr<Vector> Seval ( new Vector(nso_) );
+       Sm1_ = (std::shared_ptr<Matrix>)( new Matrix(nso_,nso_) );
+
+       // build S^(-1) matrix
+       S_->diagonalize(Sevec,Seval);
+
+       for (int mu = 0; mu < nso_; mu++) {
+           Sm1_->pointer()[mu][mu] = 1.0 / Seval->pointer()[mu] ;
+       }
+
+       // transform Sm1_ back to nonorthogonal basis
+       Sm1_->back_transform(Sevec);
+    }
+
     // SO-basis Fock matrices
     Fa_ = std::shared_ptr<Matrix>(reference_wavefunction_->Fa());
     Fb_ = std::shared_ptr<Matrix>(reference_wavefunction_->Fb());
@@ -312,6 +331,29 @@ void MCPDFTSolver::common_init() {
        double kbb = Db_->vector_dot(JK[3]);
  
        hf_ex_energy_ = -0.5 * (kaa + kbb);
+
+       if ( (options_.get_str("MCPDFT_METHOD") == "Lh_MCPDFT") ) {
+
+          std::shared_ptr<Matrix> Q_ao_1 (new Matrix(nso_,nso_));
+          std::shared_ptr<Matrix> Q_ao_2 (new Matrix(nso_,nso_));
+          std::shared_ptr<Matrix> Q_temp (new Matrix(nso_,nso_));
+
+          std::shared_ptr<Matrix> D_tot (new Matrix(Da_));
+	  D_tot->add(Db_);
+
+          std::shared_ptr<Matrix> K_tot  (new Matrix(JK[2]));
+	  K_tot->add(JK[3]);
+
+          Q_temp->gemm(false,false,1.0,Sm1_,K_tot,0.0);
+          Q_ao_1->gemm(false,false,0.5,Q_temp,D_tot,0.0);
+
+          Q_temp->gemm(false,false,1.0,D_tot,K_tot,0.0);
+          Q_ao_2->gemm(false,false,0.5,Q_temp,Sm1_,0.0);
+
+          Q_ao_ = std::shared_ptr<Matrix>(new Matrix(Q_ao_1));
+	  Q_ao_->add(Q_ao_2); 
+
+	  }
     
        if (  (options_.get_str("MCPDFT_METHOD") != "1H_MCPDFT") 
           && (options_.get_str("MCPDFT_METHOD") != "1DH_MCPDFT") ) {
@@ -765,6 +807,7 @@ double MCPDFTSolver::compute_energy() {
     }else if (  (options_.get_str("MCPDFT_METHOD") == "MCPDFT") 
              || (options_.get_str("MCPDFT_METHOD") == "1H_MCPDFT")
              || (options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") 
+             || (options_.get_str("MCPDFT_METHOD") == "Lh_MCPDFT") 
              || (options_.get_str("MCPDFT_METHOD") == "LS1DH_MCPDFT") ) {
 
              if ( options_.get_str("MCPDFT_FUNCTIONAL") == "SVWN" ) {
@@ -777,6 +820,11 @@ double MCPDFTSolver::compute_energy() {
                       mcpdft_ex = EX_B88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
                       mcpdft_ec = EC_LYP_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
              
+             }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "Lh_BLYP" ) {
+                
+                      mcpdft_ex = Lh_EX_B88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
+                      mcpdft_ec = EC_LYP_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
+
              }else if (  options_.get_str("MCPDFT_FUNCTIONAL") == "PBE" 
                       || options_.get_str("MCPDFT_FUNCTIONAL") == "REVPBE" ) {
  

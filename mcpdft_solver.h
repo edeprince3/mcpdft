@@ -403,6 +403,12 @@ class MCPDFTSolver: public Wavefunction{
     /// local mixing function f(r)
     std::shared_ptr<Vector> lmf_;
 
+    /// S^(-1) matrix
+    std::shared_ptr<Matrix> Sm1_;
+
+    /// Q_ao_ exchange matrix
+    std::shared_ptr<Matrix> Q_ao_;
+
     /// build local mixing function
     void BuildLMF();
 

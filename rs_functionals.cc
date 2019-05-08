@@ -80,7 +80,7 @@ namespace psi{ namespace mcpdft {
 
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     //+++++++++++++++++++ Exchange functionals ++++++++++++++++++
-    // wPBE                                                     +
+    // wPBE, Lh-BLYP                                            +
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 double MCPDFTSolver::EX_wPBE_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B,
