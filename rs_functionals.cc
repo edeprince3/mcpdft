@@ -308,6 +308,7 @@ double MCPDFTSolver::Lh_EX_B88_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<
     const double beta = 0.0042;
     const double c = pow(2.0,1.0/3.0) * Cx;
 
+    double * ex_exact_p = ex_exact_->pointer();
     double * lmf_p  = lmf_->pointer();
     double * rho_ap = RHO_A->pointer();
     double * rho_bp = RHO_B->pointer();
@@ -334,7 +335,7 @@ double MCPDFTSolver::Lh_EX_B88_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<
 
               rhoa = 0.0;
               sigmabb = std::max(0.0,sigma_bbp[p]);
-              rhob_43 = pow( rhob, 4.0/3.0);
+              rhob_43 = pow(rhob, 4.0/3.0);
               Xb = sqrt(sigma_bbp[p]) / rhob_43;
               Xb_2 = Xb * Xb;
 
@@ -359,6 +360,7 @@ double MCPDFTSolver::Lh_EX_B88_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<
            }
            exc += -rhoa_43 * ( c + (beta * Xa_2) / (1.0 + 6.0 * beta * Xa * asinh(Xa)) ) * (1.0 - lmf_p[p]) * grid_w_->pointer()[p];
            exc += -rhob_43 * ( c + (beta * Xb_2) / (1.0 + 6.0 * beta * Xb * asinh(Xb)) ) * (1.0 - lmf_p[p]) * grid_w_->pointer()[p];
+	   exc += pow(rho,1.0/3.0) * ex_exact_p[p] * lmf_p[p] * grid_w_->pointer()[p];// TODO:Check the spin-polarized version as well
 
         }else{
 

@@ -201,8 +201,7 @@ void MCPDFTSolver::common_init() {
     // overlap integrals
     S_  = std::shared_ptr<Matrix>(reference_wavefunction_->S());
 
-    if ( (options_.get_str("MCPDFT_METHOD") != "Lh_MCPDFT") ) {
-
+    if ( (options_.get_str("MCPDFT_METHOD") == "LH_MCPDFT") ) {
 
        // allocate memory for eigenvectors and eigenvalues of the overlap matrix
        std::shared_ptr<Matrix> Sevec ( new Matrix(nso_,nso_) );
@@ -332,7 +331,7 @@ void MCPDFTSolver::common_init() {
  
        hf_ex_energy_ = -0.5 * (kaa + kbb);
 
-       if ( (options_.get_str("MCPDFT_METHOD") == "Lh_MCPDFT") ) {
+       if ( (options_.get_str("MCPDFT_METHOD") == "LH_MCPDFT") ) {
 
           std::shared_ptr<Matrix> Q_ao_1 (new Matrix(nso_,nso_));
           std::shared_ptr<Matrix> Q_ao_2 (new Matrix(nso_,nso_));
@@ -351,11 +350,12 @@ void MCPDFTSolver::common_init() {
           Q_ao_2->gemm(false,false,0.5,Q_temp,Sm1_,0.0);
 
           Q_ao_ = std::shared_ptr<Matrix>(new Matrix(Q_ao_1));
-	  Q_ao_->add(Q_ao_2); 
+	  Q_ao_->add(Q_ao_2);
 
 	  }
     
        if (  (options_.get_str("MCPDFT_METHOD") != "1H_MCPDFT") 
+          && (options_.get_str("MCPDFT_METHOD") != "LH_MCPDFT")  
           && (options_.get_str("MCPDFT_METHOD") != "1DH_MCPDFT") ) {
 
           // long range (LR) exchange energy calculated using JK object
@@ -513,28 +513,28 @@ void MCPDFTSolver::common_init() {
         outfile->Printf("\n"); 
         outfile->Printf("    ==> Build Phi and Phi' matrices ..."); fflush(stdout);
 
-        std::shared_ptr<Matrix> super_phi_ao (new Matrix("SUPER PHI (AO)",phi_points_,nso_));
+        super_phi_ao_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI (AO)",phi_points_,nso_));
 
-        std::shared_ptr<Matrix> super_phi_x_ao;
-        std::shared_ptr<Matrix> super_phi_y_ao;
-        std::shared_ptr<Matrix> super_phi_z_ao;
+        // std::shared_ptr<Matrix> super_phi_x_ao_;
+        // std::shared_ptr<Matrix> super_phi_y_ao_;
+        // std::shared_ptr<Matrix> super_phi_z_ao_;
 
         if ( is_gga_ || is_meta_ ) {
 
-            super_phi_x_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI X (AO)",phi_points_,nso_));
-            super_phi_y_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Y (AO)",phi_points_,nso_));
-            super_phi_z_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Z (AO)",phi_points_,nso_));
+            super_phi_x_ao_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI X (AO)",phi_points_,nso_));
+            super_phi_y_ao_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Y (AO)",phi_points_,nso_));
+            super_phi_z_ao_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Z (AO)",phi_points_,nso_));
             
         }
 
         // build phi matrix and derivative phi matrices (ao basis)
-        BuildPhiMatrixAO("PHI",super_phi_ao);
+        BuildPhiMatrixAO("PHI",super_phi_ao_);
 
         if ( is_gga_ || is_meta_ ) {
 
-            BuildPhiMatrixAO("PHI_X",super_phi_x_ao);
-            BuildPhiMatrixAO("PHI_Y",super_phi_y_ao);
-            BuildPhiMatrixAO("PHI_Z",super_phi_z_ao);
+            BuildPhiMatrixAO("PHI_X",super_phi_x_ao_);
+            BuildPhiMatrixAO("PHI_Y",super_phi_y_ao_);
+            BuildPhiMatrixAO("PHI_Z",super_phi_z_ao_);
 
         }
 
@@ -547,7 +547,7 @@ void MCPDFTSolver::common_init() {
 
         super_phi_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI",phi_points_list,nsopi_));
 
-        TransformPhiMatrixAOMO(super_phi_ao,super_phi_);
+        TransformPhiMatrixAOMO(super_phi_ao_,super_phi_);
 
         if ( is_gga_ || is_meta_ ) {
 
@@ -555,15 +555,35 @@ void MCPDFTSolver::common_init() {
             super_phi_y_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Y",phi_points_list,nsopi_));
             super_phi_z_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Z",phi_points_list,nsopi_));
 
-            TransformPhiMatrixAOMO(super_phi_x_ao,super_phi_x_);
-            TransformPhiMatrixAOMO(super_phi_y_ao,super_phi_y_);
-            TransformPhiMatrixAOMO(super_phi_z_ao,super_phi_z_);
+            TransformPhiMatrixAOMO(super_phi_x_ao_,super_phi_x_);
+            TransformPhiMatrixAOMO(super_phi_y_ao_,super_phi_y_);
+            TransformPhiMatrixAOMO(super_phi_z_ao_,super_phi_z_);
 
         }
         outfile->Printf(" Done. <==\n"); 
     }
 
-}
+    // calculating the exact energy desity function on real space
+    if ( (options_.get_str("MCPDFT_METHOD") == "LH_MCPDFT") ) {
+
+       ex_exact_ = std::shared_ptr<Vector>(new Vector(phi_points_));
+
+       double * ex_exact_p = ex_exact_->pointer();
+       double ** Q_ao_p    = Q_ao_->pointer();
+       double ** phi_ao_p  = super_phi_ao_->pointer();
+
+       for (int p = 0; p < phi_points_; p++) {
+           double dum = 0.0;
+           for (int mu = 0; mu < nso_; mu++) {
+               for (int nu = 0; nu < nso_; nu++) {
+                   dum += Q_ao_p[mu][nu] * phi_ao_p[p][mu] * phi_ao_p[p][nu]; 
+               }
+	   }
+           ex_exact_p[p] = dum;
+       }
+    }	    
+
+}// end of common_init()
 
 void MCPDFTSolver::GetGridInfo() {
 
@@ -594,7 +614,7 @@ void MCPDFTSolver::GetGridInfo() {
         }
         phi_points_ += npoints;
     }
-}
+}//end of GetGridInfo()
 
 void MCPDFTSolver::BuildPhiMatrixAO(std::string phi_type, std::shared_ptr<Matrix> myphi) {
 
@@ -747,6 +767,14 @@ double MCPDFTSolver::compute_energy() {
 
     }
 
+    // Build the local mixing function (LMF) f(r)
+    if (options_.get_str("MCPDFT_METHOD") == "LH_MCPDFT") {
+
+    outfile->Printf("    ==> Build the local mixing function f(r) ...");
+    BuildLMF();
+    outfile->Printf(" Done. <==\n\n");
+       
+    }
     // calculate the on-top energy
 
     outfile->Printf("    ==> Evaluate the on-top energy contribution <==\n");
@@ -764,7 +792,8 @@ double MCPDFTSolver::compute_energy() {
     // initialization of the hybrid (lambda) and range-separation (omega) parameters
     double mcpdft_lambda    = 0.0;
     double mcpdft_omega     = 0.0;
-    if ( (options_.get_str("MCPDFT_METHOD") != "MCPDFT") ) {
+    if ( (options_.get_str("MCPDFT_METHOD") != "MCPDFT")
+      && (options_.get_str("MCPDFT_METHOD") != "LH_MCPDFT") ) {
        
        if (  (options_.get_str("MCPDFT_METHOD") != "1H_MCPDFT") 
           && (options_.get_str("MCPDFT_METHOD") != "1DH_MCPDFT") ) {
@@ -807,7 +836,7 @@ double MCPDFTSolver::compute_energy() {
     }else if (  (options_.get_str("MCPDFT_METHOD") == "MCPDFT") 
              || (options_.get_str("MCPDFT_METHOD") == "1H_MCPDFT")
              || (options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") 
-             || (options_.get_str("MCPDFT_METHOD") == "Lh_MCPDFT") 
+             || (options_.get_str("MCPDFT_METHOD") == "LH_MCPDFT") 
              || (options_.get_str("MCPDFT_METHOD") == "LS1DH_MCPDFT") ) {
 
              if ( options_.get_str("MCPDFT_FUNCTIONAL") == "SVWN" ) {
@@ -816,14 +845,13 @@ double MCPDFTSolver::compute_energy() {
                 mcpdft_ec = EC_VWN3_RPA_III(tr_rho_a_, tr_rho_b_);
 
              }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "BLYP" ) {
-                
-                      mcpdft_ex = EX_B88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
-                      mcpdft_ec = EC_LYP_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
-             
-             }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "Lh_BLYP" ) {
-                
-                      mcpdft_ex = Lh_EX_B88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
-                      mcpdft_ec = EC_LYP_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
+
+                if ( options_.get_str("MCPDFT_METHOD") == "LH_MCPDFT" ) {
+                   mcpdft_ex = Lh_EX_B88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
+		}else{
+                   mcpdft_ex = EX_B88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
+	        }
+                mcpdft_ec = EC_LYP_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_); 
 
              }else if (  options_.get_str("MCPDFT_FUNCTIONAL") == "PBE" 
                       || options_.get_str("MCPDFT_FUNCTIONAL") == "REVPBE" ) {
@@ -971,7 +999,7 @@ double MCPDFTSolver::compute_energy() {
     }
     outfile->Printf("        Ex                        =         %20.12lf\n",mcpdft_ex);
     outfile->Printf("        Ec                        =         %20.12lf\n",mcpdft_ec);
-    outfile->Printf("        On-top energy =                     %20.12lf\n",mcpdft_ex + mcpdft_ec);
+    outfile->Printf("        On-top energy             =         %20.12lf\n",mcpdft_ex + mcpdft_ec);
     outfile->Printf("\n");
 
     // double total_energy = nuclear_repulsion_energy + one_electron_energy + lmbd * two_electron_energy_ + (1.0 - lmbd) * (coulomb_energy + hartree_ex_energy + lrc_ex_energy) + mcpdft_xc_energy;
@@ -986,6 +1014,9 @@ double MCPDFTSolver::compute_energy() {
       total_energy += (mcpdft_lambda * hf_ex_energy_) + (1.0 - mcpdft_lambda) * (coulomb_energy_ + mcpdft_ex);
       total_energy += (1.0 - mcpdft_lambda * mcpdft_lambda * mcpdft_lambda) * mcpdft_ec;
       total_energy += mcpdft_lambda * mcpdft_lambda * mcpdft_lambda * mp2_corr_energy_;
+    }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "LH_MCPDFT" ) {
+      total_energy  = one_electron_energy;
+      total_energy += mcpdft_ex + mcpdft_ec;
     }
 
     if( options_.get_str("MCPDFT_METHOD") == "MCPDFT") {

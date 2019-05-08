@@ -189,16 +189,28 @@ class MCPDFTSolver: public Wavefunction{
     /// number of auxilliary basis functions
     int nQ_;
 
-    /// phi matrix
+    /// phi matrix (AO)
+    std::shared_ptr<Matrix> super_phi_ao_;
+
+    /// d phi / dx matrix (AO)
+    std::shared_ptr<Matrix> super_phi_x_ao_;
+
+    /// d phi / dy matrix (AO)
+    std::shared_ptr<Matrix> super_phi_y_ao_;
+
+    /// d phi / dz matrix (AO)
+    std::shared_ptr<Matrix> super_phi_z_ao_;
+
+    /// phi matrix (MO)
     std::shared_ptr<Matrix> super_phi_;
 
-    /// d phi / dx matrix
+    /// d phi / dx matrix (MO)
     std::shared_ptr<Matrix> super_phi_x_;
 
-    /// d phi / dy matrix
+    /// d phi / dy matrix (MO)
     std::shared_ptr<Matrix> super_phi_y_;
 
-    /// d phi / dz matrix
+    /// d phi / dz matrix (MO)
     std::shared_ptr<Matrix> super_phi_z_;
 
     /// d2 phi / dx2 matrix
@@ -408,6 +420,9 @@ class MCPDFTSolver: public Wavefunction{
 
     /// Q_ao_ exchange matrix
     std::shared_ptr<Matrix> Q_ao_;
+
+    /// exact exchange function e_x^exact(r)
+    std::shared_ptr<Vector> ex_exact_;
 
     /// build local mixing function
     void BuildLMF();

@@ -52,7 +52,7 @@ int read_options(std::string name, Options& options)
 			 RS1H_MCPDFT \
 			 RS1DH_MCPDFT \
 			 LS1DH_MCPDFT \
-			 Lh_MCPDFT");
+			 LH_MCPDFT");
         /*- The range-separation parameter -*/
         options.add_double("MCPDFT_OMEGA", 0.0);
         /*- Coupling parameter Lambda for hybrid MCPDFT functionals -*/
@@ -69,8 +69,7 @@ int read_options(std::string name, Options& options)
 			 BOP \
 			 BLYP \
 			 WPBE \
-			 LRC_WPBE \
-			 Lh_BLYP");
+			 LRC_WPBE");
         /*- type of density and density gradient translation:
         REGULAR = The gradients of on-top density are not considered in the polarization factor zeta
         FULL = The gradients of on-top density is included in the polarization factor zeta       -*/
