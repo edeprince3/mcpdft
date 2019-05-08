@@ -299,6 +299,75 @@ double MCPDFTSolver::EX_wPBE_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Ve
     return exc;
 }
 
+double MCPDFTSolver::Lh_EX_B88_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B,
+                                 std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB){
+
+    double tol = 1.0e-20;
+
+    const double Cx = 0.73855876638202240586;
+    const double beta = 0.0042;
+    const double c = pow(2.0,1.0/3.0) * Cx;
+
+    double * lmf_p  = lmf_->pointer();
+    double * rho_ap = RHO_A->pointer();
+    double * rho_bp = RHO_B->pointer();
+    double * sigma_aap = SIGMA_AA->pointer();
+    double * sigma_bbp = SIGMA_BB->pointer();
+
+    double exc = 0.0;
+    for (int p = 0; p < phi_points_; p++) {
+
+        double rhoa = rho_ap[p];
+        double rhob = rho_bp[p];
+        double rho = rhoa + rhob;
+        double sigmaaa = sigma_aap[p];
+        double sigmabb = sigma_bbp[p];
+        double rhoa_43 = 0.0;
+        double rhob_43 = 0.0;
+        double Xa   = 0.0;
+        double Xb   = 0.0;
+        double Xa_2 = 0.0;
+        double Xb_2 = 0.0;
+
+        if ( rho > tol ) {
+           if ( rhoa < tol ){
+
+              rhoa = 0.0;
+              sigmabb = std::max(0.0,sigma_bbp[p]);
+              rhob_43 = pow( rhob, 4.0/3.0);
+              Xb = sqrt(sigma_bbp[p]) / rhob_43;
+              Xb_2 = Xb * Xb;
+
+           }else if ( rhob < tol ){
+
+                    rhob = 0.0;
+                    sigmaaa = std::max(0.0,sigma_aap[p]);
+                    rhoa_43 = pow( rhoa, 4.0/3.0);
+                    Xa = sqrt(sigma_aap[p]) / rhoa_43;
+                    Xa_2 = Xa * Xa;
+           }else{
+
+                sigmaaa = std::max(0.0,sigma_aap[p]);
+                sigmabb = std::max(0.0,sigma_bbp[p]);
+                rhoa_43 = pow( rhoa, 4.0/3.0);
+                rhob_43 = pow( rhob, 4.0/3.0);
+                Xa = sqrt(sigma_aap[p]) / rhoa_43;
+                Xb = sqrt(sigma_bbp[p]) / rhob_43;
+                Xa_2 = Xa * Xa;
+                Xb_2 = Xb * Xb;
+
+           }
+           exc += -rhoa_43 * ( c + (beta * Xa_2) / (1.0 + 6.0 * beta * Xa * asinh(Xa)) ) * (1.0 - lmf_p[p]) * grid_w_->pointer()[p];
+           exc += -rhob_43 * ( c + (beta * Xb_2) / (1.0 + 6.0 * beta * Xb * asinh(Xb)) ) * (1.0 - lmf_p[p]) * grid_w_->pointer()[p];
+
+        }else{
+
+             exc += 0.0;
+        }
+    }
+    return exc;
+}
+
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     //+++++++++++++++++ Correlation Functionals +++++++++++++++++
     // 

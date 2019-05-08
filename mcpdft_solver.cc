@@ -1753,6 +1753,22 @@ void MCPDFTSolver::BuildPiFast(tpdm * D2ab, int nab) {
     }
 }
 
+void MCPDFTSolver::BuildLMF() {
+
+    lmf_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+
+    double * lmf_p   = lmf_->pointer();
+    double * tw_p   = tw_->pointer();
+    double * tau_ap = tau_a_->pointer();
+    double * tau_bp = tau_b_->pointer();
+
+    for (int p = 0; p < phi_points_; p++) {
+
+        lmf_p[p] += ( tau_ap[p] + tau_bp[p] ) / tw_p[p];
+
+    }
+}
+
 void MCPDFTSolver::BuildRho() {
 
     rho_a_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
@@ -2088,7 +2104,6 @@ void MCPDFTSolver::BuildRhoFast(int na, int nb) {
             tau_bp[p] = dumtb;
 
 	    tw_p[p] = ( sigma_aap[p] + 2.0 * sigma_abp[p] + sigma_bbp[p] ) / (8.0 * rho_p[p]);
-
         }
     }
 }

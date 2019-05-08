@@ -400,6 +400,12 @@ class MCPDFTSolver: public Wavefunction{
     /// z-component of the gradient of the on-top pair density
     std::shared_ptr<Vector> pi_z_;
 
+    /// local mixing function f(r)
+    std::shared_ptr<Vector> lmf_;
+
+    /// build local mixing function
+    void BuildLMF();
+
     /// build spin densities and gradients
     void BuildRho();
 
@@ -439,30 +445,51 @@ class MCPDFTSolver: public Wavefunction{
     //############################################################
 
     /// build EX_LDA(rho)
-    double EX_LDA(std::shared_ptr<Vector> rho_a, std::shared_ptr<Vector> rho_b);
+    double EX_LDA(std::shared_ptr<Vector> rho_a,
+		  std::shared_ptr<Vector> rho_b);
 
     /// build EX_LSDA(rho_sigma)
     double EX_LSDA_Sigma(std::shared_ptr<Vector> rho_sigma);
 
     /// build EX_LSDA(rho_a, rho_b, zeta)
-    double EX_LSDA(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> ZETA);
+    double EX_LSDA(std::shared_ptr<Vector> RHO_A,
+		   std::shared_ptr<Vector> RHO_B,
+		   std::shared_ptr<Vector> ZETA);
 
     /// build EX_LSDA(rho_a, rho_b)
-    double EX_LSDA(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B);
+    double EX_LSDA(std::shared_ptr<Vector> RHO_A,
+		   std::shared_ptr<Vector> RHO_B);
 
     /// build EX_B86_MGC()
     double EX_B86_MGC();
 
     /// build EX_B88()
-    double EX_B88(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB);
-    double EX_B88_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB);
+    double EX_B88(std::shared_ptr<Vector> RHO_A,
+	          std::shared_ptr<Vector> RHO_B,
+		  std::shared_ptr<Vector> SIGMA_AA,
+		  std::shared_ptr<Vector> SIGMA_BB);
+
+    double EX_B88_I(std::shared_ptr<Vector> RHO_A,
+		    std::shared_ptr<Vector> RHO_B,
+		    std::shared_ptr<Vector> SIGMA_AA,
+		    std::shared_ptr<Vector> SIGMA_BB);
 
     /// build EX_PBE()
-    double EX_PBE(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB);
-    double EX_PBE_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB);
+    double EX_PBE(std::shared_ptr<Vector> RHO_A,
+		  std::shared_ptr<Vector> RHO_B,
+		  std::shared_ptr<Vector> SIGMA_AA,
+		  std::shared_ptr<Vector> SIGMA_BB);
+
+    double EX_PBE_I(std::shared_ptr<Vector> RHO_A,
+		    std::shared_ptr<Vector> RHO_B,
+		    std::shared_ptr<Vector> SIGMA_AA,
+		    std::shared_ptr<Vector> SIGMA_BB);
 
     /// build EX_wPBE()
-    double EX_wPBE_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB);
+    double EX_wPBE_I(std::shared_ptr<Vector> RHO_A,
+		     std::shared_ptr<Vector> RHO_B,
+		     std::shared_ptr<Vector> SIGMA_AA,
+		     std::shared_ptr<Vector> SIGMA_BB);
 
     /// build EX_RPBE()
     double EX_RPBE();
@@ -470,30 +497,56 @@ class MCPDFTSolver: public Wavefunction{
     /// build EX_UPBE()
     double EX_UPBE();
 
+    /// build Lh-EX_B88()
+    double Lh_EX_B88_I(std::shared_ptr<Vector> RHO_A,
+		       std::shared_ptr<Vector> RHO_B,
+		       std::shared_ptr<Vector> SIGMA_AA,
+		       std::shared_ptr<Vector> SIGMA_BB);
+
+
     //############################################################
     //########### Correlation functions' declarations ############
     //############################################################
 
     /// build EC_B88()
-    double EC_B88_OP(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB);
+    double EC_B88_OP(std::shared_ptr<Vector> RHO_A,
+		     std::shared_ptr<Vector> RHO_B,
+		     std::shared_ptr<Vector> SIGMA_AA,
+		     std::shared_ptr<Vector> SIGMA_BB);
 
     /// build EC_LYP()
-    double EC_LYP_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, 
-                  std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_AB, std::shared_ptr<Vector> SIGMA_BB);
+    double EC_LYP_I(std::shared_ptr<Vector> RHO_A,
+		    std::shared_ptr<Vector> RHO_B, 
+                    std::shared_ptr<Vector> SIGMA_AA,
+		    std::shared_ptr<Vector> SIGMA_AB,
+		    std::shared_ptr<Vector> SIGMA_BB);
 
     /// build EC_PBE()
-    double EC_PBE(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, 
-                  std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_AB, std::shared_ptr<Vector> SIGMA_BB);
-    double EC_PBE_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, 
-                  std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_AB, std::shared_ptr<Vector> SIGMA_BB);
+    double EC_PBE(std::shared_ptr<Vector> RHO_A,
+		  std::shared_ptr<Vector> RHO_B, 
+                  std::shared_ptr<Vector> SIGMA_AA,
+		  std::shared_ptr<Vector> SIGMA_AB,
+		  std::shared_ptr<Vector> SIGMA_BB);
+
+    double EC_PBE_I(std::shared_ptr<Vector> RHO_A,
+		    std::shared_ptr<Vector> RHO_B,
+                    std::shared_ptr<Vector> SIGMA_AA,
+		    std::shared_ptr<Vector> SIGMA_AB,
+		    std::shared_ptr<Vector> SIGMA_BB);
 
     /// build EC_VWN3_RPA()
-    double EC_VWN3_RPA(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> ZETA, std::shared_ptr<Vector> RS);
-    double EC_VWN3_RPA_III(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B);
+    double EC_VWN3_RPA(std::shared_ptr<Vector> RHO_A,
+		       std::shared_ptr<Vector> RHO_B,
+		       std::shared_ptr<Vector> ZETA,
+		       std::shared_ptr<Vector> RS);
+
+    double EC_VWN3_RPA_III(std::shared_ptr<Vector> RHO_A,
+		           std::shared_ptr<Vector> RHO_B);
     // double EC_VWN3_RPA_III(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B, std::shared_ptr<Vector> ZETTA);
 
     /// build EC_PW92_I()
-    double EC_PW92_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B);
+    double EC_PW92_I(std::shared_ptr<Vector> RHO_A,
+		     std::shared_ptr<Vector> RHO_B);
 
 };
 
