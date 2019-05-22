@@ -1,7 +1,7 @@
 .. comment /*
 .. comment  * @BEGIN LICENSE
 .. comment  *
-.. comment  * mcpdft by Psi4 Developer, a plugin to:
+.. comment  * RDMinoles by Psi4 Developer, a plugin to:
 .. comment  *
 .. comment  * Psi4: an open-source quantum chemistry software package
 .. comment  *

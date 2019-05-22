@@ -1,7 +1,7 @@
 /*
  * @BEGIN LICENSE
  *
- * mcpdft by Psi4 Developer, a plugin to:
+ * RDMinoles by Psi4 Developer, a plugin to:
  *
  * Psi4: an open-source quantum chemistry software package
  *
@@ -37,12 +37,12 @@
 #include <psi4/libpsi4util/process.h>
 #include "mcpdft_solver.h"
 
-namespace psi{ namespace mcpdft {
+namespace psi{ namespace RDMinoles {
 
 extern "C" PSI_API
 int read_options(std::string name, Options& options)
 {
-    if (name == "MCPDFT"|| options.read_globals()) {
+    if (name == "RDMINOLES"|| options.read_globals()) {
         /*- MCPDFT type -*/
         options.add_str("MCPDFT_METHOD", "MCPDFT",
 		       	"MCPDFT \
@@ -86,7 +86,7 @@ int read_options(std::string name, Options& options)
 }
 
 extern "C" PSI_API
-SharedWavefunction mcpdft(SharedWavefunction ref_wfn, Options& options)
+SharedWavefunction RDMinoles(SharedWavefunction ref_wfn, Options& options)
 {
 
     outfile->Printf("\n\n");

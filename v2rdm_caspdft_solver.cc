@@ -1,7 +1,7 @@
 /*
  * @BEGIN LICENSE
  *
- * mcpdft by Psi4 Developer, a plugin to:
+ * RDMinoles by Psi4 Developer, a plugin to:
  *
  * Psi4: an open-source quantum chemistry software package
  *
@@ -70,7 +70,7 @@
 // mcpdft 
 #include "mcpdft_solver.h"
 
-namespace psi{ namespace mcpdft {
+namespace psi{ namespace RDMinoles {
 
 // the MCPDFTSolver class derives from the Wavefunction class and inherits its members
 MCPDFTSolver::MCPDFTSolver(std::shared_ptr<Wavefunction> reference_wavefunction,Options & options_):

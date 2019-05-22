@@ -76,7 +76,7 @@
 // @ Convention (IV)  singlet and triplet charge densities                                                                 @
 // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-namespace psi{ namespace mcpdft {
+namespace psi{ namespace RDMinoles {
 
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     //+++++++++++++++++++ Exchange functionals ++++++++++++++++++

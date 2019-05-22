@@ -1,7 +1,7 @@
 #
 # @BEGIN LICENSE
 #
-# mcpdft by Psi4 Developer, a plugin to:
+# RDMinoles by Psi4 Developer, a plugin to:
 #
 # Psi4: an open-source quantum chemistry software package
 #
@@ -30,9 +30,9 @@
 
 cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 
-project(mcpdft CXX)
+project(RDMinoles CXX)
 
 find_package(psi4 1.1 REQUIRED)
 
-add_psi4_plugin(mcpdft plugin.cc mcpdft_solver.cc read_opdm.cc read_tpdm.cc lsda_gga_functionals.cc rs_functionals.cc read_range_separated_integrals.cc)
+add_psi4_plugin(RDMinoles plugin.cc mcpdft_solver.cc read_opdm.cc read_tpdm.cc lsda_gga_functionals.cc rs_functionals.cc read_range_separated_integrals.cc)
 

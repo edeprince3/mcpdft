@@ -1,21 +1,21 @@
-
+memory 6gb
 # first, import vrdm_casscf_private library
-sys.path.insert(0, '/Users/deprince/software/')
+sys.path.insert(0, '/Users/deprince/software/fresh/')
 import v2rdm_casscf
 # second, import mcpdft library
 sys.path.insert(0, './..')
-import mcpdft
-
+import RDMinoles
 
 molecule mol {
 0 1
-h
-h 1 1.0
+o
+h 1 0.9
+h 1 0.9 2 104.5
 symmetry c1
 }
 
 set {
-  basis cc-pvdz
+  basis sto-3g 
   # it is important that the scf_type is set to df for v2rdm-casscf (it is assumed in mcpdft)
   scf_type df
   d_convergence 1e-8
@@ -39,16 +39,25 @@ set v2rdm_casscf {
 
   mu_update_frequency 500
 
-  restricted_docc  [ 0 ]
-  active           [ 2 ]
+  #restricted_docc  [ 1, 0, 0, 0 ]
+  #active           [ 3, 0, 1, 2 ]
+  restricted_docc  [ 5 ]
+  active           [ 0 ]
+
+  #restricted_docc  [ 0 ]
+  #active           [ 2 ]
 }
 
 # it is important that the reference is set to uks for mcpdft
-set mcpdft {
+set rdminoles {
   reference uks
+  #mcpdft_lambda 0.2
   mcpdft_reference v2rdm
   mcpdft_type df
-  mcpdft_method mcpdft
+  mcpdft_functional blyp
+  #mcpdft_method lh_mcpdft #ls1dh_mcpdft
+  mcpdft_method mcpdft #ls1dh_mcpdft
+  write_qtaim_wfn true
 }
 
 # run v2rdm-casscf
