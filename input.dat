@@ -1,6 +1,6 @@
 memory 6gb
 # first, import vrdm_casscf_private library
-sys.path.insert(0, '/Users/deprince/software/fresh/')
+sys.path.insert(0, './..')
 import v2rdm_casscf
 # second, import mcpdft library
 sys.path.insert(0, './..')
@@ -29,7 +29,7 @@ set v2rdm_casscf {
   opdm_write_full true
   tpdm_write_full true
   constrain_spin true
-
+  nat_orbs true
   r_convergence  1e-5
   e_convergence  1e-4
   cg_convergence 1e-6
@@ -41,8 +41,8 @@ set v2rdm_casscf {
 
   #restricted_docc  [ 1, 0, 0, 0 ]
   #active           [ 3, 0, 1, 2 ]
-  restricted_docc  [ 5 ]
-  active           [ 0 ]
+  restricted_docc  [ 0 ]
+  active           [ 6 ]
 
   #restricted_docc  [ 0 ]
   #active           [ 2 ]
@@ -55,6 +55,7 @@ set rdminoles {
   mcpdft_reference v2rdm
   mcpdft_type df
   mcpdft_functional blyp
+  polyradical_analysis true
   #mcpdft_method lh_mcpdft #ls1dh_mcpdft
   mcpdft_method mcpdft #ls1dh_mcpdft
   write_qtaim_wfn true
