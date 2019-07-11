@@ -90,6 +90,7 @@ class MCPDFTSolver: public Wavefunction{
     ~MCPDFTSolver();
     void common_init();
     double compute_energy();
+    void polyradical_analysis();
     virtual bool same_a_b_orbs() const { return same_a_b_orbs_; }
     virtual bool same_a_b_dens() const { return same_a_b_dens_; }
 
@@ -445,6 +446,11 @@ class MCPDFTSolver: public Wavefunction{
     /// build exchange-correlation hole nxc(r,r') for some r
     void BuildExchangeCorrelationHole(int p, tpdm * D2ab, int nab, tpdm * D2aa, int naa, tpdm * D2bb, int nbb);
 
+    /// effective unpaired electron density function (Yamaguchi et al.)
+    std::shared_ptr<Vector> Dr_;
+
+    /// effective unpaired electron density function (Head-Gordon)
+    std::shared_ptr<Vector> Ur_;
  
     /// build gradient of the on-top pair density
     void Build_Grad_Pi();

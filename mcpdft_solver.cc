@@ -3292,5 +3292,191 @@ void MCPDFTSolver::WriteQTAIM(std::shared_ptr<Matrix> Ca,
     fclose(outfile);
 }
 
+void MCPDFTSolver::polyradical_analysis() {
+
+        GetGridInfo();
+
+        std::shared_ptr<PSIO> psio (new PSIO());
+
+        // psio->set_pid("18332");
+
+        if ( !psio->exists(PSIF_V2RDM_D1A) ) throw PsiException("No D1a on disk",__FILE__,__LINE__);
+        if ( !psio->exists(PSIF_V2RDM_D1B) ) throw PsiException("No D1b on disk",__FILE__,__LINE__);
+
+        // D1a
+
+        psio->open(PSIF_V2RDM_D1A,PSIO_OPEN_OLD);
+
+        long int na;
+        psio->read_entry(PSIF_V2RDM_D1A,"length",(char*)&na,sizeof(long int));
+
+        opdm_a_ = (opdm *)malloc(na * sizeof(opdm));
+        psio->read_entry(PSIF_V2RDM_D1A,"D1a",(char*)opdm_a_,na * sizeof(opdm));
+        psio->close(PSIF_V2RDM_D1A,1);
+
+        for (int n = 0; n < na; n++) {
+
+            int i = opdm_a_[n].i;
+            int j = opdm_a_[n].j;
+
+            int hi = symmetry_[i];
+            int hj = symmetry_[j];
+
+            if ( hi != hj ) {
+                throw PsiException("error: something is wrong with the symmetry of the alpha OPDM",__FILE__,__LINE__);
+            }
+
+            int ii = i - pitzer_offset_[hi];
+            int jj = j - pitzer_offset_[hi];
+
+            Da_->pointer(hi)[ii][jj] = opdm_a_[n].val;
+
+        }
+
+        // D1b
+
+        psio->open(PSIF_V2RDM_D1B,PSIO_OPEN_OLD);
+
+        long int nb;
+        psio->read_entry(PSIF_V2RDM_D1B,"length",(char*)&nb,sizeof(long int));
+
+        opdm_b_ = (opdm *)malloc(nb * sizeof(opdm));
+        psio->read_entry(PSIF_V2RDM_D1B,"D1b",(char*)opdm_b_,nb * sizeof(opdm));
+        psio->close(PSIF_V2RDM_D1B,1);
+
+        for (int n = 0; n < nb; n++) {
+
+            int i = opdm_b_[n].i;
+            int j = opdm_b_[n].j;
+
+            int hi = symmetry_[i];
+            int hj = symmetry_[j];
+
+            if ( hi != hj ) {
+                throw PsiException("error: something is wrong with the symmetry of the beta OPDM",__FILE__,__LINE__);
+            }
+
+            int ii = i - pitzer_offset_[hi];
+            int jj = j - pitzer_offset_[hj];
+
+            Db_->pointer(hi)[ii][jj] = opdm_b_[n].val;
+
+        }
+        std::shared_ptr<Matrix> Dmat = (std::shared_ptr<Matrix>)(new Matrix("UNPAIRED ELECTRONS MATRIX D",nmo_,nmo_));
+        std::shared_ptr<Matrix> Umat = (std::shared_ptr<Matrix>)(new Matrix("UNPAIRED ELECTRONS MATRIX U",nmo_,nmo_));
+
+        std::shared_ptr<Matrix> Dtot  = (std::shared_ptr<Matrix>)(new Matrix(nmo_,nmo_));
+
+        Dtot->zero();
+        Dtot->add(Da_);
+        Dtot->add(Db_);
+        // Dtot->print();
+
+        for (int n = 0; n < na; n++) {
+
+            int i = opdm_a_[n].i;
+            int j = opdm_a_[n].j;
+
+            int hi = symmetry_[i];
+            int hj = symmetry_[j];
+
+            if ( hi != hj ) {
+                throw PsiException("error: something is wrong with the symmetry of the beta OPDM",__FILE__,__LINE__);
+            }
+
+            int ii = i - pitzer_offset_[hi];
+            int jj = j - pitzer_offset_[hj];
+            double popval = Dtot->pointer(hi)[ii][jj];
+
+            Umat->pointer(hi)[ii][jj] = 1.0 - abs(1.0 - popval);
+            Dmat->pointer(hi)[ii][jj] = 2.0 * popval - popval * popval;
+
+        }
+        // Ur_->print();
+        // Dr_->print();
+
+        rho_  = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+        Ur_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+        Dr_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+        double tempr = 0.0;
+        double tempu = 0.0;
+        double tempd = 0.0;
+        for (int p = 0; p < phi_points_; p++) {
+            double dumr = 0.0;
+            double dumu = 0.0;
+            double dumd = 0.0;
+            for (int n = 0; n < na; n++) {
+
+                int i = opdm_a_[n].i;
+                int j = opdm_a_[n].j;
+
+                int hi = symmetry_[i];
+                int hj = symmetry_[j];
+
+                int ii = i - pitzer_offset_[hi];
+                int jj = j - pitzer_offset_[hj];
+
+                dumr += super_phi_->pointer(hi)[p][ii] *
+                        super_phi_->pointer(hj)[p][jj] * opdm_a_[n].val;
+
+                dumu += super_phi_->pointer(hi)[p][ii] *
+                        super_phi_->pointer(hj)[p][jj] * Umat->pointer(hi)[ii][jj];
+
+                dumd += super_phi_->pointer(hi)[p][ii] *
+                        super_phi_->pointer(hj)[p][jj] * Dmat->pointer(hi)[ii][jj];
+            }
+            Ur_ ->pointer()[p] = dumu;
+            Dr_ ->pointer()[p] = dumd;
+
+            for (int n = 0; n < nb; n++) {
+
+                int i = opdm_b_[n].i;
+                int j = opdm_a_[n].j;
+
+                int hi = symmetry_[i];
+                int hj = symmetry_[j];
+
+                int ii = i - pitzer_offset_[hi];
+                int jj = j - pitzer_offset_[hj];
+
+                dumr += super_phi_->pointer(hi)[p][ii] *
+                        super_phi_->pointer(hj)[p][jj] * opdm_b_[n].val;
+            }
+            rho_->pointer()[p] += dumr;
+
+            tempr += grid_w_->pointer()[p] * dumr;
+            tempu += grid_w_->pointer()[p] * dumu;
+            tempd += grid_w_->pointer()[p] * dumd;
+        }
+        outfile->Printf("\n\n");
+        outfile->Printf("    Trace[ rho(r) ]:     %-20.12lf\n",tempr);
+        outfile->Printf("    Trace[ U(r)   ]:     %-20.12lf\n",tempu);
+        outfile->Printf("    Trace[ D(r)   ]:     %-20.12lf\n",tempd);
+
+        double * w_p   = grid_w_->pointer();
+        double * x_p   = grid_x_->pointer();
+        double * y_p   = grid_y_->pointer();
+        double * z_p   = grid_z_->pointer();
+        double * rho_p = rho_   ->pointer();
+        double * Ur_p  = Ur_    ->pointer();
+        double * Dr_p  = Dr_    ->pointer();
+
+        FILE *pfile;
+        pfile = fopen("mygrids.txt","w");
+        std::fprintf(pfile,"w                    x                   y                  z                  rho(r)                  U(r)                  D(r)\n");
+        for (int p = 0; p < phi_points_; p++) {
+            // if(abs(z_p[p] == 0))
+            if(abs(x_p[p] == 0.0) && abs(y_p[p] == 0.0))
+              std::fprintf(pfile,"%-16.12lf             %-16.12lf            %-16.12lf            %-16.12lf             %-16.12lf             %-16.12lf             %-16.12lf\n"
+              ,w_p[p],x_p[p],y_p[p],z_p[p],rho_p[p],Ur_p[p],Dr_p[p]);
+        }
+        fclose(pfile);
+//   printf("HERE!\n");  
+
+        free(opdm_a_);
+        free(opdm_b_);
+
+}
+
 }} // end of namespaces
 

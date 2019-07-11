@@ -80,6 +80,8 @@ int read_options(std::string name, Options& options)
         options.add_str("MCPDFT_REFERENCE", "V2RDM", "V2RDM CI");
         /*- print QTAIM .wfn file? -*/
         options.add_bool("WRITE_QTAIM_WFN",false);
+        /*- Construct effectively unpaired electron matrices, D(r) and U(r)? -*/
+        options.add_bool("POLYRADICAL_ANALYSIS", false);
     }
 
     return true;
@@ -100,7 +102,11 @@ SharedWavefunction RDMinoles(SharedWavefunction ref_wfn, Options& options)
     outfile->Printf("\n\n");
 
     std::shared_ptr<MCPDFTSolver> dft (new MCPDFTSolver(ref_wfn,options));
-    double energy = dft->compute_energy(); 
+    double energy{0.0};
+    if (options.get_bool("POLYRADICAL_ANALYSIS"))
+       dft->polyradical_analysis();
+    else
+       energy = dft->compute_energy();
 
     Process::environment.globals["CURRENT ENERGY"] = energy;
     // TODO: return mcpdft wave function instead of reference
