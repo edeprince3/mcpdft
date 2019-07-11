@@ -3327,7 +3327,7 @@ void MCPDFTSolver::polyradical_analysis() {
             }
 
             int ii = i - pitzer_offset_[hi];
-            int jj = j - pitzer_offset_[hi];
+            int jj = j - pitzer_offset_[hj];
 
             Da_->pointer(hi)[ii][jj] = opdm_a_[n].val;
 
@@ -3362,16 +3362,16 @@ void MCPDFTSolver::polyradical_analysis() {
             Db_->pointer(hi)[ii][jj] = opdm_b_[n].val;
 
         }
-        std::shared_ptr<Matrix> Dmat = (std::shared_ptr<Matrix>)(new Matrix("UNPAIRED ELECTRONS MATRIX D",nmo_,nmo_));
-        std::shared_ptr<Matrix> Umat = (std::shared_ptr<Matrix>)(new Matrix("UNPAIRED ELECTRONS MATRIX U",nmo_,nmo_));
 
-        std::shared_ptr<Matrix> Dtot  = (std::shared_ptr<Matrix>)(new Matrix(nmo_,nmo_));
-
-        Dtot->zero();
-        Dtot->add(Da_);
+        std::shared_ptr<Matrix> Dtot; 
+        Dtot = std::shared_ptr<Matrix>(new Matrix(Da_));
         Dtot->add(Db_);
         // Dtot->print();
 
+        std::shared_ptr<Matrix> Dmat (new Matrix(Dtot));
+        std::shared_ptr<Matrix> Umat (new Matrix(Dtot));
+        Umat->zero();
+        Dmat->zero();
         for (int n = 0; n < na; n++) {
 
             int i = opdm_a_[n].i;
