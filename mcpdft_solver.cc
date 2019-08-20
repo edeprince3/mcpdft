@@ -781,8 +781,8 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf("\n");
 
     // writing the QTAIM wfn file
-    if ( options_.get_bool("WRITE_QTAIM_WFN") )
-       WriteQTAIM(Ca_,Cb_,epsilon_a_,epsilon_b_,occupation_a_,occupation_b_,"aimpac.txt");
+    //if ( options_.get_bool("WRITE_QTAIM_WFN") )
+    //   WriteQTAIM(Ca_,Cb_,epsilon_a_,epsilon_b_,occupation_a_,occupation_b_,"aimpac.txt");
        
     /* ===================================================================================================
        calculate the complement short-range MCPDFT XC functional energy:
@@ -811,7 +811,6 @@ double MCPDFTSolver::compute_energy() {
        }
        // extracting the lambda value from input file (default lambda=0.0)
        mcpdft_lambda = options_.get_double("MCPDFT_LAMBDA");
-       
        outfile->Printf("    ==> Coupling parameter for hybrid MCPDFT (lambda) = %5.2lf ", mcpdft_lambda);
        outfile->Printf("<==\n");
     }
@@ -3121,176 +3120,176 @@ void MCPDFTSolver::Fully_Translate(){
 
 }
 
-void MCPDFTSolver::WriteQTAIM(std::shared_ptr<Matrix> Ca,
-                              std::shared_ptr<Matrix> Cb,
-                              std::shared_ptr<Vector> Ea,
-                              std::shared_ptr<Vector> Eb,
-                              std::shared_ptr<Vector> Na,
-                              std::shared_ptr<Vector> Nb,
-                              const char* fileName) {
-
-    FILE * outfile;
-    outfile = fopen(fileName,"w");
-
-    /* ==============
-     * Title card
-     * ============== */
-    // std::string filename = get_writer_file_prefix(reference_wavefunction_->molecule()->name());
-    fprintf(outfile," Title Card Required\n");
-
-    /* ==============================
-     * Atomic basis information
-     * ============================== */
-    // // evaluate basis function values on a grid:
-
-    // scf::HF* scfwfn = (scf::HF*)reference_wavefunction_.get();
-    // std::shared_ptr<SuperFunctional> functional = scfwfn->functional();
-    // potential_ = scfwfn->V_potential();
-
-    // // phi matrix (real-space <- AO basis mapping)
-    // // since grid is stored in blocks, we need to build a full phi matrix
-    // // from the individual blocks:
-
-    // std::shared_ptr<BasisSet> primary = reference_wavefunction_->get_basisset("ORBITAL");
-    // int nao = primary->nbf();
-    // std::shared_ptr<Matrix> Da_ao (new Matrix(nao,nao));
-    // std::shared_ptr<Matrix> Db_ao (new Matrix(nao,nao));
-
-    // points_func_ = potential_->properties()[0];
-
-    // int nCols       = 20;
-    // int nAtoms      = molecule_->nallatom();
-    // int nPrimitives = primary->nprimitive();
-    // // int mMaxFuncs   = primary->max_functions();
-    // int nOCCMOs = 0;
-    // for (int h = 0; h < nirrep_; h++) {
-    //     nOCCMOs += doccpi_[h] + soccpi_[h];
-    // }
-
-    // fprintf(outfile,"GAUSSIAN               %d MOL ORBITALS      %d PRIMITIVES         %d NUCLEI\n",nOCCMOs,nPrimitives,nAtoms);
-    // fflush(stdout);
-
-    // fprintf(outfile,"CENTER ASSIGNMENTS    ");
-    // fflush(stdout);
-    // int center = 0;
-    // int counter = 0;
-    // // determine number of grid points
-    // int nblocks = potential_->nblocks();
-    // max_functions_ = 0;
-    // for (int myblock = 0; myblock < nblocks; myblock++) {
-    //     std::shared_ptr<BlockOPoints> block = potential_->get_block(myblock);
-    //     const std::vector<int>& function_map = block->functions_local_to_global();
-    //     int nlocal = function_map.size();
-    //     if ( nlocal > max_functions_ ) max_functions_ = nlocal;
-    //     for (int ml = 0; ml < nlocal; ml++) {
-    //         center = primary->function_to_center(function_map[ml]);
-    //         fprintf(outfile,"%d  ",center+1); // should start at one
-    //         fflush(stdout);
-    //         counter++;
-    //         if(counter % nCols == 0 ) {
-    //           fprintf(outfile,"\n");
-    //           fprintf(outfile,"CENTER ASSIGNMENTS    ");
-    //         }
-    //     }
-    // }
-    // fprintf(outfile,"\n");
-
-    std::shared_ptr<BasisSet> primary = reference_wavefunction_->get_basisset("ORBITAL");
-    // primary->print(fileName);
-    int nCols       = 20;
-    int nAtoms      = molecule_->nallatom();
-    int nao         = primary->nbf();
-    int nPrimitives = primary->nprimitive();
-    int nShells     = primary->nshell(); 
-    // int mMaxFuncs   = primary->max_functions();
-    int nOCCMOs = 0;
-    for (int h = 0; h < nirrep_; h++) {
-        nOCCMOs += doccpi_[h] + soccpi_[h];
-    }
-
-    fprintf(outfile,"GAUSSIAN               %d MOL ORBITALS      %d PRIMITIVES         %d NUCLEI\n",nOCCMOs,nPrimitives,nAtoms);
-    fflush(stdout);
-
-    fprintf(outfile,"CENTER ASSIGNMENTS    ");
-    fflush(stdout);
-    int center = 0;
-     for (int i = 1; i < nShells; i++) {
-         const GaussianShell& shell = primary->shell(i);
-         int nprims = shell.nprimitive();
-         center = shell.ncenter();
-         fprintf(outfile,"%d  ",center+1); // should start at one
-         fflush(stdout);
-
-         if(i % nCols == 0 ) {
-           fprintf(outfile,"\n");
-           fprintf(outfile,"CENTER ASSIGNMENTS    ");
-         }
-     }
-    // for (int i = 1; i < nPrimitives; i++) {
-    //     center = primary->function_to_center(i-1);
-    //     fprintf(outfile,"%d  ",center+1); // should start at one
-    //     fflush(stdout);
-
-    //     if(i % nCols == 0 ) {
-    //       fprintf(outfile,"\n");
-    //       fprintf(outfile,"CENTER ASSIGNMENTS    ");
-    //     }
-    // }
-    fprintf(outfile,"\n");
-    /* ==============================
-     * Nuclear coordinates & charges
-     * ============================== */
-    double geomX, geomY, geomZ;
-    double charge;
-    std::string labelAtom;
-
-    for ( int i = 0; i < nAtoms; i++ ) {
-        labelAtom = molecule_->fsymbol(i);
-        geomX = molecule_->xyz(i,0);
-        geomY = molecule_->xyz(i,1);
-        geomZ = molecule_->xyz(i,2);
-        charge = molecule_->fcharge(i);
-
-        fprintf(outfile,"  %s    %d    (CENTER  %d)   ",labelAtom.c_str(),i+1,i+1);
-        fflush(stdout);
-        fprintf(outfile,"% 10.8lf  % 10.8lf  % 10.8lf  CHARGE =   %-5.2f\n",geomX,geomY,geomZ,charge);
-        fflush(stdout);
-    }
-
-    /* ==============================================================
-     * Note: Coefficients of basis fxns in each MO belong to a column 
-     * of the C matrix. Each column of C matrix therefore should be 
-     * arranged in a row of five coefficients in the wfn file as 
-     * shown below. 
-     * ============================================================== */
-    int nRows = 5;
-
-    double ** Cap = Ca->pointer();
-    double ** Cbp = Cb->pointer();
-    double *  Eap = Ea->pointer();
-    double *  Ebp = Eb->pointer();
-    double *  Nap = Na->pointer();
-    double *  Nbp = Nb->pointer();
-
-    for (int i = 1; i < nmo_+1; i++) {
-        fprintf(outfile,"MO    %d                    OCC NO =     %15.8lf  ",i,Nap[i-1]);
-        fflush(stdout);
-        fprintf(outfile,"ORB. ENERGY =    %15.8lf\n",Eap[i-1]);
-        fflush(stdout);
-
-        for (int j = 1; j < nso_+1; j++) {
-            fprintf(outfile,"%15.8le ",Cap[j-1][i-1]);
-            fflush(stdout);
-
-            if(j % nRows == 0 )
-              fprintf(outfile,"\n");
-        }
-        fprintf(outfile,"\n");
-    }
-
-    fprintf(outfile,"END DATA\n");
-    fclose(outfile);
-}
+//void MCPDFTSolver::WriteQTAIM(std::shared_ptr<Matrix> Ca,
+//                              std::shared_ptr<Matrix> Cb,
+//                              std::shared_ptr<Vector> Ea,
+//                              std::shared_ptr<Vector> Eb,
+//                              std::shared_ptr<Vector> Na,
+//                              std::shared_ptr<Vector> Nb,
+//                              const char* fileName) {
+//
+//    FILE * outfile;
+//    outfile = fopen(fileName,"w");
+//
+//    /* ==============
+//     * Title card
+//     * ============== */
+//    // std::string filename = get_writer_file_prefix(reference_wavefunction_->molecule()->name());
+//    fprintf(outfile," Title Card Required\n");
+//
+//    /* ==============================
+//     * Atomic basis information
+//     * ============================== */
+//    // // evaluate basis function values on a grid:
+//
+//    // scf::HF* scfwfn = (scf::HF*)reference_wavefunction_.get();
+//    // std::shared_ptr<SuperFunctional> functional = scfwfn->functional();
+//    // potential_ = scfwfn->V_potential();
+//
+//    // // phi matrix (real-space <- AO basis mapping)
+//    // // since grid is stored in blocks, we need to build a full phi matrix
+//    // // from the individual blocks:
+//
+//    // std::shared_ptr<BasisSet> primary = reference_wavefunction_->get_basisset("ORBITAL");
+//    // int nao = primary->nbf();
+//    // std::shared_ptr<Matrix> Da_ao (new Matrix(nao,nao));
+//    // std::shared_ptr<Matrix> Db_ao (new Matrix(nao,nao));
+//
+//    // points_func_ = potential_->properties()[0];
+//
+//    // int nCols       = 20;
+//    // int nAtoms      = molecule_->nallatom();
+//    // int nPrimitives = primary->nprimitive();
+//    // // int mMaxFuncs   = primary->max_functions();
+//    // int nOCCMOs = 0;
+//    // for (int h = 0; h < nirrep_; h++) {
+//    //     nOCCMOs += doccpi_[h] + soccpi_[h];
+//    // }
+//
+//    // fprintf(outfile,"GAUSSIAN               %d MOL ORBITALS      %d PRIMITIVES         %d NUCLEI\n",nOCCMOs,nPrimitives,nAtoms);
+//    // fflush(stdout);
+//
+//    // fprintf(outfile,"CENTER ASSIGNMENTS    ");
+//    // fflush(stdout);
+//    // int center = 0;
+//    // int counter = 0;
+//    // // determine number of grid points
+//    // int nblocks = potential_->nblocks();
+//    // max_functions_ = 0;
+//    // for (int myblock = 0; myblock < nblocks; myblock++) {
+//    //     std::shared_ptr<BlockOPoints> block = potential_->get_block(myblock);
+//    //     const std::vector<int>& function_map = block->functions_local_to_global();
+//    //     int nlocal = function_map.size();
+//    //     if ( nlocal > max_functions_ ) max_functions_ = nlocal;
+//    //     for (int ml = 0; ml < nlocal; ml++) {
+//    //         center = primary->function_to_center(function_map[ml]);
+//    //         fprintf(outfile,"%d  ",center+1); // should start at one
+//    //         fflush(stdout);
+//    //         counter++;
+//    //         if(counter % nCols == 0 ) {
+//    //           fprintf(outfile,"\n");
+//    //           fprintf(outfile,"CENTER ASSIGNMENTS    ");
+//    //         }
+//    //     }
+//    // }
+//    // fprintf(outfile,"\n");
+//
+//    std::shared_ptr<BasisSet> primary = reference_wavefunction_->get_basisset("ORBITAL");
+//    // primary->print(fileName);
+//    int nCols       = 20;
+//    int nAtoms      = molecule_->nallatom();
+//    int nao         = primary->nbf();
+//    int nPrimitives = primary->nprimitive();
+//    int nShells     = primary->nshell(); 
+//    // int mMaxFuncs   = primary->max_functions();
+//    int nOCCMOs = 0;
+//    for (int h = 0; h < nirrep_; h++) {
+//        nOCCMOs += doccpi_[h] + soccpi_[h];
+//    }
+//
+//    fprintf(outfile,"GAUSSIAN               %d MOL ORBITALS      %d PRIMITIVES         %d NUCLEI\n",nOCCMOs,nPrimitives,nAtoms);
+//    fflush(stdout);
+//
+//    fprintf(outfile,"CENTER ASSIGNMENTS    ");
+//    fflush(stdout);
+//    int center = 0;
+//     for (int i = 1; i < nShells; i++) {
+//         const GaussianShell& shell = primary->shell(i);
+//         int nprims = shell.nprimitive();
+//         center = shell.ncenter();
+//         fprintf(outfile,"%d  ",center+1); // should start at one
+//         fflush(stdout);
+//
+//         if(i % nCols == 0 ) {
+//           fprintf(outfile,"\n");
+//           fprintf(outfile,"CENTER ASSIGNMENTS    ");
+//         }
+//     }
+//    // for (int i = 1; i < nPrimitives; i++) {
+//    //     center = primary->function_to_center(i-1);
+//    //     fprintf(outfile,"%d  ",center+1); // should start at one
+//    //     fflush(stdout);
+//
+//    //     if(i % nCols == 0 ) {
+//    //       fprintf(outfile,"\n");
+//    //       fprintf(outfile,"CENTER ASSIGNMENTS    ");
+//    //     }
+//    // }
+//    fprintf(outfile,"\n");
+//    /* ==============================
+//     * Nuclear coordinates & charges
+//     * ============================== */
+//    double geomX, geomY, geomZ;
+//    double charge;
+//    std::string labelAtom;
+//
+//    for ( int i = 0; i < nAtoms; i++ ) {
+//        labelAtom = molecule_->fsymbol(i);
+//        geomX = molecule_->xyz(i,0);
+//        geomY = molecule_->xyz(i,1);
+//        geomZ = molecule_->xyz(i,2);
+//        charge = molecule_->fcharge(i);
+//
+//        fprintf(outfile,"  %s    %d    (CENTER  %d)   ",labelAtom.c_str(),i+1,i+1);
+//        fflush(stdout);
+//        fprintf(outfile,"% 10.8lf  % 10.8lf  % 10.8lf  CHARGE =   %-5.2f\n",geomX,geomY,geomZ,charge);
+//        fflush(stdout);
+//    }
+//
+//    /* ==============================================================
+//     * Note: Coefficients of basis fxns in each MO belong to a column 
+//     * of the C matrix. Each column of C matrix therefore should be 
+//     * arranged in a row of five coefficients in the wfn file as 
+//     * shown below. 
+//     * ============================================================== */
+//    int nRows = 5;
+//
+//    double ** Cap = Ca->pointer();
+//    double ** Cbp = Cb->pointer();
+//    double *  Eap = Ea->pointer();
+//    double *  Ebp = Eb->pointer();
+//    double *  Nap = Na->pointer();
+//    double *  Nbp = Nb->pointer();
+//
+//    for (int i = 1; i < nmo_+1; i++) {
+//        fprintf(outfile,"MO    %d                    OCC NO =     %15.8lf  ",i,Nap[i-1]);
+//        fflush(stdout);
+//        fprintf(outfile,"ORB. ENERGY =    %15.8lf\n",Eap[i-1]);
+//        fflush(stdout);
+//
+//        for (int j = 1; j < nso_+1; j++) {
+//            fprintf(outfile,"%15.8le ",Cap[j-1][i-1]);
+//            fflush(stdout);
+//
+//            if(j % nRows == 0 )
+//              fprintf(outfile,"\n");
+//        }
+//        fprintf(outfile,"\n");
+//    }
+//
+//    fprintf(outfile,"END DATA\n");
+//    fclose(outfile);
+//}
 
 void MCPDFTSolver::polyradical_analysis() {
 
