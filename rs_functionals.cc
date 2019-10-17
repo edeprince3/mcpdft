@@ -80,11 +80,11 @@ namespace psi{ namespace RDMinoles {
 
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     //+++++++++++++++++++ Exchange functionals ++++++++++++++++++
-    // wPBE, wB97, Lh-BLYP, wB88                                +
+    // wPBE, Lh-BLYP, wB88                                      +
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 double MCPDFTSolver::EX_wPBE_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B,
-                             std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB) {
+                               std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB) {
 
     const double OMEGA = options_.get_double("MCPDFT_OMEGA");
 
@@ -370,9 +370,10 @@ double MCPDFTSolver::Lh_EX_B88_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<
     return exc;
 }
 
-double DFTSolver::EX_wB88_I(){
+double MCPDFTSolver::EX_wB88_I(std::shared_ptr<Vector> RHO_A, std::shared_ptr<Vector> RHO_B,
+                               std::shared_ptr<Vector> SIGMA_AA, std::shared_ptr<Vector> SIGMA_BB) {
     
-    const double OMEGA = options_.get_double("RS_OMEGA");
+    const double OMEGA = options_.get_double("MCPDFT_OMEGA");
     
     const double A_bar = 0.757211;
     const double B = -0.106364;
@@ -396,11 +397,11 @@ double DFTSolver::EX_wB88_I(){
     const double b8 = 0.0159586;
     const double b9 = -0.000245066;
 
-    double * rho_ap = rho_a_->pointer();
-    double * rho_bp = rho_b_->pointer();
+    double * rho_ap = RHO_A->pointer();
+    double * rho_bp = RHO_B->pointer();
    
-    double * sigma_aap = sigma_aa_->pointer();
-    double * sigma_bbp = sigma_bb_->pointer();
+    double * sigma_aap = SIGMA_AA->pointer();
+    double * sigma_bbp = SIGMA_BB->pointer();
     
     auto kF = [](double RHO) -> double {
 
@@ -593,196 +594,10 @@ double DFTSolver::EX_wB88_I(){
     return exc;
 }
 
-double MCDFTSolver::EX_SR_B97() {
-    const double cx_0 = 1.00000;
-    const double cx_1 = 1.13116;
-    const double cx_2 = -2.74915;
-    const double cx_3 = 12.0900;
-    const double cx_4 = -5.71642;
-    const double alpha = (2.0/3.0);      // Slater value
-    const double Cx = (9.0/8.0) * alpha * pow(3.0/M_PI,1.0/3.0);
-    const double OMEGA = 0.4;
-    const double GAMMA_X = 0.004;
-    double * rho_ap = rho_a_->pointer();
-    double * rho_bp = rho_b_->pointer();
-    double * sigma_aap = sigma_aa_->pointer();
-    double * sigma_bbp = sigma_bb_->pointer();
-
-    double ex_SR_B97 = 0.0;
-    for (int p = 0; p < phi_points_; p++) {
-        double s2_a = sigma_aap[p] / pow(rho_ap[p], 8.0/3.0);
-        double s2_b = sigma_bbp[p] / pow(rho_bp[p], 8.0/3.0);
-        double ux_a = (GAMMA_X * s2_a) / (1.0 + GAMMA_X * s2_a);
-        double ux_b = (GAMMA_X * s2_b) / (1.0 + GAMMA_X * s2_b);
-        double gx_a = cx_0 + cx_1 * ux_a + cx_2 * pow(ux_a,2.0) + cx_3 * pow(ux_a,3.0) + cx_4 * pow(ux_a,4.0);
-        double gx_b = cx_0 + cx_1 * ux_b + cx_2 * pow(ux_b,2.0) + cx_3 * pow(ux_b,3.0) + cx_4 * pow(ux_b,4.0);
-        double kf_a = pow(6.0 * M_PI * M_PI* rho_ap[p], 1.0/3.0);
-        double kf_b = pow(6.0 * M_PI * M_PI* rho_bp[p], 1.0/3.0);
-        double a_a = OMEGA / (2.0 * kf_a);
-        double a_b = OMEGA / (2.0 * kf_b);
-        double Fa_a = 1.0 - (8.0/3.0) * a_a * ( sqrt(M_PI) * erf(1.0 / (2.0*a_a)) - 3.0 * a_a + 4.0 * pow(a_a,3.0)
-                    + (2.0 * a_a - 4.0 * pow(a_a, 3.0)) * exp(-(1.0/(4.0 * a_a * a_a))) );
-        double Fa_b = 1.0 - (8.0/3.0) * a_b * ( sqrt(M_PI) * erf(1.0 / (2.0*a_b)) - 3.0 * a_b + 4.0 * pow(a_b,3.0)
-                    + (2.0 * a_b - 4.0 * pow(a_b, 3.0)) * exp(-(1.0/(4.0 * a_b * a_b))) );
-        double exa_SR_LSDA = pow(2.0,1.0/3.0) * Cx * pow( rho_ap[p], 4.0/3.0) * Fa_a;
-        double exb_SR_LSDA = pow(2.0,1.0/3.0) * Cx * pow( rho_bp[p], 4.0/3.0) * Fa_b;
-        double exa_SR_B97 = exa_SR_LSDA * gx_a * grid_w_->pointer()[p];
-        double exb_SR_B97 = exb_SR_LSDA * gx_b * grid_w_->pointer()[p];
-        ex_SR_B97 += exa_SR_B97 + exb_SR_B97; 
-    }
-    return ex_SR_B97;
-
-}
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     //+++++++++++++++++ Correlation Functionals +++++++++++++++++
-    // WB97 
+    //                                                          +
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-double MCPDFTSolver::EC_B97(){
-
-    const double pa = 1.0;
-    const double Aa = 0.0168869;
-    const double a1a = 0.11125;
-    const double b1a = 10.357;
-    const double b2a = 3.6231;
-    const double b3a = 0.88026;
-    const double b4a = 0.49671;
-    const double pe = 1.0;
-    const double c0p = 0.0310907;
-    const double a1p = 0.21370;
-    const double b1p = 7.5957;
-    const double b2p = 3.5876;
-    const double b3p = 1.6382;
-    const double b4p = 0.49294;
-    const double c0f = 0.01554535;
-    const double a1f = 0.20548;
-    const double b1f = 14.1189;
-    const double b2f = 6.1977;
-    const double b3f = 3.3662;
-    const double b4f = 0.62517;
-    const double d2Fz = 1.7099209341613656173;
-
-    const double c0_ss = 1.00000;
-    const double c0_ab = 1.00000;
-    const double c1_ss = -2.55352;
-    const double c1_ab = 3.99051;
-    const double c2_ss = 11.8926;
-    const double c2_ab = -17.0066;
-    const double c3_ss = -26.9452;
-    const double c3_ab = 1.07292;
-    const double c4_ss = 17.0927;
-    const double c4_ab = 8.88211;
-    const double GAMMA_SS = 0.2;
-    const double GAMMA_AB = 0.006;
-
-    double tol = 1.0e-20;
-
-    double * rho_ap = rho_a_->pointer();
-    double * rho_bp = rho_b_->pointer();
-    double * sigma_aap = sigma_aa_->pointer();
-    double * sigma_bbp = sigma_bb_->pointer();
-
-    auto Fz = [](double ZETA) -> double {
-
-              double dum = (pow((1.0 + ZETA) ,4.0/3.0) + pow((1.0 - ZETA) ,4.0/3.0) - 2.0) / (2.0 * pow(2.0,1.0/3.0) - 2.0);
-              return dum;
-    };
-
-    auto G = [](double r, double T, double a1, double b1, double b2, double b3, double b4, double p) -> double {
-
-             double dum = -2.0 * T * (1.0 + a1 * r) * log(1.0 + 0.5 * pow(T * (b1 * sqrt(r) + b2 * r + b3 * pow(r,3.0/2.0) + b4 * pow(r, p+1.0)) ,-1.0));
-             return dum;
-
-    };
-
-    auto Ac = [=](double r) -> double {
-
-              double temp = -G(r,Aa,a1a,b1a,b2a,b3a,b4a,pa);
-              return temp;
-    };
-
-    auto EcP = [=](double r) -> double {
-
-               double dum = G(r,c0p,a1p,b1p,b2p,b3p,b4p,pe);
-               return dum;
-    };
-
-    auto EcF = [=](double r) -> double {
-
-               double dumm = G(r,c0f,a1f,b1f,b2f,b3f,b4f,pe);
-               return dumm;
-    };
-
-    auto Ec = [=](double r, double ZETA) -> double {
-
-              double dum = EcP(r) + ( Ac(r) * Fz(ZETA) * (1.0 - pow(ZETA ,4.0)) ) / d2Fz + ( EcF(r) - EcP(r) ) * Fz(ZETA) * pow(ZETA ,4.0);
-              return dum;
-    };
-
-    std::shared_ptr<Vector> ec_LSDA (new Vector(phi_points_) );
-    std::shared_ptr<Vector> ec_ab   (new Vector(phi_points_) );
-    std::shared_ptr<Vector> ec_aa   (new Vector(phi_points_) );
-    std::shared_ptr<Vector> ec_bb   (new Vector(phi_points_) );
-
-    ec_LSDA->zero();
-    ec_ab->zero();
-    ec_aa->zero();
-    ec_bb->zero();
-
-    double * ec_LSDAp = ec_LSDA->pointer();
-    double * ec_abp = ec_ab->pointer();
-    double * ec_aap = ec_aa->pointer();
-    double * ec_bbp = ec_bb->pointer();
-
-    double exc = 0.0;
-    for (int p = 0; p < phi_points_; p++) {
-
-        double rhoa = rho_ap[p];
-        double rhob = rho_bp[p];
-        double rho = rhoa + rhob;
-        double zeta = (rhoa - rhob) / rho;
-        double rs =  pow( 3.0 / ( 4.0 * M_PI * rho) , 1.0/3.0 );
-
-        if ( rho > tol ) {
-           if ( rhoa < tol ){
-
-              rho = rhob;
-              zeta = 1.0;
-              ec_bbp[p] = Ec(rs,zeta) * rho;
-              ec_aap[p] = 0.0;
-
-           }else if ( rhob < tol ){
-
-                    rho = rhoa;
-                    zeta = 1.0;
-                    ec_aap[p] = Ec(rs,zeta) * rho;
-                    ec_bbp[p] = 0.0;
-
-           }
-           ec_LSDAp[p] = Ec(rs,zeta) * rho;
-        }else{
-             ec_LSDAp[p] =  0.0;
-             ec_aap[p] =  0.0;
-             ec_bbp[p] =  0.0;
-        }
-        ec_abp[p] = ec_LSDAp[p] - ec_aap[p] - ec_bbp[p];
-        double s2_a = sigma_aap[p] / pow(rho_ap[p], 8.0/3.0);
-        double s2_b = sigma_bbp[p] / pow(rho_bp[p], 8.0/3.0);
-        double s2_av = 0.5 * (s2_a + s2_b);
-        double uc_aa = (GAMMA_SS * s2_a) / (1.0 + GAMMA_SS * s2_a);
-        double uc_bb = (GAMMA_SS * s2_b) / (1.0 + GAMMA_SS * s2_b);
-        double uc_ab = (GAMMA_AB * s2_av) / (1.0 + GAMMA_AB * s2_av);
-        double gc_aa = c0_ss + c1_ss * uc_aa + c2_ss * pow(uc_aa,2.0) + c3_ss * pow(uc_aa,3.0) + c4_ss * pow(uc_aa,4.0);
-        double gc_bb = c0_ss + c1_ss * uc_bb + c2_ss * pow(uc_bb,2.0) + c3_ss * pow(uc_bb,3.0) + c4_ss * pow(uc_bb,4.0);
-        double gc_ab = c0_ab + c1_ab * uc_ab + c2_ab * pow(uc_ab,2.0) + c3_ab * pow(uc_ab,3.0) + c4_ab * pow(uc_ab,4.0);
-        
-        double EC_AA = ec_aap[p] * grid_w_->pointer()[p];
-        double EC_BB = ec_bbp[p] * grid_w_->pointer()[p];
-        double EC_AB = ec_abp[p] * grid_w_->pointer()[p];
-
-        exc += EC_AA + EC_BB + EC_AB;
-    }
-    return exc;
-}
 
 }} // End namespaces

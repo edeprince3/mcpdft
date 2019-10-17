@@ -48,7 +48,6 @@ int read_options(std::string name, Options& options)
 		       	"MCPDFT \
 			 1H_MCPDFT \
 			 1DH_MCPDFT \
-			 RS_MCPDFT \
 			 RS1H_MCPDFT \
 			 RS1DH_MCPDFT \
 			 LS1DH_MCPDFT \

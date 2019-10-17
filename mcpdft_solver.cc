@@ -809,6 +809,8 @@ double MCPDFTSolver::compute_energy() {
           // calculating the LR and SR two-electron energies
           lr_Vee_energy_ = RangeSeparatedTEE("LR");
           sr_Vee_energy_ = RangeSeparatedTEE("SR");
+          lr_hartree_energy_ = RangeSeparated_HF_TEE("LR");
+          sr_hartree_energy_ = RangeSeparated_HF_TEE("SR");
 
        }
        // extracting the lambda value from input file (default lambda=0.0)
@@ -820,8 +822,7 @@ double MCPDFTSolver::compute_energy() {
     // computing the exchange and correlation density functional energies
     double mcpdft_ex = 0.0;
     double mcpdft_ec = 0.0;
-    if (  (options_.get_str("MCPDFT_METHOD") == "RS_MCPDFT") 
-       || (options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT")
+    if ( (options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT")
        || (options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") ) {
 
        if ( options_.get_str("MCPDFT_FUNCTIONAL") == "WPBE" ) {
@@ -836,8 +837,6 @@ double MCPDFTSolver::compute_energy() {
 
        }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "WB97X" ) {
           throw PsiException("Sorry! The requested range-separated functional has not yet been implemented!",__FILE__,__LINE__);
-          // mcpdft_ex = EX_SR_B97(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
-          // mcpdft_ec = EC_B97(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);   
        }else {
              throw PsiException("Sorry! The requested range-separated functional has not yet been implemented!",__FILE__,__LINE__);
        }
@@ -992,8 +991,9 @@ Da_->print();
        }
     }else if( (options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") || (options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") ) {
        outfile->Printf("        two-electron energy       =         %20.12lf\n",two_electron_energy_);
-       outfile->Printf("        HF-exchange energy        =         %20.12lf\n",hf_ex_energy_);
-       outfile->Printf("        LR-exchange enrgy        =         %20.12lf\n",lr_ex_energy_);
+       outfile->Printf("        SR-exchange energy        =         %20.12lf\n",sr_hartree_energy_);
+       outfile->Printf("        LR-exchange enrgy         =         %20.12lf\n",lr_hartree_energy_);
+       outfile->Printf("        SR+LR-exchange enrgy      =         %20.12lf\n",lr_hartree_energy_+sr_hartree_energy_);
        if ( options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") {
           outfile->Printf("        MP2-correlation energy    =         %20.12lf\n",mp2_corr_energy_);
        }
@@ -1016,6 +1016,11 @@ Da_->print();
     double wf_contribution  = one_electron_energy + mcpdft_lambda * two_electron_energy_;
     double dft_contribution = (1.0 - mcpdft_lambda) * (coulomb_energy_ + mcpdft_ex) + (1.0 - mcpdft_lambda * mcpdft_lambda) * mcpdft_ec;
     double total_energy = wf_contribution + dft_contribution + nuclear_repulsion_energy;
+    if( options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") {
+       wf_contribution  = one_electron_energy + (mcpdft_lambda * sr_Vee_energy_) + lr_Vee_energy_;
+       dft_contribution = (1.0 - mcpdft_lambda) * (sr_hartree_energy_ + mcpdft_ex) + (1.0 - mcpdft_lambda * mcpdft_lambda) * mcpdft_ec;
+       total_energy = wf_contribution + dft_contribution + nuclear_repulsion_energy;
+    }
     if( options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT" || options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT" ) 
       total_energy += (mcpdft_lambda * hf_ex_energy_) + (mcpdft_lambda * mcpdft_lambda * mp2_corr_energy_);
     if( options_.get_str("MCPDFT_METHOD") == "LS1DH_MCPDFT" ) {
@@ -1034,8 +1039,6 @@ Da_->print();
             outfile->Printf("    * 1H-MCPDFT total energy      =      ");
     }else if( options_.get_str("MCPDFT_METHOD") == "1DH_MCPDFT") {
             outfile->Printf("    * 1DH-MCPDFT total energy     =      ");
-    }else if( options_.get_str("MCPDFT_METHOD") == "RS_MCPDFT") {
-            outfile->Printf("    * RS-MCPDFT total energy      =      ");
     }else if( options_.get_str("MCPDFT_METHOD") == "RS1H_MCPDFT") {
             outfile->Printf("    * RS1H-MCPDFT total energy    =      ");
     }else if( options_.get_str("MCPDFT_METHOD") == "RS1DH_MCPDFT") {
@@ -2422,6 +2425,186 @@ double MCPDFTSolver::RangeSeparatedTEE(std::string range_separation_type) {
     free(D2aa);
     free(D2ab);
     free(D2bb);
+ 
+    return range_separated_2e_energy;
+}
+
+double MCPDFTSolver::RangeSeparated_HF_TEE(std::string range_separation_type) {
+
+    std::shared_ptr<PSIO> psio (new PSIO());
+
+    // psio->set_pid("18332");
+
+    if ( !psio->exists(PSIF_V2RDM_D1A) ) throw PsiException("No D1a on disk",__FILE__,__LINE__);
+    if ( !psio->exists(PSIF_V2RDM_D1B) ) throw PsiException("No D1b on disk",__FILE__,__LINE__);
+
+    // D1a
+
+    psio->open(PSIF_V2RDM_D1A,PSIO_OPEN_OLD);
+
+    long int na;
+    psio->read_entry(PSIF_V2RDM_D1A,"length",(char*)&na,sizeof(long int));
+
+    opdm_a_ = (opdm *)malloc(na * sizeof(opdm));
+    psio->read_entry(PSIF_V2RDM_D1A,"D1a",(char*)opdm_a_,na * sizeof(opdm));
+    psio->close(PSIF_V2RDM_D1A,1);
+
+    for (int n = 0; n < na; n++) {
+
+        int i = opdm_a_[n].i;
+        int j = opdm_a_[n].j;
+
+        int hi = symmetry_[i];
+        int hj = symmetry_[j];
+
+        if ( hi != hj ) {
+            throw PsiException("error: something is wrong with the symmetry of the alpha OPDM",__FILE__,__LINE__);
+        }
+
+        int ii = i - pitzer_offset_[hi];
+        int jj = j - pitzer_offset_[hi];
+
+        Da_->pointer(hi)[ii][jj] = opdm_a_[n].val;
+
+    }
+
+    // D1b
+
+    psio->open(PSIF_V2RDM_D1B,PSIO_OPEN_OLD);
+
+    long int nb;
+    psio->read_entry(PSIF_V2RDM_D1B,"length",(char*)&nb,sizeof(long int));
+
+    opdm_b_ = (opdm *)malloc(nb * sizeof(opdm));
+    psio->read_entry(PSIF_V2RDM_D1B,"D1b",(char*)opdm_b_,nb * sizeof(opdm));
+    psio->close(PSIF_V2RDM_D1B,1);
+
+   for (int n = 0; n < nb; n++) {
+
+        int i = opdm_b_[n].i;
+        int j = opdm_b_[n].j;
+
+        int hi = symmetry_[i];
+        int hj = symmetry_[j];
+
+        if ( hi != hj ) {
+            throw PsiException("error: something is wrong with the symmetry of the beta OPDM",__FILE__,__LINE__);
+        }
+
+        int ii = i - pitzer_offset_[hi];
+        int jj = j - pitzer_offset_[hi];
+
+        Db_->pointer(hi)[ii][jj] = opdm_b_[n].val;
+
+    }
+
+    free(opdm_a_);
+    free(opdm_b_);
+
+//    double * D2aa = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
+//    double * D2bb = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
+//    double * D2ab = (double*)malloc(nmo_*nmo_*nmo_*nmo_*sizeof(double));
+//
+//    memset((void*)D2aa,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
+//    memset((void*)D2bb,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
+//    memset((void*)D2ab,'\0',nmo_*nmo_*nmo_*nmo_*sizeof(double));
+//
+//    F_DGEMM('n','n',nsopi_[h],phi_points_,nso_,1.0,Da_->pointer(h)[0],nsopi_[h],phi_in->pointer()[0],nso_,0.0,phi_temp->pointer(h)[0],nsopi_[h]);
+//    F_DGEMM('n','n',nsopi_[h],phi_points_,nso_,1.0,ao2so->pointer(h)[0],nsopi_[h],phi_in->pointer()[0],nso_,0.0,phi_temp->pointer(h)[0],nsopi_[h]);
+//    F_DGEMM('n','n',nsopi_[h],phi_points_,nso_,1.0,ao2so->pointer(h)[0],nsopi_[h],phi_in->pointer()[0],nso_,0.0,phi_temp->pointer(h)[0],nsopi_[h]);
+
+    std::shared_ptr<MintsHelper> mints(new MintsHelper(reference_wavefunction_));
+    if (range_separation_type == "LR") {
+       outfile->Printf("    ==> Transform ERF integrals <==\n");
+       outfile->Printf("\n");
+       // write erf integrals to disk
+       mints->integrals_erf(options_.get_double("MCPDFT_OMEGA"));
+    }else if (range_separation_type == "SR") {
+             outfile->Printf("    ==> Transform ERFC integrals <==\n");
+             outfile->Printf("\n");
+             // write erfc integrals to disk
+             mints->integrals_erfc(options_.get_double("MCPDFT_OMEGA"));
+    }else{
+         throw PsiException("The argument of RangeSeparatedTEI() function should either be \"SR\" or \"LR\"",__FILE__,__LINE__);
+    } 
+
+    
+    // transform range_separated (erf/erfc) integrals
+    double start = omp_get_wtime();
+
+    std::vector<std::shared_ptr<MOSpace> > spaces;
+    spaces.push_back(MOSpace::all);
+
+    std::shared_ptr<IntegralTransform> ints(new IntegralTransform(reference_wavefunction_, spaces,
+        IntegralTransform::TransformationType::Restricted, IntegralTransform::OutputType::IWLOnly, 
+        IntegralTransform::MOOrdering::PitzerOrder, IntegralTransform::FrozenOrbitals::None, false));
+
+    ints->set_dpd_id(0);
+    ints->set_keep_iwl_so_ints(true);
+    ints->set_keep_dpd_so_ints(true);
+    if (range_separation_type == "LR") {
+       ints->set_so_tei_file(PSIF_SO_ERF_TEI);
+    }else if (range_separation_type == "SR") {
+             ints->set_so_tei_file(PSIF_SO_ERFC_TEI);
+    }else{
+         throw PsiException("The argument of RangeSeparatedTEI() function should either be \"SR\" or \"LR\"",__FILE__,__LINE__);
+    } 
+
+    ints->initialize();
+
+    ints->transform_tei(MOSpace::all, MOSpace::all, MOSpace::all, MOSpace::all);
+
+    double end = omp_get_wtime();
+
+    outfile->Printf("\n");
+    outfile->Printf("        Time for integral transformation:  %7.2lf s\n",end-start);
+    outfile->Printf("\n");
+
+    // read range-separated integrals from disk
+    ReadRangeSeparatedIntegrals();
+
+    double range_separated_2e_energy = 0.0;
+    for (int i = 0; i < nmo_; i++) {
+
+        int hi = symmetry_[i];
+
+        for (int j = 0; j < nmo_; j++) {
+
+            int hj  = symmetry_[j];
+            int hij = hi ^ hj;
+            int ij  = ibas_[hij][i][j];
+
+            for (int k = 0; k < nmo_; k++) {
+
+                int hk = symmetry_[k];
+
+                for (int l = 0; l < nmo_; l++) {
+
+                    int hl  = symmetry_[l];
+                    int hkl = hk ^ hl;
+
+                    if ( hij != hkl ) continue;
+
+                    int kl = ibas_[hkl][k][l];
+
+                    long int offset = 0;
+                    for (int myh = 0; myh < hij; myh++) {
+                        offset += (long int)gems_[myh].size() * ( (long int)gems_[myh].size() + 1 ) / 2;
+                    }
+                    double val = erfc_tei_[offset + INDEX(ij,kl)];
+
+                    range_separated_2e_energy += 0.5 * val * Da_->pointer(hij)[i][j] * Da_->pointer(hkl)[k][l]; 
+                    range_separated_2e_energy += 0.5 * val * Db_->pointer(hij)[i][j] * Db_->pointer(hkl)[k][l];
+                    range_separated_2e_energy +=       val * Da_->pointer(hij)[i][j] * Db_->pointer(hkl)[k][l];
+                }
+            }
+        }
+    }
+    // printf("  erfc coulomb energy: %20.12lf %20.12lf\n",erfc_coulomb_energy, two_electron_energy_);
+
+//    free(D2aa);
+//    free(D2ab);
+//    free(D2bb);
  
     return range_separated_2e_energy;
 }

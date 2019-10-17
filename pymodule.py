@@ -54,8 +54,11 @@ def run_mcpdft(name, **kwargs):
     if ( (psi4.core.get_option('RDMINOLES', 'MCPDFT_METHOD') == '1DH_MCPDFT')
     or (psi4.core.get_option('RDMINOLES', 'MCPDFT_METHOD') == 'LS1DH_MCPDFT') ): 
         proc.run_dfmp2('mp2',**kwargs)
-    
-    func = psi4.core.get_option('RDMINOLES','MCPDFT_FUNCTIONAL')
+
+    if ("WBLYP" == psi4.core.get_option('RDMINOLES','MCPDFT_FUNCTIONAL')):
+       func = "BLYP"
+    else:
+       func = psi4.core.get_option('RDMINOLES','MCPDFT_FUNCTIONAL')
     ref_molecule = kwargs.get('molecule', psi4.core.get_active_molecule())
     base_wfn = psi4.core.Wavefunction.build(ref_molecule, psi4.core.get_global_option('BASIS'))
     ref_wfn = proc.scf_wavefunction_factory(func, base_wfn, psi4.core.get_option('RDMINOLES', 'REFERENCE'))

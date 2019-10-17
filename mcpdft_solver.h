@@ -100,6 +100,8 @@ class MCPDFTSolver: public Wavefunction{
     double coulomb_energy_;
     double hf_ex_energy_;
     double lr_ex_energy_;
+    double sr_hartree_energy_;
+    double lr_hartree_energy_;
 ///======================
     /// alpha occupation-number vector
     std::shared_ptr<Vector> occupation_a_;
@@ -307,6 +309,10 @@ class MCPDFTSolver: public Wavefunction{
     /// build range-separated matrix
     /// @ ranage_separation_type can be : SR or LR
     double RangeSeparatedTEE(std::string range_separation_type);
+
+    /// build range-separated matrix for classical D2 = D1 ^ D1
+    /// @ ranage_separation_type can be : SR or LR
+    double RangeSeparated_HF_TEE(std::string range_separation_type);
 
     /// alpha-spin density
     std::shared_ptr<Vector> rho_a_;
@@ -530,12 +536,6 @@ class MCPDFTSolver: public Wavefunction{
 		       std::shared_ptr<Vector> SIGMA_AA,
 		       std::shared_ptr<Vector> SIGMA_BB);
 
-    /// build EX_SR_B97()
-    double EX_SR_B97(std::shared_ptr<Vector> RHO_A,
-                     std::shared_ptr<Vector> RHO_B,
-                     std::shared_ptr<Vector> SIGMA_AA,
-                     std::shared_ptr<Vector> SIGMA_BB);
-
     /// build short-range EX_wB88()
     double EX_wB88_I(std::shared_ptr<Vector> RHO_A,
 		    std::shared_ptr<Vector> RHO_B,
@@ -586,12 +586,6 @@ class MCPDFTSolver: public Wavefunction{
     /// build EC_PW92_I()
     double EC_PW92_I(std::shared_ptr<Vector> RHO_A,
 		     std::shared_ptr<Vector> RHO_B);
-  
-    /// build EC_B97()
-    double EC_B97(std::shared_ptr<Vector> RHO_A,
-                  std::shared_ptr<Vector> RHO_B,
-                  std::shared_ptr<Vector> SIGMA_AA,
-                  std::shared_ptr<Vector> SIGMA_BB);
 
 };
 
