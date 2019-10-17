@@ -530,6 +530,18 @@ class MCPDFTSolver: public Wavefunction{
 		       std::shared_ptr<Vector> SIGMA_AA,
 		       std::shared_ptr<Vector> SIGMA_BB);
 
+    /// build EX_SR_B97()
+    double EX_SR_B97(std::shared_ptr<Vector> RHO_A,
+                     std::shared_ptr<Vector> RHO_B,
+                     std::shared_ptr<Vector> SIGMA_AA,
+                     std::shared_ptr<Vector> SIGMA_BB);
+
+    /// build short-range EX_wB88()
+    double EX_wB88_I(std::shared_ptr<Vector> RHO_A,
+		    std::shared_ptr<Vector> RHO_B,
+		    std::shared_ptr<Vector> SIGMA_AA,
+		    std::shared_ptr<Vector> SIGMA_BB);
+
 
     //############################################################
     //########### Correlation functions' declarations ############
@@ -574,6 +586,12 @@ class MCPDFTSolver: public Wavefunction{
     /// build EC_PW92_I()
     double EC_PW92_I(std::shared_ptr<Vector> RHO_A,
 		     std::shared_ptr<Vector> RHO_B);
+  
+    /// build EC_B97()
+    double EC_B97(std::shared_ptr<Vector> RHO_A,
+                  std::shared_ptr<Vector> RHO_B,
+                  std::shared_ptr<Vector> SIGMA_AA,
+                  std::shared_ptr<Vector> SIGMA_BB);
 
 };
 

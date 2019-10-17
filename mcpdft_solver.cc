@@ -201,12 +201,14 @@ void MCPDFTSolver::common_init() {
     // overlap integrals
     S_  = std::shared_ptr<Matrix>(reference_wavefunction_->S());
 
+    std::shared_ptr<Matrix> Sevec;
+    std::shared_ptr<Vector> Seval;
     if ( (options_.get_str("MCPDFT_METHOD") == "LH_MCPDFT") ) {
 
        // allocate memory for eigenvectors and eigenvalues of the overlap matrix
-       std::shared_ptr<Matrix> Sevec ( new Matrix(nso_,nso_) );
-       std::shared_ptr<Vector> Seval ( new Vector(nso_) );
-       Sm1_ = (std::shared_ptr<Matrix>)( new Matrix(nso_,nso_) );
+       Sevec = (std::shared_ptr<Matrix>) ( new Matrix(nso_,nso_) );
+       Seval = (std::shared_ptr<Vector>) ( new Vector(nso_) );
+       Sm1_  = (std::shared_ptr<Matrix>) ( new Matrix(nso_,nso_) );
 
        // build S^(-1) matrix
        S_->diagonalize(Sevec,Seval);
@@ -827,8 +829,15 @@ double MCPDFTSolver::compute_energy() {
           mcpdft_ex = EX_wPBE_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
           mcpdft_ec = EC_PBE_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
 
+       }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "WBLYP" ) {
+
+          mcpdft_ex = EX_wB88_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
+          mcpdft_ec = EC_LYP_I(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_ab_, tr_sigma_bb_);
+
        }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "WB97X" ) {
-             throw PsiException("The blame is on Marcus who has to implement this functional!",__FILE__,__LINE__);
+          throw PsiException("Sorry! The requested range-separated functional has not yet been implemented!",__FILE__,__LINE__);
+          // mcpdft_ex = EX_SR_B97(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);
+          // mcpdft_ec = EC_B97(tr_rho_a_, tr_rho_b_, tr_sigma_aa_, tr_sigma_bb_);   
        }else {
              throw PsiException("Sorry! The requested range-separated functional has not yet been implemented!",__FILE__,__LINE__);
        }
@@ -840,8 +849,10 @@ double MCPDFTSolver::compute_energy() {
 
              if ( options_.get_str("MCPDFT_FUNCTIONAL") == "SVWN" ) {
 
-                mcpdft_ex = EX_LSDA(tr_rho_a_, tr_rho_b_);
-                mcpdft_ec = EC_VWN3_RPA_III(tr_rho_a_, tr_rho_b_);
+                // mcpdft_ex = EX_LSDA(tr_rho_a_, tr_rho_b_);
+                // mcpdft_ec = EC_VWN3_RPA_III(tr_rho_a_, tr_rho_b_);
+                mcpdft_ex = EX_LSDA(rho_a_, rho_b_);
+                mcpdft_ec = EC_VWN3_RPA_III(rho_a_, rho_b_);
 
              }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "BLYP" ) {
 
@@ -875,7 +886,7 @@ double MCPDFTSolver::compute_energy() {
 
     // one-electron terms:
     std::shared_ptr<MintsHelper> mints(new MintsHelper(reference_wavefunction_));
-
+Da_->print();
     // SharedMatrix ha (new Matrix(mints->so_potential()));
     // ha->add(mints->so_kinetic());
     // ha->transform(Ca_);
@@ -886,7 +897,6 @@ double MCPDFTSolver::compute_energy() {
 
     // double one_electron_energy = Da_->vector_dot(ha) 
     //                            + Db_->vector_dot(hb);
-
     double one_electron_energy = 0.0;
 
     // kinetic-energy 
@@ -2184,6 +2194,43 @@ void MCPDFTSolver::BuildRhoFast(int na, int nb) {
 	    tw_p[p] = ( sigma_aap[p] + 2.0 * sigma_abp[p] + sigma_bbp[p] ) / (8.0 * rho_p[p]);
         }
     }
+
+    double * w_p   = grid_w_->pointer();
+    double * x_p   = grid_x_->pointer();
+    double * y_p   = grid_y_->pointer();
+    double * z_p   = grid_z_->pointer();
+
+    double ** phi_x = super_phi_x_->pointer();
+    double ** phi_y = super_phi_y_->pointer();
+    double ** phi_z = super_phi_z_->pointer();
+
+    FILE *pfile;
+    pfile = fopen("grids.txt","w");
+    std::fprintf(pfile,"     w                              x                             y                            z\n");
+    for (int p = 0; p < phi_points_; p++) {
+        std::fprintf(pfile,"%-16.12lf             %-16.12lf            %-16.12lf            %-16.12lf\n"
+        ,w_p[p],x_p[p],y_p[p],z_p[p]);
+    }
+    fclose(pfile);
+
+    pfile = fopen("orbitals.txt","w");
+    for (int p = 0; p < phi_points_; p++) {
+        for (int mu =  0; mu < nso_; mu++) {
+            std::fprintf(pfile,"       %-16.12lf",phi[p][mu]);
+        }
+        std::fprintf(pfile,"\n");
+    }
+    fclose(pfile);
+
+    pfile = fopen("gradients.txt","w");
+    for (int p = 0; p < phi_points_; p++) {
+        for (int mu =  0; mu < nso_; mu++) {
+            std::fprintf(pfile,"       %-16.12lf %-16.12lf %-16.12lf",
+                         phi_x[p][mu], phi_y[p][mu], phi_z[p][mu]);
+        }
+        std::fprintf(pfile,"\n");
+    }
+    fclose(pfile);
 }
 
 double MCPDFTSolver::RangeSeparatedTEE(std::string range_separation_type) {

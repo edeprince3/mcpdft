@@ -69,7 +69,8 @@ int read_options(std::string name, Options& options)
 			 BOP \
 			 BLYP \
 			 WPBE \
-			 LRC_WPBE");
+			 LRC_WPBE \
+                         WBLYP");
         /*- type of density and density gradient translation:
         REGULAR = The gradients of on-top density are not considered in the polarization factor zeta
         FULL = The gradients of on-top density is included in the polarization factor zeta       -*/
