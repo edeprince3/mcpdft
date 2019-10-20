@@ -55,8 +55,8 @@ def run_mcpdft(name, **kwargs):
     or (psi4.core.get_option('RDMINOLES', 'MCPDFT_METHOD') == 'LS1DH_MCPDFT') ): 
         proc.run_dfmp2('mp2',**kwargs)
 
-    if ("WBLYP" == psi4.core.get_option('RDMINOLES','MCPDFT_FUNCTIONAL')):
-       func = "BLYP"
+    if ('WBLYP' == psi4.core.get_option('RDMINOLES','MCPDFT_FUNCTIONAL')):
+       func = 'BLYP'
     else:
        func = psi4.core.get_option('RDMINOLES','MCPDFT_FUNCTIONAL')
     ref_molecule = kwargs.get('molecule', psi4.core.get_active_molecule())

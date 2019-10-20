@@ -885,7 +885,7 @@ double MCPDFTSolver::compute_energy() {
 
     // one-electron terms:
     std::shared_ptr<MintsHelper> mints(new MintsHelper(reference_wavefunction_));
-Da_->print();
+//Da_->print();
     // SharedMatrix ha (new Matrix(mints->so_potential()));
     // ha->add(mints->so_kinetic());
     // ha->transform(Ca_);
@@ -2437,65 +2437,39 @@ double MCPDFTSolver::RangeSeparated_HF_TEE(std::string range_separation_type) {
 
     if ( !psio->exists(PSIF_V2RDM_D1A) ) throw PsiException("No D1a on disk",__FILE__,__LINE__);
     if ( !psio->exists(PSIF_V2RDM_D1B) ) throw PsiException("No D1b on disk",__FILE__,__LINE__);
+    
+    double * D1a = (double*)malloc(nmo_*nmo_*sizeof(double));
+    double * D1b = (double*)malloc(nmo_*nmo_*sizeof(double));
+
+    memset((void*)D1a,'\0',nmo_*nmo_*sizeof(double));
+    memset((void*)D1b,'\0',nmo_*nmo_*sizeof(double));
 
     // D1a
-
     psio->open(PSIF_V2RDM_D1A,PSIO_OPEN_OLD);
-
     long int na;
     psio->read_entry(PSIF_V2RDM_D1A,"length",(char*)&na,sizeof(long int));
-
     opdm_a_ = (opdm *)malloc(na * sizeof(opdm));
     psio->read_entry(PSIF_V2RDM_D1A,"D1a",(char*)opdm_a_,na * sizeof(opdm));
     psio->close(PSIF_V2RDM_D1A,1);
-
     for (int n = 0; n < na; n++) {
-
         int i = opdm_a_[n].i;
         int j = opdm_a_[n].j;
-
-        int hi = symmetry_[i];
-        int hj = symmetry_[j];
-
-        if ( hi != hj ) {
-            throw PsiException("error: something is wrong with the symmetry of the alpha OPDM",__FILE__,__LINE__);
-        }
-
-        int ii = i - pitzer_offset_[hi];
-        int jj = j - pitzer_offset_[hi];
-
-        Da_->pointer(hi)[ii][jj] = opdm_a_[n].val;
-
+        long int id = i*nmo_+j;
+        D1a[id] = opdm_a_[n].val;
     }
 
     // D1b
-
     psio->open(PSIF_V2RDM_D1B,PSIO_OPEN_OLD);
-
     long int nb;
     psio->read_entry(PSIF_V2RDM_D1B,"length",(char*)&nb,sizeof(long int));
-
     opdm_b_ = (opdm *)malloc(nb * sizeof(opdm));
     psio->read_entry(PSIF_V2RDM_D1B,"D1b",(char*)opdm_b_,nb * sizeof(opdm));
     psio->close(PSIF_V2RDM_D1B,1);
-
-   for (int n = 0; n < nb; n++) {
-
+    for (int n = 0; n < nb; n++) {
         int i = opdm_b_[n].i;
         int j = opdm_b_[n].j;
-
-        int hi = symmetry_[i];
-        int hj = symmetry_[j];
-
-        if ( hi != hj ) {
-            throw PsiException("error: something is wrong with the symmetry of the beta OPDM",__FILE__,__LINE__);
-        }
-
-        int ii = i - pitzer_offset_[hi];
-        int jj = j - pitzer_offset_[hi];
-
-        Db_->pointer(hi)[ii][jj] = opdm_b_[n].val;
-
+        long int id = i*nmo_+j;
+        D1b[id] = opdm_b_[n].val;
     }
 
     free(opdm_a_);
@@ -2528,7 +2502,6 @@ double MCPDFTSolver::RangeSeparated_HF_TEE(std::string range_separation_type) {
          throw PsiException("The argument of RangeSeparatedTEI() function should either be \"SR\" or \"LR\"",__FILE__,__LINE__);
     } 
 
-    
     // transform range_separated (erf/erfc) integrals
     double start = omp_get_wtime();
 
@@ -2593,9 +2566,9 @@ double MCPDFTSolver::RangeSeparated_HF_TEE(std::string range_separation_type) {
                     }
                     double val = erfc_tei_[offset + INDEX(ij,kl)];
 
-                    range_separated_2e_energy += 0.5 * val * Da_->pointer(hij)[i][j] * Da_->pointer(hkl)[k][l]; 
-                    range_separated_2e_energy += 0.5 * val * Db_->pointer(hij)[i][j] * Db_->pointer(hkl)[k][l];
-                    range_separated_2e_energy +=       val * Da_->pointer(hij)[i][j] * Db_->pointer(hkl)[k][l];
+                    range_separated_2e_energy += 0.5 * val * D1a[i*nmo_+j] * D1a[k*nmo_+l]; 
+                    range_separated_2e_energy += 0.5 * val * D1b[i*nmo_+j] * D1b[k*nmo_+l];
+                    range_separated_2e_energy +=       val * D1a[i*nmo_+j] * D1b[k*nmo_+l];
                 }
             }
         }
