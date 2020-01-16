@@ -354,7 +354,7 @@ void MCPDFTSolver::common_init() {
           Q_ao_ = std::shared_ptr<Matrix>(new Matrix(Q_ao_1));
 	  Q_ao_->add(Q_ao_2);
 
-	  }
+       }
     
        if (  (options_.get_str("MCPDFT_METHOD") != "1H_MCPDFT") 
           && (options_.get_str("MCPDFT_METHOD") != "LH_MCPDFT")  
@@ -515,28 +515,28 @@ void MCPDFTSolver::common_init() {
         outfile->Printf("\n"); 
         outfile->Printf("    ==> Build Phi and Phi' matrices ..."); fflush(stdout);
 
-        super_phi_ao_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI (AO)",phi_points_,nso_));
+        std::shared_ptr<Matrix> super_phi_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI (AO)",phi_points_,nso_));
 
-        // std::shared_ptr<Matrix> super_phi_x_ao_;
-        // std::shared_ptr<Matrix> super_phi_y_ao_;
-        // std::shared_ptr<Matrix> super_phi_z_ao_;
+        std::shared_ptr<Matrix> super_phi_x_ao;
+        std::shared_ptr<Matrix> super_phi_y_ao;
+        std::shared_ptr<Matrix> super_phi_z_ao;
 
         if ( is_gga_ || is_meta_ ) {
 
-            super_phi_x_ao_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI X (AO)",phi_points_,nso_));
-            super_phi_y_ao_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Y (AO)",phi_points_,nso_));
-            super_phi_z_ao_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Z (AO)",phi_points_,nso_));
+            super_phi_x_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI X (AO)",phi_points_,nso_));
+            super_phi_y_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Y (AO)",phi_points_,nso_));
+            super_phi_z_ao = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Z (AO)",phi_points_,nso_));
             
         }
 
         // build phi matrix and derivative phi matrices (ao basis)
-        BuildPhiMatrixAO("PHI",super_phi_ao_);
+        BuildPhiMatrixAO("PHI",super_phi_ao);
 
         if ( is_gga_ || is_meta_ ) {
 
-            BuildPhiMatrixAO("PHI_X",super_phi_x_ao_);
-            BuildPhiMatrixAO("PHI_Y",super_phi_y_ao_);
-            BuildPhiMatrixAO("PHI_Z",super_phi_z_ao_);
+            BuildPhiMatrixAO("PHI_X",super_phi_x_ao);
+            BuildPhiMatrixAO("PHI_Y",super_phi_y_ao);
+            BuildPhiMatrixAO("PHI_Z",super_phi_z_ao);
 
         }
 
@@ -549,7 +549,7 @@ void MCPDFTSolver::common_init() {
 
         super_phi_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI",phi_points_list,nsopi_));
 
-        TransformPhiMatrixAOMO(super_phi_ao_,super_phi_);
+        TransformPhiMatrixAOMO(super_phi_ao,super_phi_);
 
         if ( is_gga_ || is_meta_ ) {
 
@@ -557,9 +557,9 @@ void MCPDFTSolver::common_init() {
             super_phi_y_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Y",phi_points_list,nsopi_));
             super_phi_z_ = std::shared_ptr<Matrix>(new Matrix("SUPER PHI Z",phi_points_list,nsopi_));
 
-            TransformPhiMatrixAOMO(super_phi_x_ao_,super_phi_x_);
-            TransformPhiMatrixAOMO(super_phi_y_ao_,super_phi_y_);
-            TransformPhiMatrixAOMO(super_phi_z_ao_,super_phi_z_);
+            TransformPhiMatrixAOMO(super_phi_x_ao,super_phi_x_);
+            TransformPhiMatrixAOMO(super_phi_y_ao,super_phi_y_);
+            TransformPhiMatrixAOMO(super_phi_z_ao,super_phi_z_);
 
         }
         outfile->Printf(" Done. <==\n"); 
@@ -848,10 +848,8 @@ double MCPDFTSolver::compute_energy() {
 
              if ( options_.get_str("MCPDFT_FUNCTIONAL") == "SVWN" ) {
 
-                // mcpdft_ex = EX_LSDA(tr_rho_a_, tr_rho_b_);
-                // mcpdft_ec = EC_VWN3_RPA_III(tr_rho_a_, tr_rho_b_);
-                mcpdft_ex = EX_LSDA(rho_a_, rho_b_);
-                mcpdft_ec = EC_VWN3_RPA_III(rho_a_, rho_b_);
+                mcpdft_ex = EX_LSDA(tr_rho_a_, tr_rho_b_);
+                mcpdft_ec = EC_VWN3_RPA_III(tr_rho_a_, tr_rho_b_);
 
              }else if ( options_.get_str("MCPDFT_FUNCTIONAL") == "BLYP" ) {
 
@@ -1844,21 +1842,21 @@ void MCPDFTSolver::BuildPiFast(tpdm * D2ab, int nab) {
     }
 }
 
-void MCPDFTSolver::BuildLMF() {
-
-    lmf_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
-
-    double * lmf_p   = lmf_->pointer();
-    double * tw_p   = tw_->pointer();
-    double * tau_ap = tau_a_->pointer();
-    double * tau_bp = tau_b_->pointer();
-
-    for (int p = 0; p < phi_points_; p++) {
-
-        lmf_p[p] += ( tau_ap[p] + tau_bp[p] ) / tw_p[p];
-
-    }
-}
+// void MCPDFTSolver::BuildLMF() {
+// 
+//     lmf_   = (std::shared_ptr<Vector>)(new Vector(phi_points_));
+// 
+//     double * lmf_p   = lmf_->pointer();
+//     double * tw_p   = tw_->pointer();
+//     double * tau_ap = tau_a_->pointer();
+//     double * tau_bp = tau_b_->pointer();
+// 
+//     for (int p = 0; p < phi_points_; p++) {
+// 
+//         lmf_p[p] += ( tau_ap[p] + tau_bp[p] ) / tw_p[p];
+// 
+//     }
+// }
 
 void MCPDFTSolver::BuildRho() {
 
@@ -2000,7 +1998,7 @@ void MCPDFTSolver::BuildRhoFast(int na, int nb) {
     // zeta_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
     // rs_ = (std::shared_ptr<Vector>)(new Vector(phi_points_));
 
-    double ** phi   = super_phi_->pointer();
+    // double ** phi   = super_phi_->pointer();
 
     double * rho_ap = rho_a_->pointer();
     double * rho_bp = rho_b_->pointer();
@@ -2203,9 +2201,7 @@ void MCPDFTSolver::BuildRhoFast(int na, int nb) {
     double * y_p   = grid_y_->pointer();
     double * z_p   = grid_z_->pointer();
 
-    double ** phi_x = super_phi_x_->pointer();
-    double ** phi_y = super_phi_y_->pointer();
-    double ** phi_z = super_phi_z_->pointer();
+    double ** phi   = super_phi_->pointer();
 
     FILE *pfile;
     pfile = fopen("grids.txt","w");
@@ -2225,15 +2221,22 @@ void MCPDFTSolver::BuildRhoFast(int na, int nb) {
     }
     fclose(pfile);
 
-    pfile = fopen("gradients.txt","w");
-    for (int p = 0; p < phi_points_; p++) {
-        for (int mu =  0; mu < nso_; mu++) {
-            std::fprintf(pfile,"       %-16.12lf %-16.12lf %-16.12lf",
-                         phi_x[p][mu], phi_y[p][mu], phi_z[p][mu]);
-        }
-        std::fprintf(pfile,"\n");
+    if ( is_gga_ || is_meta_ ) {
+    
+       double ** phi_x = super_phi_x_->pointer();
+       double ** phi_y = super_phi_y_->pointer();
+       double ** phi_z = super_phi_z_->pointer();
+
+       pfile = fopen("gradients.txt","w");
+       for (int p = 0; p < phi_points_; p++) {
+           for (int mu =  0; mu < nso_; mu++) {
+               std::fprintf(pfile,"       %-16.12lf %-16.12lf %-16.12lf",
+                            phi_x[p][mu], phi_y[p][mu], phi_z[p][mu]);
+           }
+           std::fprintf(pfile,"\n");
+       }
+       fclose(pfile);
     }
-    fclose(pfile);
 }
 
 double MCPDFTSolver::RangeSeparatedTEE(std::string range_separation_type) {

@@ -128,11 +128,9 @@ void MCPDFTSolver::ReadOPDM() {
         outfile->Printf("    ==> Build Rho's ...\n");
         BuildRhoFast(na,nb);
         outfile->Printf("    ... Done. <==\n\n");
-
-        free(opdm_a_);
-        free(opdm_b_);
     }
-
+    free(opdm_a_);
+    free(opdm_b_);
 }
 
 void MCPDFTSolver::ReadCIOPDM(std::shared_ptr<Matrix> D, const char* fileName) {

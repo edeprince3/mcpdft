@@ -112,7 +112,6 @@ void MCPDFTSolver::ReadTPDM() {
  
     BuildExchangeCorrelationHole(myp,d2,nab,d2aa,naa,d2bb,nbb);
 */
-
     free(d2);
 
 }
