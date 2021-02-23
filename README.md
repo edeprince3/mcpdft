@@ -1,18 +1,20 @@
-<p align="center">
+<!--<p align="center">
 <img src="logo.png" style='height: 30%; width: 50%; object-fit: contain'/> 
 <br>
 <a href="https://opensource.org/licenses/GPL-2.0"><img src="https://img.shields.io/github/license/edeprince3/v2rdm_casscf.svg" /></a>
+</p>-->
 <!-- <img src="logo.png" alt="RDM-inoles" align="middle"> -->
-</p>
 
-# RDM-INOLES
 
-RDM-INOLES is a general-purpose reduced-density matrix (RDM)-based electronic structure plugin to Psi4. It can provide an accurate and efficient description of the static and dynamical correlation effects in strongly-correlated systems and also be used for the post-HF analysis of the resulting wavefunctions and densities.
+# mcpdft
+
+mcpdft is a reduced-density-matrix (RDM)-based electronic structure plugin to Psi4. Given suitable input RDMs (that presumably captures static correlation effects), mcpdft can provide an efficient and accurate description of dynamic correlation effects that may be lacking in method used to generate the input RDMs. This software can also be used to carry out density-based analyses using post-Hartree-Fock methods.
 
 ## OVERVIEW
 
-As the core part of RDM-INOLES, the multiconfigurational pair-density functional theory (MCPDFT) provides an accurate and efficient way of recovering both static and dynamical correlation effects with reasonable polynomial cost. It becomes most useful in strongly-correlated systems where the number of active electrons and orbitals in the active space is large. Both translated and fully-translated versions of Slater and Vosko-Wilk-Nusair random-phase approximation expression III (SVWN3), Perdew-Burke-Ernzerhof (PBE), revised PBE (revPBE), Becke88 exchange and one-parameter correlation functional (BOP) and Becke and Lee-Yang-Parr (BLYP) on-top pair-density exchange-correlation functionals are available at the moment. In addition, the global-, double- and range-separated hybrid multi-configurational OTPDs such as wPBE and LRC-wPBE have also been implemented. However, this part of the project also is under the ongoing developement.
+The multiconfiguration pair-density functional theory (MCPDFT) provides an accurate and efficient way of modeling static and dynamic correlation effects at low cost. Both translated and fully-translated versions of Slater and Vosko-Wilk-Nusair random-phase approximation expression III (SVWN3), Perdew-Burke-Ernzerhof (PBE), revised PBE (revPBE), Becke88 exchange and one-parameter correlation functional (BOP) and Becke and Lee-Yang-Parr (BLYP) on-top pair-density exchange-correlation functionals are available at the moment. In addition, the global-, double- and range-separated hybrid multi-configurational OTPDs such as wPBE and LRC-wPBE have also been implemented.
 
+<!--
 In summary, RDM-INOLES:
 
 * can provide an interface with any (multiconfigurational) method that is able to provide 1-electron and 2-electron RDMs.
@@ -20,12 +22,13 @@ In summary, RDM-INOLES:
 * can generate a .wfn file for further analysis of the wavefunction based on the quantum theory of atoms in molecules (QTAIMs)
 * uses the reference total density and on-top pair-density (OTPD) functions as the input to build the so-called OTPD exchange-correlation (XC) functionals [1]
 * features a double-hybrid MCPDFT method that is based on the linearly-scaled one-parameter double-hybrid (LS1DH) of Toulouse et al. described in Ref [3] 
-* will include E. Valeev's universal perturbative explicitly correlated basis-set incompleteness correction [4]
 * will provide and support both scaled and unscaled densities in MCPDFT
+* 
+-->
 
 ## INSTALLATION
 
-To run the Psi4 plugin MCPDFT:
+To run the Psi4 plugin mcpdft:
 
 * Download Psi4 (1.2rc2 or later) from github.com: https://github.com/psi4/psi4, and follow the installation instructions given here: http://psicode.org/psi4manual/master/build_planning.html . Make sure to keep the name of the plugin directory mcpdft .
 
@@ -75,6 +78,7 @@ To run the Psi4 plugin MCPDFT:
 
     Writes the QTAIM .wfn file (AIMPAC and its successors). The default is false.
 
+<!--
 ## REFERENCES
 
 [1] M. Mostafanejad and A. E. DePrince III, J. Chem. Theory Comput. 15, 290-302 (2019). "Combining Pair-Density Functional Theory and Variational Two-Electron Reduced-Density Matrix Methods"
@@ -82,5 +86,5 @@ To run the Psi4 plugin MCPDFT:
 [2] J. Fosso-Tande, T.-S. Nguyen, G. Gidofalvi, and A. E. DePrince III, J. Chem. Theory Comput., 12, 2260-2271 (2016). "Large-scale variational two-electron reduced-density-matrix-driven complete active space self-consistent field methods."
 
 [3] J. Toulouse, K. Sharkas, E. Bremond and C. Adamo J. Chem. Phys. 135, 101102 (2011). "Rationale for a new class of double-hybrid approximations in density-functional theory"
+-->
 
-[4] M. Torheyden and E. F. Valeev J. Chem. Phys. 131, 171103 (2009). "Universal perturbative explicitly correlatedbasis set incompleteness correction"
