@@ -1,10 +1,11 @@
 memory 6gb
-# first, import vrdm_casscf_private library
-sys.path.insert(0, './..')
-import v2rdm_casscf
+# first, import hilbert (for v2rdm-casscf)
+sys.path.insert(0, '/home/deprince/edeprince3/hilbert/public')
+import hilbert
+
 # second, import mcpdft library
 sys.path.insert(0, './..')
-import RDMinoles
+import mcpdft
 
 molecule mol {
 0 1
@@ -23,7 +24,7 @@ set {
   reference rhf
 }
 
-set v2rdm_casscf {
+set hilbert {
 
   positivity dqg
   opdm_write_full true
@@ -49,16 +50,17 @@ set v2rdm_casscf {
 }
 
 # it is important that the reference is set to uks for mcpdft
-set rdminoles {
+set mcpdft {
   reference uks
   #mcpdft_lambda 0.2
   mcpdft_reference v2rdm
   mcpdft_type df
   mcpdft_functional blyp
-  polyradical_analysis true
-  #mcpdft_method lh_mcpdft #ls1dh_mcpdft
   mcpdft_method mcpdft #ls1dh_mcpdft
-  write_qtaim_wfn true
+  #mcpdft_method lh_mcpdft #ls1dh_mcpdft
+
+  #polyradical_analysis true
+  #write_qtaim_wfn true
 }
 
 # run v2rdm-casscf

@@ -1,7 +1,7 @@
 /*
  * @BEGIN LICENSE
  *
- * RDMinoles by Psi4 Developer, a plugin to:
+ * mcpdft by Psi4 Developer, a plugin to:
  *
  * Psi4: an open-source quantum chemistry software package
  *
@@ -99,7 +99,7 @@
 using namespace psi;
 using namespace fnocc;
 
-namespace psi{ namespace RDMinoles {
+namespace psi{ namespace mcpdft {
 
 // the MCPDFTSolver class derives from the Wavefunction class and inherits its members
 MCPDFTSolver::MCPDFTSolver(std::shared_ptr<Wavefunction> reference_wavefunction,Options & options_):
@@ -770,6 +770,7 @@ double MCPDFTSolver::compute_energy() {
     }
 
     // Build the local mixing function (LMF) f(r)
+/*
     if (options_.get_str("MCPDFT_METHOD") == "LH_MCPDFT") {
 
     outfile->Printf("    ==> Build the local mixing function f(r) ...");
@@ -777,6 +778,7 @@ double MCPDFTSolver::compute_energy() {
     outfile->Printf(" Done. <==\n\n");
        
     }
+*/
     // calculate the on-top energy
 
     outfile->Printf("    ==> Evaluate the on-top energy contribution <==\n");

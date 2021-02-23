@@ -66,7 +66,7 @@
 
 #include "mcpdft_solver.h"
 
-namespace psi{ namespace RDMinoles {
+namespace psi{ namespace mcpdft {
 
     //###########################################################
     //# The exchange and correlation functional implementations #

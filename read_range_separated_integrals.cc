@@ -38,7 +38,7 @@ using namespace psi;
 
 
 
-namespace psi{namespace RDMinoles{
+namespace psi{namespace mcpdft{
 
 void MCPDFTSolver::ReadAllIntegrals(iwlbuf *Buf) {
 

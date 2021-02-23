@@ -51,7 +51,7 @@
 using namespace psi;
 using namespace std;
 
-namespace psi{namespace RDMinoles{
+namespace psi{namespace mcpdft{
 
 void MCPDFTSolver::ReadOPDM() {
 
