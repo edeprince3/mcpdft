@@ -30,7 +30,7 @@ In summary, RDM-INOLES:
 
 To run the Psi4 plugin mcpdft:
 
-* Download Psi4 (1.2rc2 or later) from github.com: https://github.com/psi4/psi4, and follow the installation instructions given here: http://psicode.org/psi4manual/master/build_planning.html . Make sure to keep the name of the plugin directory mcpdft .
+* Download Psi4 from github.com: https://github.com/psi4/psi4, check out version 1.9.1 (git checkout f53cdd7), and follow the installation instructions given here: http://psicode.org/psi4manual/master/build_planning.html . Make sure to keep the name of the plugin directory mcpdft .
 
 *  Configure with CMake to generate a Makefile. Run `psi4 --plugin-compile` to get a CMake command. Modify it as needed with `-D` for compiler, libraries, and options.
 
