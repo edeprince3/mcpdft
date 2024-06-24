@@ -149,12 +149,6 @@ void MCPDFTSolver::common_init() {
     // number of beta electrons per irrep
     nbetapi_  = reference_wavefunction_->nbetapi();
 
-    // number of doubly occupied orbitals per irrep
-    doccpi_   = reference_wavefunction_->doccpi();
-
-    // number of singly occupied orbitals per irrep
-    soccpi_   = reference_wavefunction_->soccpi();
-
     // number of frozen core orbitals per irrep
     frzcpi_   = reference_wavefunction_->frzcpi();
 
@@ -230,14 +224,14 @@ void MCPDFTSolver::common_init() {
     Db_ = std::shared_ptr<Matrix>(reference_wavefunction_->Db());
 
     // orbital energies
-    epsilon_a_= std::shared_ptr<Vector>(new Vector(nirrep_, nmopi_));
-    epsilon_a_->copy(reference_wavefunction_->epsilon_a().get());
-    epsilon_b_= std::shared_ptr<Vector>(new Vector(nirrep_, nmopi_));
-    epsilon_b_->copy(reference_wavefunction_->epsilon_b().get());
+    epsilon_a_ = std::make_shared<Vector>(nmopi_);
+    epsilon_a_->copy(*reference_wavefunction_->epsilon_a());
+    epsilon_b_ = std::make_shared<Vector>(nmopi_);
+    epsilon_b_->copy(*reference_wavefunction_->epsilon_b());
 
     // orbital energies
-    occupation_a_= std::shared_ptr<Vector>(new Vector(nirrep_, nmopi_));
-    occupation_b_= std::shared_ptr<Vector>(new Vector(nirrep_, nmopi_));
+    occupation_a_= std::shared_ptr<Vector>(new Vector(nmopi_));
+    occupation_b_= std::shared_ptr<Vector>(new Vector(nmopi_));
 
     for (int h = 0; h < nirrep_; h++) {
             for (int i = 0; i < nalphapi_[h]; i++) {
@@ -2674,7 +2668,7 @@ std::vector< std::shared_ptr<Matrix> > MCPDFTSolver::BuildJK() {
         // outfile->Printf("    ==> The JK type for the MCPDFT calculation is: %s", options_.get_str("MCPDFT_TYPE"));
         // outfile->Printf(" <==\n");
 
-        std::shared_ptr<DiskDFJK> jk = (std::shared_ptr<DiskDFJK>)(new DiskDFJK(primary,auxiliary));
+        std::shared_ptr<DiskDFJK> jk = (std::shared_ptr<DiskDFJK>)(new DiskDFJK(primary,auxiliary,options_));
         
         // memory for jk (say, 85% of what is available)
         jk->set_memory(0.90 * Process::environment.get_memory());
